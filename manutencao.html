@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Manutenção — rotina semanal e mensal | Guia Ubuntu</title>
+<meta name="description" content="Rotina de manutenção do Ubuntu explicada: atualizar, saber se precisa reiniciar, limpar pacotes e logs, achar o que enche o disco, ver serviços com falha, testar backups e automatizar com um script.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Manutenção</span></h1>
+
+<p class="intro">Um Ubuntu bem cuidado pede poucos minutos por semana: atualizar, limpar o que sobrou, conferir o espaço em disco e ver se algum serviço falhou. Esta aula junta tudo numa rotina, explica o que cada comando realmente faz e termina com um script que gera o relatório de saúde da máquina.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que o Ubuntu já faz sozinho (e o que fica por sua conta).</li>
+  <li>A atualizar e a saber se a máquina precisa reiniciar.</li>
+  <li>A liberar espaço com segurança: pacotes órfãos, cache, logs e snaps antigos.</li>
+  <li>A achar serviços com falha e a testar backups.</li>
+  <li>A automatizar um relatório de manutenção.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes do comando: o que já é automático</h2>
+<p>O Ubuntu tem várias tarefas de manutenção agendadas por <em>timers</em> do systemd (veja <a href="cron.html">Agendar Tarefas</a>). Você pode vê-las:</p>
+
+<pre class="term">$ systemctl list-timers --no-pager | grep -E "apt|logrotate|fstrim|e2scrub"
+Thu 2026-10-15 21:06:42 -03  1h 44min Tue 2026-10-13 11:17:01 -03  - apt-daily.timer          apt-daily.service          « baixa a lista de pacotes
+Fri 2026-10-16 00:41:11 -03  5h 19min Thu 2026-10-15 13:20:04 -03  - logrotate.timer          logrotate.service          « gira os logs
+Fri 2026-10-16 06:37:29 -03       11h Thu 2026-10-15 13:14:16 -03  - apt-daily-upgrade.timer  apt-daily-upgrade.service  « instala correções de segurança
+Sun 2026-10-18 03:10:50 -03    2 days Sun 2026-10-11 11:39:25 -03  - e2scrub_all.timer        e2scrub_all.service        « verifica sistemas de arquivos
+Mon 2026-10-19 00:26:10 -03    3 days Tue 2026-10-13 11:29:52 -03  - fstrim.timer             fstrim.service             « otimiza SSDs</pre>
+
+<p>A primeira coluna é a próxima execução; a terceira, a última. Ou seja: as <strong>correções de segurança</strong> já são instaladas sozinhas pelo <code>unattended-upgrades</code>, e os snaps se atualizam sozinhos. O que fica com você é o resto das atualizações, a limpeza, o espaço em disco, os serviços com falha e os backups.</p>
+
+<pre class="term">$ cat /etc/apt/apt.conf.d/20auto-upgrades
+APT::Periodic::Update-Package-Lists "1";             « atualiza a lista todo dia
+APT::Periodic::Download-Upgradeable-Packages "0";
+APT::Periodic::AutocleanInterval "0";
+APT::Periodic::Unattended-Upgrade "1";               « instala as correções de segurança</pre>
+
+<hr>
+
+<h2>A rotina em uma tabela</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Frequência</th><th>Tarefa</th><th>Comando</th></tr>
+<tr><td>Semanal</td><td>Atualizar pacotes</td><td><code>sudo apt update &amp;&amp; sudo apt upgrade</code></td></tr>
+<tr><td>Semanal</td><td>Atualizar flatpaks</td><td><code>flatpak update</code></td></tr>
+<tr><td>Semanal</td><td>Ver se precisa reiniciar</td><td><code>cat /var/run/reboot-required</code></td></tr>
+<tr><td>Semanal</td><td>Espaço em disco</td><td><code>df -h</code></td></tr>
+<tr><td>Semanal</td><td>Serviços com falha</td><td><code>systemctl --failed</code></td></tr>
+<tr><td>Mensal</td><td>Remover pacotes e kernels sem uso</td><td><code>sudo apt autoremove</code></td></tr>
+<tr><td>Mensal</td><td>Limpar o cache do apt</td><td><code>sudo apt clean</code></td></tr>
+<tr><td>Mensal</td><td>Limitar o tamanho dos logs</td><td><code>sudo journalctl --vacuum-time=4weeks</code></td></tr>
+<tr><td>Mensal</td><td>Erros no log</td><td><code>journalctl -p err -b</code></td></tr>
+<tr><td>Mensal</td><td>Testar a restauração do backup</td><td>Restaurar um arquivo e abri-lo</td></tr>
+<tr><td>A cada 2 anos</td><td>Nova versão LTS</td><td><code>sudo do-release-upgrade</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>1. Atualizar o sistema</h2>
+<p>São dois passos, e eles fazem coisas diferentes:</p>
+
+<dl class="anatomy">
+  <dt>sudo apt update</dt><dd>Baixa a <strong>lista</strong> de versões novas. Não instala nada.</dd>
+  <dt>&amp;&amp;</dt><dd>Só roda o próximo comando se o anterior deu certo (código 0).</dd>
+  <dt>sudo apt upgrade</dt><dd>Instala as versões novas dos pacotes que você já tem.</dd>
+</dl>
+
+<pre class="term">$ sudo apt update
+[sudo: authenticate] Senha:
+Atingido:1 http://br.archive.ubuntu.com/ubuntu resolute InRelease
+Obter:2 http://security.ubuntu.com/ubuntu resolute-security InRelease [126 kB]
+…
+12 pacotes podem ser atualizados. Execute 'apt list --upgradable' para vê-los.
+$ apt list --upgradable
+Listando...
+mesa-opencl-icd/resolute-updates 26.0.8-1ubuntu0.3 amd64 [atualizável de: 26.0.7-1ubuntu0.2]
+…
+$ sudo apt upgrade</pre>
+
+<p>O <code>apt list --upgradable</code> mostra o pacote, o repositório de onde vem (<code>resolute-updates</code>), a versão nova e, entre colchetes, a atual. Detalhes em <a href="apt.html">apt</a> e <a href="atualizacoes.html">Atualizações</a>. Programas em snap e flatpak não passam pelo apt:</p>
+
+<pre class="term">$ sudo snap refresh                                   « opcional: o snap já se atualiza sozinho
+$ flatpak update</pre>
+
+<hr>
+
+<h2>2. Precisa reiniciar?</h2>
+<p>Algumas atualizações, como as do kernel, só valem depois de reiniciar. Quando isso acontece, o Ubuntu cria o arquivo <code>/var/run/reboot-required</code>. Ver se o arquivo existe responde a pergunta:</p>
+
+<pre class="term">$ cat /var/run/reboot-required
+*** System restart required ***                      « sim, precisa
+$ cat /var/run/reboot-required.pkgs
+linux-image-7.0.0-39-generic                         « por causa do kernel novo
+linux-base</pre>
+
+<p>E quando <strong>não</strong> precisa:</p>
+<pre class="term">$ cat /var/run/reboot-required
+cat: /var/run/reboot-required: No such file or directory
+$ echo $?
+1</pre>
+
+<p>Repare que "arquivo não existe" aqui é a <strong>boa notícia</strong>. Em scripts, teste com <code>[ -f /var/run/reboot-required ]</code> (veja <a href="script-condicionais.html">Condicionais</a>). No desktop, o Ubuntu avisa com uma notificação.</p>
+
+<hr>
+
+<h2>3. Limpar o que sobrou</h2>
+
+<h3>Pacotes órfãos e kernels antigos: <code>apt autoremove</code></h3>
+<p>Quando você instala um programa, o apt instala junto as dependências. Se você remove o programa, elas ficam para trás. O <code>autoremove</code> apaga essas sobras, inclusive kernels antigos (o Ubuntu mantém o atual e o anterior).</p>
+
+<pre class="term">$ sudo apt autoremove
+…
+REMOVENDO:
+  linux-headers-7.0.0-34  linux-headers-7.0.0-34-generic  linux-image-7.0.0-34-generic
+  linux-modules-7.0.0-34-generic
+
+Resumo:
+  Atualizando: 0, Instalando: 0, Removendo: 4, Não atualizando: 0
+…                                                     « o apt pergunta se deve continuar</pre>
+
+<div class="warning">
+<strong>Leia a lista antes de confirmar</strong>
+<p>Se aparecer um pacote que você usa, responda <kbd>n</kbd> e marque-o como instalado à mão: <code>sudo apt-mark manual nome-do-pacote</code>. Assim o <code>autoremove</code> passa a ignorá-lo.</p>
+</div>
+
+<h3>Cache de pacotes: <code>apt clean</code></h3>
+<p>Os <code>.deb</code> baixados ficam guardados em <code>/var/cache/apt/archives</code>. Depois de instalados, não servem mais para nada:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que remove</th></tr>
+<tr><td><code>sudo apt clean</code></td><td>Todo o cache de pacotes baixados</td></tr>
+<tr><td><code>sudo apt autoclean</code></td><td>Só os pacotes em cache que nem existem mais no repositório</td></tr>
+<tr><td><code>sudo apt autoremove --purge</code></td><td>Pacotes órfãos e também os arquivos de configuração deles</td></tr>
+<tr><td><code>flatpak uninstall --unused</code></td><td>Runtimes do flatpak que nenhum app usa</td></tr>
+</table>
+</div>
+
+<h3>Revisões antigas de snap</h3>
+<p>O snap guarda versões anteriores de cada programa para permitir voltar atrás (<code>snap revert</code>). Elas aparecem como <code>disabled</code>:</p>
+
+<pre class="term">$ snap list --all | grep disabled
+chromium   152.0.7977.64   3520   latest/stable   canonical**   disabled      « versão anterior
+core20     20260410        2866   latest/stable   canonical**   base,disabled
+$ sudo snap set system refresh.retain=2                « guardar só 2 versões de cada</pre>
+
+<h3>Logs: <code>journalctl --vacuum</code></h3>
+
+<dl class="anatomy">
+  <dt>sudo journalctl</dt><dd>A ferramenta de logs do systemd.</dd>
+  <dt>--vacuum-time=4weeks</dt><dd>"Aspira" (<em>vacuum</em>): apaga os logs arquivados com mais de 4 semanas.</dd>
+</dl>
+
+<pre class="term">$ journalctl --disk-usage
+Archived and active journals take up 535.8M in the file system.
+$ sudo journalctl --vacuum-time=4weeks
+Vacuuming done, freed 312.0M of archived journals from /var/log/journal/4b1f0c6e9a2d4c7f8e3a5b6c7d8e9f01.
+$ sudo journalctl --vacuum-size=200M                   « outra forma: limite por tamanho</pre>
+
+<p>Para um limite permanente, crie <code>/etc/systemd/journald.conf.d/tamanho.conf</code>:</p>
+<pre class="file" data-file="/etc/systemd/journald.conf.d/tamanho.conf">[Journal]
+SystemMaxUse=500M</pre>
+<p>E aplique com <code>sudo systemctl restart systemd-journald</code>. Mais em <a href="journalctl.html">Logs (journalctl)</a>.</p>
+
+<hr>
+
+<h2>4. O que está enchendo o disco?</h2>
+<p>Vá do geral para o específico: primeiro qual partição, depois qual pasta, depois qual arquivo.</p>
+
+<pre class="term">$ df -h /
+Sist. Arq.      Tam. Usado Disp. Uso% Montado em
+/dev/nvme0n1p2  468G  421G   23G  95% /                « 95%: hora de investigar
+$ sudo du -h -d 1 /var 2&gt;/dev/null | sort -h | tail -5
+212M	/var/cache
+538M	/var/log
+5,1G	/var/lib
+38G	/var/lib/docker                                  « o culpado
+45G	/var
+$ find ~ -type f -size +1G -exec ls -lh {} +
+-rw-rw-r-- 1 ana ana 5,9G Oct 10 21:14 /home/ana/Downloads/ubuntu-26.04-desktop-amd64.iso</pre>
+
+<p>O <code>2&gt;/dev/null</code> esconde avisos de pastas que o <code>du</code> não consegue ler. Lugares que costumam crescer:</p>
+<ul>
+  <li><code>/var/log</code> e o journal: limite como acima.</li>
+  <li><code>/var/cache/apt</code>: <code>sudo apt clean</code>.</li>
+  <li><code>/var/lib/snapd</code>: revisões antigas de snap.</li>
+  <li><code>/var/lib/docker</code>: <code>docker system prune</code> (veja <a href="docker.html">Docker</a>).</li>
+  <li><code>~/.cache</code> e a lixeira, <code>~/.local/share/Trash</code>.</li>
+</ul>
+
+<div class="tip">
+<strong>Visual é mais rápido</strong>
+<p>O <code>ncdu</code> (<code>sudo apt install ncdu</code>) mostra o uso de disco de forma interativa: navegue com as setas e apague com <kbd>d</kbd>. No desktop, o app <strong>Analisador de uso de disco</strong> faz o mesmo com gráficos.</p>
+</div>
+
+<hr>
+
+<h2>5. Serviços com falha e erros</h2>
+
+<pre class="term">$ systemctl --failed
+  UNIT          LOAD   ACTIVE SUB    DESCRIPTION
+● nginx.service loaded failed failed A high performance web server and a reverse proxy server
+
+Legend: LOAD   → Reflects whether the unit definition was properly loaded.
+        ACTIVE → The high-level unit activation state, i.e. generalization of SUB.
+        SUB    → The low-level unit activation state, values depend on unit type.
+
+1 loaded units listed.</pre>
+
+<p>Para investigar, veja o status e as últimas linhas de log do serviço:</p>
+<pre class="term">$ systemctl status nginx
+$ journalctl -u nginx -n 30 --no-pager</pre>
+
+<p>Para ver todos os erros desde o último boot, use <code>journalctl -p err -b</code>. Detalhes em <a href="systemctl.html">systemctl</a>.</p>
+
+<hr>
+
+<h2>6. Backups</h2>
+<p>Backup que nunca foi testado não é backup. Uma vez por mês:</p>
+<ol class="passo">
+  <li>Confira a data do último backup: <code>ls -lt /media/ana/HD/backup | head -3</code>.</li>
+  <li>Restaure um arquivo qualquer para uma pasta temporária e abra-o.</li>
+  <li>Confira o log da tarefa agendada (veja <a href="cron.html">cron</a>).</li>
+</ol>
+<p>Como montar a rotina de backup está em <a href="backup.html">Backup</a> e no projeto <a href="projeto-backup.html">Backup Automático</a>.</p>
+
+<hr>
+
+<h2>Automatizando: relatório de saúde</h2>
+<p>Este script junta as verificações num relatório. Ele <strong>não muda nada</strong> no sistema, só olha. Salve em <code>/usr/local/sbin/saude</code>:</p>
+
+<pre class="file" data-file="/usr/local/sbin/saude">#!/usr/bin/env bash
+# Relatório rápido de saúde da máquina (só leitura)
+
+echo "== $(hostname) — $(date '+%d/%m/%Y %H:%M') =="
+
+echo; echo "-- Disco"
+df -h / /home 2&gt;/dev/null
+
+echo; echo "-- Atualizações pendentes"
+apt list --upgradable 2&gt;/dev/null | tail -n +2 | wc -l
+
+echo; echo "-- Reinício pendente"
+if [ -f /var/run/reboot-required ]; then echo "SIM"; else echo "não"; fi
+
+echo; echo "-- Serviços com falha"
+systemctl --failed --no-legend
+
+echo; echo "-- Logs ocupam"
+journalctl --disk-usage</pre>
+
+<p>O <code>tail -n +2</code> pula a primeira linha ("Listando...") e o <code>wc -l</code> conta o resto. Torne executável e rode:</p>
+
+<pre class="term">$ sudo chmod +x /usr/local/sbin/saude
+$ sudo saude
+== notebook — 15/10/2026 10:30 ==
+
+-- Disco
+Sist. Arq.      Tam. Usado Disp. Uso% Montado em
+/dev/nvme0n1p2  468G  121G  324G  28% /
+
+-- Atualizações pendentes
+12
+
+-- Reinício pendente
+não
+
+-- Serviços com falha
+
+-- Logs ocupam
+Archived and active journals take up 223.4M in the file system.</pre>
+
+<p>Para receber esse relatório toda segunda-feira, agende-o com cron ou um timer (veja <a href="cron.html">Agendar Tarefas</a>).</p>
+
+<div class="warning">
+<strong>Não automatize o <code>apt upgrade</code> em servidores críticos</strong>
+<p>Deixe o <code>unattended-upgrades</code> cuidar das correções de segurança e faça as demais atualizações à mão, quando puder acompanhar. Uma atualização que muda a configuração de um serviço pode derrubá-lo de madrugada.</p>
+</div>
+
+<hr>
+
+<h2>Formas diferentes de fazer</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td>Atualizador de Programas (desktop)</td><td>Abre sozinho quando há atualizações</td><td>Computador pessoal, uso diário.</td></tr>
+<tr><td>Comandos à mão</td><td><code>sudo apt update &amp;&amp; sudo apt upgrade</code></td><td>Acompanhar o que muda.</td></tr>
+<tr><td>Correções automáticas</td><td><code>unattended-upgrades</code> (já ativo)</td><td>Sempre: segurança não pode esperar.</td></tr>
+<tr><td>Script de relatório + timer</td><td><code>/usr/local/sbin/saude</code></td><td>Vários servidores; você quer só ser avisado.</td></tr>
+<tr><td>Ansible</td><td>Um playbook para todas as máquinas</td><td>Muitas máquinas (veja <a href="ansible.html">Ansible</a>).</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Não foi possível obter a trava"</strong>
+<pre class="term">$ sudo apt upgrade
+Erro: Não foi possível obter a trava /var/lib/dpkg/lock-frontend. Ela está sendo mantida pelo processo 2214 (unattended-upgr)
+…</pre>
+<p><strong>O que aconteceu:</strong> outra instalação está em andamento, quase sempre a atualização automática de segurança.</p>
+<p><strong>Como resolver:</strong> espere alguns minutos e tente de novo. Acompanhe com <code>ps -p 2214</code>. <strong>Nunca</strong> apague o arquivo de trava à mão. Veja <a href="problemas.html">Solução de Problemas</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>Disco 100% cheio e o apt não roda</strong>
+<p><strong>O que aconteceu:</strong> sem espaço, o apt não consegue nem baixar a lista.</p>
+<p><strong>Como resolver:</strong> libere espaço primeiro sem o apt: <code>sudo journalctl --vacuum-size=100M</code>, esvazie a lixeira e apague downloads grandes. Depois rode <code>sudo apt clean</code> e <code>sudo apt autoremove</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>A partição /boot ficou cheia</strong>
+<p><strong>O que aconteceu:</strong> em instalações com <code>/boot</code> separado e pequeno, kernels antigos acumulados enchem a partição, e a atualização de kernel falha.</p>
+<p><strong>Como resolver:</strong> <code>sudo apt autoremove</code> remove os kernels sobrando. Confira com <code>df -h /boot</code>. Veja também <a href="boot-grub.html">Boot, GRUB e Kernel</a>.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Logs antigos</h3>
+<p>Complete para apagar logs com mais de 2 semanas:</p>
+<div class="ex-code">sudo journalctl --vacuum-time=<input data-answer="2weeks|2w|14d|14days" aria-label="tempo"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Serviços com falha</h3>
+<p>Complete para listar os serviços que falharam:</p>
+<div class="ex-code">systemctl <input data-answer="--failed|list-units --failed|list-units --state=failed" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Sobras do apt</h3>
+<p>Complete para remover pacotes que não são mais necessários:</p>
+<div class="ex-code">sudo apt <input data-answer="autoremove" aria-label="subcomando"></div>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">4. <code>cat /var/run/reboot-required</code> responde "No such file or directory". O que isso significa?</p>
+<label><input type="radio" name="q4"> Não é preciso reiniciar.</label>
+<label><input type="radio" name="q4"> O sistema está com defeito.</label>
+<label><input type="radio" name="q4"> É preciso reiniciar imediatamente.</label>
+<label><input type="radio" name="q4"> O apt não está instalado.</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Qual tarefa o Ubuntu já faz sozinho, sem você configurar nada?</p>
+<label><input type="radio" name="q5"> Testar a restauração dos backups.</label>
+<label><input type="radio" name="q5"> Remover kernels antigos.</label>
+<label><input type="radio" name="q5"> Instalar correções de segurança.</label>
+<label><input type="radio" name="q5"> Avisar quando o disco passa de 90%.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Correções de segurança, rotação de logs e TRIM de SSD já são automáticos (<code>systemctl list-timers</code>).</li>
+  <li>Semanal: <code>apt update &amp;&amp; apt upgrade</code>, reinício pendente, <code>df -h</code>, <code>systemctl --failed</code>.</li>
+  <li>Mensal: <code>apt autoremove</code>, <code>apt clean</code>, <code>journalctl --vacuum-time</code>, teste de backup.</li>
+  <li>Disco cheio: <code>df</code> → <code>du -d 1 | sort -h</code> → <code>find -size</code>.</li>
+  <li>Um script só de leitura + um timer = relatório de saúde sem esforço.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu particionar e formatar — fdisk, parted, mkfs | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a particionar e formatar discos no Ubuntu com fdisk, parted e mkfs, num laboratório seguro com arquivos-imagem, com cada parte do comando explicada e erros reais.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Particionar e Formatar</span></h1>
+
+<p class="intro">Um disco novo chega "cru": o Ubuntu enxerga o aparelho, mas não consegue guardar arquivos nele. Para usar, você faz três coisas: cria uma <strong>tabela de partições</strong>, cria uma ou mais <strong>partições</strong> e <strong>formata</strong> cada partição com um sistema de arquivos. Nesta aula você faz tudo isso com <code>fdisk</code>, <code>parted</code> e <code>mkfs</code>.</p>
+
+<div class="warning">
+<strong>Esta aula apaga dados</strong>
+<p>Particionar e formatar destroem o que estiver no disco, sem lixeira e sem "desfazer". Pratique primeiro no laboratório seguro mostrado abaixo. Num disco real, confira o nome do dispositivo duas vezes antes de apertar <kbd>Enter</kbd>.</p>
+</div>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A diferença entre disco, tabela de partições, partição e sistema de arquivos.</li>
+  <li>Como montar um laboratório sem risco com arquivos-imagem.</li>
+  <li>Como identificar o disco certo com <code>lsblk</code>.</li>
+  <li>Particionar com <code>fdisk</code> (interativo) e com <code>parted</code> (numa linha só).</li>
+  <li>Formatar com <code>mkfs.ext4</code> e outros formatos, e criar swap.</li>
+</ul>
+</div>
+
+<p>Os exemplos acontecem na máquina fictícia <strong>servidor</strong>, com a usuária <strong>ana</strong>. O disco do sistema é o <code>/dev/sda</code> e o disco novo é o <code>/dev/sdb</code>.</p>
+
+<hr>
+
+<h2>Conceito: o terreno, os lotes e a casa</h2>
+<p>Pense num disco como um <strong>terreno</strong>. Antes de construir, é preciso registrar o mapa dos lotes, depois dividir o terreno em lotes e, por fim, construir em cada lote.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Peça</th><th>Analogia</th><th>No Linux</th></tr>
+<tr><td>Disco</td><td>O terreno inteiro</td><td><code>/dev/sdb</code>, <code>/dev/nvme1n1</code></td></tr>
+<tr><td>Tabela de partições</td><td>O mapa que diz onde começa e termina cada lote</td><td><strong>GPT</strong> (moderna) ou <strong>MBR</strong>/DOS (antiga)</td></tr>
+<tr><td>Partição</td><td>Um lote</td><td><code>/dev/sdb1</code>, <code>/dev/nvme1n1p1</code></td></tr>
+<tr><td>Sistema de arquivos</td><td>A casa construída no lote, com cômodos e portas</td><td><code>ext4</code>, <code>xfs</code>, <code>vfat</code>, <code>exfat</code></td></tr>
+<tr><td>Ponto de montagem</td><td>O endereço da casa</td><td><code>/mnt/dados</code>, <code>/srv</code></td></tr>
+</table>
+</div>
+
+<h3>GPT ou MBR?</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>GPT</th><th>MBR (DOS)</th></tr>
+<tr><td>Tamanho máximo do disco</td><td>Praticamente ilimitado</td><td>2 TiB</td></tr>
+<tr><td>Quantidade de partições</td><td>128 por padrão</td><td>4 primárias (ou 3 + estendida)</td></tr>
+<tr><td>Quando usar</td><td>Sempre, em disco novo</td><td>Pendrive para aparelhos muito antigos</td></tr>
+</table>
+</div>
+
+<h3>Nomes dos dispositivos</h3>
+<ul>
+  <li><code>/dev/sda</code>, <code>/dev/sdb</code>…: discos SATA, USB e discos de VM. As partições ganham um número: <code>/dev/sdb1</code>, <code>/dev/sdb2</code>.</li>
+  <li><code>/dev/nvme0n1</code>, <code>/dev/nvme1n1</code>…: SSDs NVMe. As partições ganham <code>p</code> + número: <code>/dev/nvme1n1p1</code>.</li>
+  <li><code>/dev/vda</code>: disco virtual em algumas VMs (KVM).</li>
+  <li><code>/dev/loop0</code>…: "discos" que são arquivos. Os snaps usam vários; ignore-os.</li>
+</ul>
+
+<hr>
+
+<h2>Laboratório seguro: um disco que é só um arquivo</h2>
+<p>O <code>fdisk</code>, o <code>parted</code> e o <code>mkfs</code> aceitam um <strong>arquivo comum</strong> no lugar de um disco. Assim você treina tudo sem <code>sudo</code> e sem chance de estragar nada. Comece criando um "disco" de 10 GB:</p>
+
+<dl class="anatomy">
+  <dt>truncate</dt><dd>Programa que muda o tamanho de um arquivo.</dd>
+  <dt>-s 10G</dt><dd><code>-s</code> (<em>size</em>) define o tamanho: 10 GB.</dd>
+  <dt>disco.img</dt><dd>O arquivo que vai fazer o papel de disco.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/lab">$ truncate -s 10G disco.img
+$ ls -lh disco.img
+-rw-rw-r-- 1 ana ana 10G Oct 15 10:30 disco.img       « parece ter 10 GB…
+$ du -h disco.img
+0       disco.img                                     « …mas não ocupa nada ainda</pre>
+
+<p>O arquivo é "esparso": o espaço só é gasto quando algo é gravado. Tudo o que você fizer a seguir com <code>/dev/sdb</code> pode ser feito trocando <code>/dev/sdb</code> por <code>disco.img</code> e tirando o <code>sudo</code>.</p>
+
+<div class="tip">
+<strong>Outra opção: uma VM com disco extra</strong>
+<p>No VirtualBox, em <em>Configurações → Armazenamento</em>, adicione um segundo disco virtual. Dentro da VM ele aparece como <code>/dev/sdb</code>, igual a um disco de verdade. Se algo der errado, só a VM sofre.</p>
+</div>
+
+<hr>
+
+<h2>Passo 1: identificar o disco certo</h2>
+<p>Antes de qualquer coisa, descubra o nome do disco novo. O erro mais grave desta aula é formatar o disco do sistema por engano.</p>
+
+<dl class="anatomy">
+  <dt>lsblk</dt><dd>"<em>list block devices</em>": lista discos e partições.</dd>
+  <dt>-o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS,MODEL</dt><dd>Escolhe as colunas: nome, tamanho, tipo, formato, onde está montado e modelo.</dd>
+  <dt>-e 7</dt><dd>Esconde os dispositivos do tipo 7 (os <code>loop</code> dos snaps).</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ lsblk -e 7 -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS,MODEL
+NAME     SIZE TYPE FSTYPE MOUNTPOINTS MODEL
+sda       64G disk                    QEMU HARDDISK
+├─sda1     1G part vfat   /boot/efi                    « disco do sistema: NÃO mexa
+└─sda2    63G part ext4   /
+sdb      100G disk                    QEMU HARDDISK    « o novo: sem partições, sem montagem</pre>
+
+<p>Como reconhecer o disco novo:</p>
+<ul>
+  <li>Tem o tamanho que você comprou ou criou.</li>
+  <li>Não tem linhas de partição (<code>├─</code>) embaixo dele.</li>
+  <li>A coluna <code>MOUNTPOINTS</code> está vazia.</li>
+</ul>
+
+<div class="tip">
+<strong>Confirme pelo antes e depois</strong>
+<p>Rode <code>lsblk</code> antes de ligar o disco (ou o pendrive) e de novo depois. O nome que apareceu é o novo.</p>
+</div>
+
+<hr>
+
+<h2>Passo 2: particionar com <code>fdisk</code></h2>
+<p><code>fdisk</code> (de <em>fixed disk</em>) é interativo: você digita uma letra por vez, e ele pergunta o resto. Nada é gravado até você digitar <code>w</code>. Se errar, digite <code>q</code> para sair sem salvar.</p>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Mexer em discos exige administrador. No laboratório com arquivo, não precisa.</dd>
+  <dt>fdisk</dt><dd>O programa de particionamento.</dd>
+  <dt>/dev/sdb</dt><dd>O <strong>disco inteiro</strong> (sem número no fim). No laboratório: <code>disco.img</code>.</dd>
+</dl>
+
+<h3>Os comandos do fdisk</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tecla</th><th>O que faz</th></tr>
+<tr><td><code>m</code></td><td>Mostra o menu de ajuda</td></tr>
+<tr><td><code>p</code></td><td>Mostra (<em>print</em>) a tabela atual</td></tr>
+<tr><td><code>g</code></td><td>Cria uma tabela <strong>GPT</strong> nova e vazia</td></tr>
+<tr><td><code>o</code></td><td>Cria uma tabela MBR/DOS nova e vazia</td></tr>
+<tr><td><code>n</code></td><td>Cria uma partição nova (<em>new</em>)</td></tr>
+<tr><td><code>d</code></td><td>Apaga (<em>delete</em>) uma partição</td></tr>
+<tr><td><code>t</code></td><td>Muda o tipo da partição (ex.: swap, EFI)</td></tr>
+<tr><td><code>w</code></td><td>Grava (<em>write</em>) e sai. A partir daqui, não tem volta</td></tr>
+<tr><td><code>q</code></td><td>Sai (<em>quit</em>) <strong>sem gravar</strong> nada</td></tr>
+</table>
+</div>
+
+<p>Vamos dividir o disco em duas partições: uma de 4 GB e outra com o resto. Em cada pergunta, <kbd>Enter</kbd> aceita o valor padrão, que aparece no fim da pergunta.</p>
+
+<pre class="term" data-host="servidor">$ sudo fdisk /dev/sdb
+Bem-vindo ao fdisk (util-linux 2.41.3).
+As alterações permanecerão apenas na memória, até que você decida gravá-las.
+Tenha cuidado antes de usar o comando de gravação.
+
+A unidade não contém uma tabela de partição conhecida.                   « disco virgem
+Criado um novo rótulo de disco DOS (MBR) com o identificador de disco 0xf56cdee0.
+
+Comando (m para ajuda): g                                               « tabela GPT nova
+Criado um novo rótulo de disco GPT (GUID: AFD81F06-B177-49A7-B294-5629214B70D0).
+
+Comando (m para ajuda): n                                               « partição nova
+Número da partição (1-128, padrão 1):                                   « Enter
+Primeiro setor (2048-209715166, padrão 2048):                           « Enter
+Último setor, +/-setores ou +/-tamanho{K,M,G,T,P} (2048-209715166, padrão 209713151): +4G
+
+Criada uma nova partição 1 do tipo "Linux filesystem" e de tamanho 4 GiB.
+
+Comando (m para ajuda): n
+Número da partição (2-128, padrão 2):                                   « Enter
+Primeiro setor (8390656-209715166, padrão 8390656):                     « Enter
+Último setor, +/-setores ou +/-tamanho{K,M,G,T,P} (8390656-209715166, padrão 209713151):   « Enter = o resto
+
+Criada uma nova partição 2 do tipo "Linux filesystem" e de tamanho 96 GiB.
+
+Comando (m para ajuda): p
+Disco /dev/sdb: 100 GiB, 107374182400 bytes, 209715200 setores
+Tipo de rótulo do disco: gpt
+
+Dispositivo   Início       Fim   Setores Tamanho Tipo
+/dev/sdb1       2048   8390655   8388608      4G Linux sistema de arquivos
+/dev/sdb2    8390656 209713151 201322496     96G Linux sistema de arquivos
+
+Comando (m para ajuda): w                                               « grava de verdade
+A tabela de partição foi alterada.
+Chamando ioctl() para reler tabela de partição.
+Sincronizando discos.</pre>
+
+<p>Entendendo a pergunta do "último setor": o disco é dividido em setores de 512 bytes. Em vez de calcular setores, você escreve o tamanho com <code>+</code>: <code>+4G</code> significa "4 GB a partir do início". Deixar em branco usa todo o espaço livre.</p>
+
+<p>Confira o resultado:</p>
+<pre class="term" data-host="servidor">$ lsblk /dev/sdb
+NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+sdb      8:16   0  100G  0 disk
+├─sdb1   8:17   0    4G  0 part                         « partições novas, ainda sem formato
+└─sdb2   8:18   0   96G  0 part</pre>
+
+<h3>O que o comando devolve</h3>
+<p>O <code>fdisk</code> não altera o disco até o <code>w</code>. Se você sair com <code>q</code>, o código de saída é <code>0</code> e nada mudou. Se ele não conseguir reler a tabela (o disco está em uso), mostra <code>Releitura da tabela de partição falhou.</code>; nesse caso, rode <code>sudo partprobe /dev/sdb</code> ou reinicie.</p>
+
+<hr>
+
+<h2>Forma alternativa: <code>parted</code> numa linha só</h2>
+<p>O <code>parted</code> faz o mesmo trabalho, mas aceita tudo como argumentos. É a forma preferida em scripts, porque não exige ninguém digitando.</p>
+
+<dl class="anatomy">
+  <dt>sudo parted</dt><dd>O programa, como administrador.</dd>
+  <dt>-s</dt><dd><em>script</em>: não faz perguntas.</dd>
+  <dt>/dev/sdb</dt><dd>O disco inteiro.</dd>
+  <dt>mklabel gpt</dt><dd>Cria uma tabela GPT nova (apaga a anterior).</dd>
+  <dt>mkpart dados ext4 0% 100%</dt><dd>Cria uma partição chamada "dados", marcada como ext4, do início (0%) ao fim (100%).</dd>
+  <dt>print</dt><dd>Mostra o resultado.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo parted -s /dev/sdb mklabel gpt mkpart dados ext4 0% 100% print
+Modelo: QEMU QEMU HARDDISK (scsi)
+Disco /dev/sdb: 107GB
+Tamanho do setor (lógico/físico): 512B/512B
+Tabela de Partição: gpt
+Opções de disco:
+
+Número  Início  Fim    Tamanho  Sistema de arquivos  Nome   Opções
+ 1      1049kB  107GB  107GB                         dados          « ainda sem formato</pre>
+
+<div class="note">
+<strong>O "ext4" do mkpart não formata</strong>
+<p>No <code>mkpart</code>, o tipo é só uma etiqueta na tabela. A partição continua vazia até você rodar o <code>mkfs</code>. Usar <code>0%</code> e <code>100%</code> faz o <code>parted</code> alinhar a partição corretamente, sem você calcular setores.</p>
+</div>
+
+<h3>Qual ferramenta usar?</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Ferramenta</th><th>Como é</th><th>Melhor quando…</th></tr>
+<tr><td><code>fdisk</code></td><td>Interativa, menu de letras</td><td>Você está aprendendo ou quer ver cada passo.</td></tr>
+<tr><td><code>parted -s</code></td><td>Uma linha, sem perguntas</td><td>Scripts, automação, discos grandes.</td></tr>
+<tr><td><code>gdisk</code></td><td>Interativa, só GPT</td><td>Consertar tabelas GPT danificadas.</td></tr>
+<tr><td>Discos (GNOME) / GParted</td><td>Gráfica</td><td>Você está no desktop e prefere clicar.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Passo 3: formatar com <code>mkfs</code></h2>
+<p><code>mkfs</code> vem de <em>make filesystem</em>, "criar sistema de arquivos". Existe uma versão para cada formato: <code>mkfs.ext4</code>, <code>mkfs.xfs</code>, <code>mkfs.vfat</code>…</p>
+
+<dl class="anatomy">
+  <dt>sudo mkfs.ext4</dt><dd>Cria um sistema de arquivos ext4 (o padrão do Ubuntu).</dd>
+  <dt>-L dados</dt><dd><code>-L</code> (<em>label</em>) dá um nome à partição. Aparece no <code>lsblk -f</code> e no gerenciador de arquivos.</dd>
+  <dt>/dev/sdb2</dt><dd>A <strong>partição</strong> (com número no fim), não o disco.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo mkfs.ext4 -L dados /dev/sdb2
+mke2fs 1.47.2 (1-Jan-2025)
+A descartar blocos de dispositivo: pronto
+A criar sistema de ficheiros com 25165312 4k blocos e 6291456 inodes
+UUID do sistema de ficheiros: 3597462d-758a-453e-a4ea-2e8efd6c6cbf   « identificador único
+Cópias de segurança de superblocos gravadas em blocos:
+	32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632, 2654208,
+	4096000, 7962624, 11239424, 20480000, 23887872
+
+A alocar tabelas de grupo: pronto
+Gravando tabelas inode: pronto
+A criar diário (131072 blocos): concluído
+Escrevendo superblocos e informações de contabilidade de sistema de arquivos: concluído</pre>
+
+<p>A tradução mistura português de Portugal ("ficheiros", "A criar") e do Brasil: é assim que o <code>mke2fs</code> aparece no Ubuntu 26.04. O que importa:</p>
+<ul>
+  <li><strong>UUID</strong>: o "RG" da partição. É ele que você usa no <code>/etc/fstab</code> (veja <a href="montar.html">mount e fstab</a>).</li>
+  <li><strong>Cópias de superblocos</strong>: backups da estrutura do disco, usados pelo <code>fsck</code> para consertar danos.</li>
+  <li><strong>Diário</strong> (<em>journal</em>): registro que protege contra corrupção em quedas de energia.</li>
+</ul>
+
+<p>Confira o formato e o UUID:</p>
+<pre class="term" data-host="servidor">$ lsblk -f /dev/sdb
+NAME   FSTYPE FSVER LABEL UUID                                 FSAVAIL FSUSE% MOUNTPOINTS
+sdb
+├─sdb1
+└─sdb2 ext4   1.0   dados 3597462d-758a-453e-a4ea-2e8efd6c6cbf</pre>
+
+<h3>Outros formatos</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Formato</th><th>Comando</th><th>Use para</th></tr>
+<tr><td>ext4</td><td><code>sudo mkfs.ext4 -L dados /dev/sdb1</code></td><td>Discos Linux em geral (padrão)</td></tr>
+<tr><td>xfs</td><td><code>sudo mkfs.xfs -L dados /dev/sdb1</code></td><td>Servidores com arquivos muito grandes; não pode ser encolhido</td></tr>
+<tr><td>btrfs</td><td><code>sudo mkfs.btrfs -L dados /dev/sdb1</code></td><td>Snapshots e compressão embutidos</td></tr>
+<tr><td>vfat (FAT32)</td><td><code>sudo mkfs.vfat -n PENDRIVE /dev/sdc1</code></td><td>Pendrives para qualquer aparelho; arquivo máximo de 4 GB</td></tr>
+<tr><td>exfat</td><td><code>sudo mkfs.exfat -L PENDRIVE /dev/sdc1</code></td><td>Pendrives e HDs externos compartilhados com Windows e Mac</td></tr>
+<tr><td>ntfs</td><td><code>sudo mkfs.ntfs -f -L Dados /dev/sdc1</code></td><td>Disco usado principalmente no Windows (pacote <code>ntfs-3g</code>)</td></tr>
+</table>
+</div>
+
+<h3>No laboratório</h3>
+<p>Com o arquivo-imagem, o <code>mkfs.ext4</code> roda sem <code>sudo</code>:</p>
+<pre class="term" data-cwd="~/lab">$ mkfs.ext4 -L teste disco.img
+mke2fs 1.47.2 (1-Jan-2025)
+A criar sistema de ficheiros com 2621440 4k blocos e 655360 inodes
+…
+$ file disco.img
+disco.img: Linux rev 1.0 ext4 filesystem data, UUID=9c1e…, volume name "teste" (extents) (64bit) (large files) (huge files)</pre>
+
+<hr>
+
+<h2>Apagar assinaturas antigas: <code>wipefs</code></h2>
+<p>Um disco reaproveitado pode ter restos de formatos antigos (RAID, LVM, ZFS) que confundem o sistema. <code>wipefs</code> (de <em>wipe filesystem signatures</em>) lista e apaga essas "assinaturas".</p>
+
+<pre class="term" data-host="servidor">$ sudo wipefs /dev/sdb                    « só lista, não apaga
+DEVICE OFFSET       TYPE UUID LABEL
+sdb    0x200        gpt
+sdb    0x18fffffe00 gpt
+sdb    0x1fe        PMBR
+$ sudo wipefs -a /dev/sdb                 « -a (all) apaga todas
+/dev/sdb: 8 bytes foram apagados na posição 0x00000200 (gpt): 45 46 49 20 50 41 52 54
+/dev/sdb: 8 bytes foram apagados na posição 0x18fffffe00 (gpt): 45 46 49 20 50 41 52 54
+/dev/sdb: 2 bytes foram apagados na posição 0x000001fe (PMBR): 55 aa</pre>
+
+<div class="warning">
+<strong>Atenção</strong>
+<p><code>wipefs -a</code> faz o disco "esquecer" todas as partições na hora. Os dados ainda estão lá fisicamente, mas o sistema deixa de enxergá-los.</p>
+</div>
+
+<hr>
+
+<h2>Swap: memória extra no disco</h2>
+<p><strong>Swap</strong> é um espaço no disco que o Linux usa quando a memória RAM enche. É bem mais lento que a RAM, mas evita que programas sejam encerrados à força. O Ubuntu cria um arquivo <code>/swap.img</code> na instalação. Veja como está:</p>
+
+<pre class="term" data-host="servidor">$ swapon --show
+NAME      TYPE SIZE USED PRIO
+/swap.img file   4G 512M   -2                « arquivo de 4 GB, 512 MB em uso</pre>
+
+<h3>Criar um arquivo de swap</h3>
+<ol class="passo">
+  <li><strong>Reserve o espaço.</strong> <code>fallocate -l 8G</code> cria um arquivo de 8 GB de uma vez.
+<pre class="term" data-host="servidor">$ sudo fallocate -l 8G /swapfile</pre></li>
+  <li><strong>Proteja o arquivo.</strong> Só o root pode ler: a swap pode conter senhas que estavam na memória.
+<pre class="term" data-host="servidor">$ sudo chmod 600 /swapfile</pre></li>
+  <li><strong>Formate como swap</strong> e <strong>ative</strong>.
+<pre class="term" data-host="servidor">$ sudo mkswap /swapfile
+Configurando espaço de swap versão 1, tamanho = 8 GiB (8589930496 bytes)
+nenhum rótulo, UUID=6b0f3c2e-1a7d-4f5b-9c8e-2d4a6f8b0c1e
+$ sudo swapon /swapfile
+$ swapon --show
+NAME      TYPE SIZE USED PRIO
+/swap.img file   4G 512M   -2
+/swapfile file   8G   0B   -3                « a nova swap</pre></li>
+  <li><strong>Torne permanente.</strong> Adicione a linha no <code>/etc/fstab</code> para ela voltar após reiniciar:
+<pre class="term" data-host="servidor">$ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+/swapfile none swap sw 0 0</pre></li>
+</ol>
+
+<h3>Quanto o sistema usa a swap: <code>vm.swappiness</code></h3>
+<p>Um número de 0 a 200. O padrão é 60. Valores menores fazem o Linux preferir a RAM e usar a swap só quando necessário.</p>
+<pre class="term" data-host="servidor">$ cat /proc/sys/vm/swappiness
+60
+$ echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf
+vm.swappiness=10
+$ sudo sysctl --system | tail -1
+vm.swappiness = 10</pre>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"is mounted; will not make a filesystem here!"</strong>
+<pre class="term" data-host="servidor">$ sudo mkfs.ext4 /dev/sdb2
+mke2fs 1.47.2 (1-Jan-2025)
+/dev/sdb2 is mounted; will not make a filesystem here!</pre>
+<p><strong>O que aconteceu:</strong> a partição está montada (em uso). O <code>mkfs</code> se recusa a formatar, para proteger seus dados.</p>
+<p><strong>Como confirmar:</strong> <code>findmnt /dev/sdb2</code> mostra onde ela está montada.</p>
+<p><strong>Como resolver:</strong> se for mesmo a partição certa, desmonte com <code>sudo umount /dev/sdb2</code> e rode de novo. Esse erro também é um bom momento para conferir se você não digitou o disco errado.</p>
+</div>
+
+<div class="cenario">
+<strong>"contains a ext4 file system … Proceder mesmo assim?"</strong>
+<pre class="term" data-host="servidor">$ sudo mkfs.ext4 /dev/sdb2
+mke2fs 1.47.2 (1-Jan-2025)
+/dev/sdb2 contains a ext4 file system labelled 'dados'
+	last mounted on /mnt/dados on Wed Oct 14 18:02:11 2026
+Proceder mesmo assim? (y,N)</pre>
+<p><strong>O que aconteceu:</strong> já existe um sistema de arquivos ali, possivelmente com dados. O padrão (<code>N</code>) cancela.</p>
+<p><strong>Como resolver:</strong> responda <code>y</code> só se tiver certeza de que pode apagar tudo. A data do "last mounted" ajuda a lembrar o que havia ali.</p>
+</div>
+
+<div class="cenario">
+<strong>"O ficheiro … não existe e não foi especificado um tamanho."</strong>
+<pre class="term" data-host="servidor">$ sudo mkfs.ext4 /dev/sdb3
+mke2fs 1.47.2 (1-Jan-2025)
+O ficheiro /dev/sdb3 não existe e não foi especificado um tamanho.</pre>
+<p><strong>O que aconteceu:</strong> a partição <code>sdb3</code> não existe. Ou você errou o número, ou ela ainda não foi criada.</p>
+<p><strong>Como resolver:</strong> confira com <code>lsblk /dev/sdb</code>. Se as partições acabaram de ser criadas e não aparecem, rode <code>sudo partprobe /dev/sdb</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Formatou o disco inteiro em vez da partição</strong>
+<p><strong>O que aconteceu:</strong> rodou <code>mkfs.ext4 /dev/sdb</code> (sem número). Funciona, mas apaga a tabela de partições: o disco vira um sistema de arquivos só, sem partições.</p>
+<p><strong>Como resolver:</strong> se não há dados ainda, recomece: <code>sudo wipefs -a /dev/sdb</code> e particione de novo. Regra prática: <strong>fdisk e parted recebem o disco</strong> (<code>/dev/sdb</code>); <strong>mkfs recebe a partição</strong> (<code>/dev/sdb1</code>).</p>
+</div>
+
+<hr>
+
+<h2>Referência rápida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>lsblk -f</code></td><td>Lista discos e partições com formato, rótulo e UUID</td></tr>
+<tr><td><code>sudo fdisk -l /dev/sdb</code></td><td>Mostra a tabela de partições sem entrar no modo interativo</td></tr>
+<tr><td><code>sudo fdisk /dev/sdb</code></td><td>Particiona de forma interativa</td></tr>
+<tr><td><code>sudo parted -s /dev/sdb mklabel gpt</code></td><td>Cria tabela GPT nova</td></tr>
+<tr><td><code>sudo parted -s /dev/sdb mkpart NOME ext4 0% 100%</code></td><td>Cria uma partição ocupando o disco todo</td></tr>
+<tr><td><code>sudo partprobe /dev/sdb</code></td><td>Pede ao kernel para reler a tabela de partições</td></tr>
+<tr><td><code>sudo mkfs.ext4 -L NOME /dev/sdb1</code></td><td>Formata em ext4 com rótulo</td></tr>
+<tr><td><code>sudo e2label /dev/sdb1 NOVO</code></td><td>Troca o rótulo de uma partição ext4</td></tr>
+<tr><td><code>sudo wipefs -a /dev/sdb</code></td><td>Apaga assinaturas de formatos antigos</td></tr>
+<tr><td><code>sudo resize2fs /dev/sdb1</code></td><td>Ajusta o ext4 ao tamanho da partição (após aumentá-la)</td></tr>
+<tr><td><code>sudo mkswap</code> / <code>swapon</code> / <code>swapoff</code></td><td>Prepara, liga e desliga swap</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Disco ou partição?</h3>
+<p>Complete para formatar a <strong>primeira partição</strong> do disco <code>/dev/sdb</code> em ext4:</p>
+<div class="ex-code">sudo mkfs.ext4 <input data-answer="/dev/sdb1" aria-label="dispositivo"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Tabela nova</h3>
+<p>Dentro do <code>fdisk</code>, qual letra cria uma tabela <strong>GPT</strong> nova?</p>
+<div class="ex-code">Comando (m para ajuda): <input data-answer="g" aria-label="letra"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Laboratório</h3>
+<p>Complete para criar um arquivo de 5 GB que servirá de disco de treino:</p>
+<div class="ex-code">truncate <input data-answer="-s 5G|-s5G|--size=5G" aria-label="opção"> treino.img</div>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">4. Você digitou várias coisas no <code>fdisk</code> e percebeu que estava no disco errado. O que fazer?</p>
+<label><input type="radio" name="q4"> Digitar <code>w</code> e depois desfazer.</label>
+<label><input type="radio" name="q4"> Fechar o terminal e torcer.</label>
+<label><input type="radio" name="q4"> Digitar <code>d</code> em todas as partições.</label>
+<label><input type="radio" name="q4"> Digitar <code>q</code>: sai sem gravar nada.</label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. Qual formato usar num pendrive que vai ser lido no Windows, no Mac e no Linux, com arquivos de 6 GB?</p>
+<label><input type="radio" name="q5"> vfat (FAT32)</label>
+<label><input type="radio" name="q5"> exfat</label>
+<label><input type="radio" name="q5"> ext4</label>
+<label><input type="radio" name="q5"> xfs</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Ordem: <strong>tabela</strong> (GPT) → <strong>partição</strong> → <strong>formato</strong> (mkfs) → <strong>montagem</strong>.</li>
+  <li>Identifique o disco com <code>lsblk</code> antes de tudo; o disco novo não tem partições nem montagem.</li>
+  <li><code>fdisk</code> é interativo e só grava no <code>w</code>; <code>q</code> sai sem mudar nada. <code>parted -s</code> faz tudo numa linha.</li>
+  <li><code>fdisk</code>/<code>parted</code> recebem o disco (<code>/dev/sdb</code>); <code>mkfs</code> recebe a partição (<code>/dev/sdb1</code>).</li>
+  <li>Treine com <code>truncate -s 10G disco.img</code>: as mesmas ferramentas funcionam num arquivo, sem risco.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

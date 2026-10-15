@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu cat, less, head, tail — ler arquivos no terminal | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a ler arquivos no terminal do Ubuntu: cat para arquivos curtos, less para os longos, head e tail para o começo e o fim, tail -f para acompanhar logs ao vivo, com terminal simulado.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">cat, less, head, tail</span></h1>
+
+<p class="intro">Configurações, logs e anotações no Linux são arquivos de texto. Para lê-los sem abrir um editor (e sem correr o risco de alterar algo), existem quatro comandos. Cada um serve para um tamanho de arquivo e uma situação diferente.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Qual comando usar para cada situação: arquivo curto, longo, começo, fim.</li>
+  <li>Navegar e buscar dentro de um arquivo com o <code>less</code>.</li>
+  <li>Ver as primeiras e as últimas linhas com <code>head</code> e <code>tail</code>.</li>
+  <li>Acompanhar um log ao vivo com <code>tail -f</code>.</li>
+  <li>Entender as mensagens de erro, algumas em inglês no Ubuntu 26.04.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>A ideia: escolha pelo tamanho</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Situação</th><th>Comando</th><th>Por quê</th></tr>
+<tr><td>Arquivo curto (cabe na tela)</td><td><code>cat</code></td><td>Mostra tudo de uma vez e volta ao prompt.</td></tr>
+<tr><td>Arquivo longo</td><td><code>less</code></td><td>Mostra uma tela por vez, com rolagem e busca.</td></tr>
+<tr><td>Só o começo</td><td><code>head</code></td><td>Primeiras linhas: cabeçalhos, primeiros registros.</td></tr>
+<tr><td>Só o fim</td><td><code>tail</code></td><td>Últimas linhas: o que acabou de acontecer num log.</td></tr>
+<tr><td>Acompanhar ao vivo</td><td><code>tail -f</code></td><td>Mostra as linhas novas assim que aparecem.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>cat: mostrar o arquivo inteiro</h2>
+<p><code>cat</code> vem de <em>concatenate</em>, "juntar em sequência". Ele foi feito para juntar vários arquivos, mas o uso mais comum é mostrar um só.</p>
+
+<dl class="anatomy">
+  <dt>cat</dt><dd>O programa.</dd>
+  <dt>notas.txt</dt><dd>O arquivo a mostrar.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/Documentos">$ cat notas.txt
+Comprar café
+Ligar para o João
+Estudar Ubuntu
+Fazer backup das fotos</pre>
+
+<h3>Numerar as linhas: <code>-n</code></h3>
+<p>Útil quando uma mensagem de erro diz "linha 3" e você quer achá-la:</p>
+
+<pre class="term" data-cwd="~/Documentos">$ cat -n notas.txt
+     1	Comprar café
+     2	Ligar para o João
+     3	Estudar Ubuntu
+     4	Fazer backup das fotos</pre>
+
+<h3>Juntar arquivos</h3>
+<p>Com vários arquivos, o <code>cat</code> mostra um depois do outro, sem separação. Com <code>&gt;</code>, o resultado vira um arquivo novo (veja <a href="redirecionamento.html">Redirecionamento</a>):</p>
+
+<pre class="term" data-cwd="~/Documentos">$ cat notas.txt ../frutas.txt &gt; tudo.txt
+$ wc -l tudo.txt
+11 tudo.txt                  « 4 linhas + 7 linhas</pre>
+
+<div class="warning">
+<strong>Atenção com arquivos grandes ou que não são texto</strong>
+<p><code>cat</code> num log de milhares de linhas inunda a tela. Num arquivo que não é texto (uma imagem, um programa), ele mostra símbolos estranhos e pode bagunçar o terminal. Se isso acontecer, digite <code>reset</code> e aperte <kbd>Enter</kbd>, mesmo sem ver o que digita.</p>
+</div>
+
+<hr>
+
+<h2>less: ler arquivos longos</h2>
+<p>O <code>less</code> mostra uma tela por vez. Você rola, busca e sai quando quiser. O nome é uma brincadeira com o programa antigo <code>more</code> ("mais"): <em>less is more</em>, "menos é mais".</p>
+
+<pre class="term">$ less /etc/passwd</pre>
+
+<p>A tela fica ocupada pelo arquivo. Na última linha aparece <code>:</code> esperando teclas, ou <code>(END)</code> quando você chega ao fim. Nada é alterado no arquivo: o <code>less</code> só lê.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tecla</th><th>O que faz</th></tr>
+<tr><td><kbd>Espaço</kbd> ou <kbd>PgDn</kbd></td><td>Desce uma tela</td></tr>
+<tr><td><kbd>b</kbd> ou <kbd>PgUp</kbd></td><td>Sobe uma tela</td></tr>
+<tr><td><kbd>↓</kbd> <kbd>↑</kbd> ou <kbd>j</kbd> <kbd>k</kbd></td><td>Desce / sobe uma linha</td></tr>
+<tr><td><kbd>g</kbd> / <kbd>G</kbd></td><td>Vai para o começo / para o fim</td></tr>
+<tr><td><kbd>/</kbd>palavra <kbd>Enter</kbd></td><td>Procura "palavra" para a frente</td></tr>
+<tr><td><kbd>n</kbd> / <kbd>N</kbd></td><td>Próxima / anterior ocorrência da busca</td></tr>
+<tr><td><kbd>F</kbd></td><td>Segue o arquivo ao vivo, como <code>tail -f</code> (<kbd>Ctrl</kbd>+<kbd>C</kbd> para parar)</td></tr>
+<tr><td><kbd>h</kbd></td><td>Ajuda</td></tr>
+<tr><td><kbd>q</kbd></td><td><strong>Sai</strong></td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Você já usou o less</strong>
+<p>O <code>man</code> mostra os manuais dentro do <code>less</code>. As mesmas teclas valem lá (veja <a href="ajuda.html">Obtendo Ajuda</a>).</p>
+</div>
+
+<p>Opções úteis: <code>less -N</code> numera as linhas, <code>less -S</code> não quebra linhas compridas (role para os lados com <kbd>→</kbd>) e <code>less +G</code> já abre no fim.</p>
+
+<p>O <code>less</code> é interativo e não funciona no terminal simulado. Experimente no seu Ubuntu: <code>less /etc/services</code>, procure <code>/ssh</code> e saia com <kbd>q</kbd>.</p>
+
+<hr>
+
+<h2>head: o começo</h2>
+<p><code>head</code> ("cabeça") mostra as primeiras linhas. Sem opções, mostra 10.</p>
+
+<dl class="anatomy">
+  <dt>head</dt><dd>O programa.</dd>
+  <dt>-n 3</dt><dd>Quantas linhas mostrar (<em>number</em>). <code>-n 3</code> e <code>-3</code> são equivalentes.</dd>
+  <dt>acesso.log</dt><dd>O arquivo.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/Documentos">$ head -n 3 acesso.log
+192.168.0.10 - - [15/Oct/2026:09:01:12] "GET / HTTP/1.1" 200
+192.168.0.23 - - [15/Oct/2026:09:01:40] "GET /contato HTTP/1.1" 200
+192.168.0.10 - - [15/Oct/2026:09:02:03] "GET /admin HTTP/1.1" 403</pre>
+
+<hr>
+
+<h2>tail: o fim</h2>
+<p><code>tail</code> ("cauda") mostra as últimas linhas. Em logs, as linhas mais novas ficam no fim. Por isso, <code>tail</code> é o jeito de ver "o que acabou de acontecer".</p>
+
+<pre class="term" data-cwd="~/Documentos">$ tail -n 2 acesso.log
+192.168.0.10 - - [15/Oct/2026:09:06:44] "POST /login HTTP/1.1" 200
+192.168.0.23 - - [15/Oct/2026:09:07:02] "GET / HTTP/1.1" 200      « o acesso mais recente</pre>
+
+<h3>A partir de uma linha: <code>-n +N</code></h3>
+<p>Com o sinal de mais, o <code>tail</code> mostra <strong>da linha N até o fim</strong>. É o jeito de pular um cabeçalho:</p>
+
+<pre class="term">$ cat frutas.txt
+banana
+maçã
+laranja
+banana
+uva
+maçã
+banana
+$ tail -n +5 frutas.txt
+uva                       « começa na linha 5
+maçã
+banana</pre>
+
+<div class="try" data-setup="cd Documentos" data-goal="ran:^head,ran:^tail">
+<p class="try-task"><strong>Missão:</strong> em <code>acesso.log</code>, mostre só o primeiro acesso do dia e depois só os dois últimos. Bônus: mostre o arquivo inteiro com as linhas numeradas.</p>
+</div>
+
+<hr>
+
+<h2>tail -f: acompanhar um log ao vivo</h2>
+<p><code>-f</code> (de <em>follow</em>, "seguir") mostra as últimas linhas e <strong>continua esperando</strong>. Cada linha nova que o programa escrever aparece na hora. É assim que se investiga um problema enquanto ele acontece.</p>
+
+<pre class="term">$ tail -f /var/log/syslog
+Oct 15 10:31:02 notebook systemd[1]: Started anacron.service - Run anacron jobs.
+Oct 15 10:31:05 notebook NetworkManager[812]: &lt;info&gt;  [1760535065.1] device (wlp2s0): state change: activated
+Oct 15 10:31:40 notebook kernel: usb 1-2: new high-speed USB device number 5 using xhci_hcd   « você plugou um pendrive</pre>
+
+<p>O terminal fica "preso" mostrando o log. Para sair, aperte <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
+
+<p>Use <code>tail -F</code> (maiúsculo) quando o log pode ser trocado durante a leitura, como acontece na rotação de logs: ele reabre o arquivo novo sozinho. As linhas do exemplo são ilustrativas; no seu sistema elas serão outras.</p>
+
+<div class="note">
+<strong>Logs do systemd</strong>
+<p>Muitos serviços escrevem no journal do systemd em vez de um arquivo. O equivalente do <code>tail -f</code> ali é <code>journalctl -f</code> (veja <a href="journalctl.html">Logs</a>).</p>
+</div>
+
+<hr>
+
+<h2>Formas diferentes de ler o mesmo arquivo</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Objetivo</th><th>Comando</th></tr>
+<tr><td>Ver tudo, arquivo curto</td><td><code>cat arquivo</code></td></tr>
+<tr><td>Ver tudo, arquivo longo</td><td><code>less arquivo</code></td></tr>
+<tr><td>Contar as linhas antes de decidir</td><td><code>wc -l arquivo</code> (veja <a href="texto.html">wc</a>)</td></tr>
+<tr><td>Só as linhas com uma palavra</td><td><code>grep erro arquivo</code> (veja <a href="grep.html">grep</a>)</td></tr>
+<tr><td>Linhas 20 a 30</td><td><code>head -n 30 arquivo | tail -n 11</code></td></tr>
+<tr><td>Log compactado (<code>.gz</code>)</td><td><code>zcat syslog.2.gz</code> ou <code>zless syslog.2.gz</code></td></tr>
+<tr><td>De trás para a frente</td><td><code>tac arquivo</code> (é "cat" ao contrário)</td></tr>
+<tr><td>Com interface gráfica</td><td><code>gnome-text-editor arquivo</code> ou duplo clique no app Arquivos</td></tr>
+</table>
+</div>
+
+<pre class="term" data-cwd="~/Documentos">$ wc -l acesso.log
+6 acesso.log
+$ head -n 4 acesso.log | tail -n 2
+192.168.0.10 - - [15/Oct/2026:09:02:03] "GET /admin HTTP/1.1" 403    « linha 3
+192.168.0.57 - - [15/Oct/2026:09:05:19] "GET /fotos HTTP/1.1" 404    « linha 4</pre>
+
+<p>O <code>|</code> (pipe) passa a saída de um comando para o próximo. Você vai aprender isso em <a href="pipes.html">Pipes e xargs</a>.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"No such file or directory" (em inglês)</strong>
+<pre class="term" data-cwd="~/Documentos">$ cat Notas.txt
+cat: Notas.txt: No such file or directory
+$ head relatorio
+head: cannot open 'relatorio' for reading: No such file or directory</pre>
+<p><strong>O que aconteceu:</strong> o arquivo não existe com esse nome exato (aqui, maiúscula errada e falta a extensão). No Ubuntu 26.04, <code>cat</code>, <code>head</code> e <code>tail</code> vêm do coreutils em Rust e mostram as mensagens em inglês.</p>
+<p><strong>Como resolver:</strong> <code>ls</code> e <kbd>Tab</kbd>.</p>
+</div>
+
+<div class="cenario">
+<strong>"É um diretório"</strong>
+<pre class="term" data-cwd="~/Documentos">$ cat projetos
+cat: projetos: É um diretório</pre>
+<p><strong>Como resolver:</strong> para ver o que tem numa pasta, use <code>ls projetos</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Permission denied"</strong>
+<pre class="term">$ tail /etc/shadow
+tail: cannot open '/etc/shadow' for reading: Permission denied</pre>
+<p><strong>O que aconteceu:</strong> o arquivo só pode ser lido pelo root (ou por um grupo do qual você não faz parte).</p>
+<p><strong>Como resolver:</strong> <code>sudo tail /etc/shadow</code>. Para logs, o usuário criado na instalação do Ubuntu já está no grupo <code>adm</code>, que pode ler a maioria dos arquivos de <code>/var/log</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Fiquei preso no less" ou "o terminal não volta"</strong>
+<p><strong>O que aconteceu:</strong> o <code>less</code> espera teclas; o <code>tail -f</code> espera linhas novas.</p>
+<p><strong>Como resolver:</strong> no <code>less</code>, aperte <kbd>q</kbd>. No <code>tail -f</code> (ou se o <code>cat</code> ficou esperando porque você esqueceu o nome do arquivo), aperte <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Descrição</th></tr>
+<tr><td><code>cat -n arq</code></td><td>Numera todas as linhas</td></tr>
+<tr><td><code>cat -A arq</code></td><td>Mostra caracteres invisíveis (fim de linha <code>$</code>, tabs <code>^I</code>)</td></tr>
+<tr><td><code>less -N arq</code></td><td>Numera as linhas</td></tr>
+<tr><td><code>less -S arq</code></td><td>Não quebra linhas longas</td></tr>
+<tr><td><code>less +G arq</code></td><td>Abre no fim</td></tr>
+<tr><td><code>head -n N arq</code></td><td>Primeiras N linhas (padrão 10)</td></tr>
+<tr><td><code>head -c N arq</code></td><td>Primeiros N bytes</td></tr>
+<tr><td><code>tail -n N arq</code></td><td>Últimas N linhas (padrão 10)</td></tr>
+<tr><td><code>tail -n +N arq</code></td><td>Da linha N até o fim</td></tr>
+<tr><td><code>tail -f arq</code></td><td>Segue o arquivo ao vivo</td></tr>
+<tr><td><code>tail -F arq</code></td><td>Segue mesmo se o arquivo for trocado (rotação)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. As 20 últimas</h3>
+<p>Complete para ver as 20 últimas linhas do syslog:</p>
+<div class="ex-code"><input data-answer="tail" aria-label="comando"> -n 20 /var/log/syslog</div>
+</div>
+
+<div class="exercise">
+<h3>2. Ao vivo</h3>
+<p>Complete para acompanhar o log enquanto ele cresce:</p>
+<div class="ex-code">tail <input data-answer="-f|-F" aria-label="opção"> /var/log/syslog</div>
+</div>
+
+<div class="exercise">
+<h3>3. Linhas numeradas</h3>
+<p>Complete para mostrar o arquivo com as linhas numeradas:</p>
+<div class="ex-code">cat <input data-answer="-n" aria-label="opção"> config.txt</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Qual tecla sai do <code>less</code>?</p>
+<label><input type="radio" name="q4"> <kbd>Esc</kbd></label>
+<label><input type="radio" name="q4"> <kbd>q</kbd></label>
+<label><input type="radio" name="q4"> <kbd>x</kbd></label>
+<label><input type="radio" name="q4"> <kbd>Ctrl</kbd>+<kbd>D</kbd></label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. Um log tem 50 mil linhas e você quer saber o que aconteceu agora há pouco. Qual a melhor escolha?</p>
+<label><input type="radio" name="q5"> <code>cat log</code></label>
+<label><input type="radio" name="q5"> <code>head log</code></label>
+<label><input type="radio" name="q5"> <code>less log</code> e rolar até o fim com a seta</label>
+<label><input type="radio" name="q5"> <code>tail log</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>cat</code> para arquivos curtos; <code>less</code> para longos (<kbd>/</kbd> busca, <kbd>q</kbd> sai).</li>
+  <li><code>head</code> mostra o começo e <code>tail</code> o fim; <code>-n</code> escolhe quantas linhas.</li>
+  <li><code>tail -n +N</code> começa na linha N; <code>tail -f</code> acompanha ao vivo (<kbd>Ctrl</kbd>+<kbd>C</kbd> para).</li>
+  <li>No Ubuntu 26.04, os erros de <code>cat</code>, <code>head</code> e <code>tail</code> aparecem em inglês.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

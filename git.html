@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Git — controle de versões do zero | Guia Ubuntu</title>
+<meta name="description" content="Git no Ubuntu: config, init, status explicado, add, commit, log, diff, branch, merge, conflito resolvido passo a passo, GitHub com chave SSH e .gitignore.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Git</span></h1>
+
+<p class="intro">O <strong>Git</strong> guarda o histórico de uma pasta: cada versão salva (um <em>commit</em>) fica registrada com data, autor e descrição, e você pode voltar a qualquer uma. É a ferramenta padrão para código, mas serve para qualquer texto: scripts, configurações do servidor, documentação e até este guia.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Os três "lugares" do Git: pasta de trabalho, área de preparação e histórico.</li>
+  <li>O ciclo <code>status</code> → <code>add</code> → <code>commit</code>, lendo cada saída.</li>
+  <li>Ver o histórico e as diferenças (<code>log</code>, <code>diff</code>).</li>
+  <li>Trabalhar em ramos (<code>branch</code>, <code>switch</code>, <code>merge</code>) e resolver um conflito.</li>
+  <li>Enviar para o GitHub com chave SSH (<code>push</code>, <code>pull</code>).</li>
+</ul>
+</div>
+
+<p>Os exemplos acontecem na máquina fictícia <strong>notebook</strong>, usuária <strong>ana</strong>. IDs de commit (como <code>3f2a1b9</code>) são diferentes em cada computador.</p>
+
+<hr>
+
+<h2>Conceito: os três lugares</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Lugar</th><th>O que é</th><th>Como algo chega lá</th></tr>
+<tr><td><strong>Pasta de trabalho</strong></td><td>Os arquivos como você os vê e edita</td><td>Você edita</td></tr>
+<tr><td><strong>Área de preparação</strong> (<em>staging</em>)</td><td>O que vai entrar no próximo commit</td><td><code>git add</code></td></tr>
+<tr><td><strong>Histórico</strong> (repositório)</td><td>Os commits salvos, na pasta oculta <code>.git</code></td><td><code>git commit</code></td></tr>
+</table>
+</div>
+<p>Pense numa mudança de casa: você <strong>edita</strong> (arruma as coisas), <strong>prepara</strong> (põe o que vai levar na caixa) e <strong>faz o commit</strong> (fecha a caixa com uma etiqueta). A área de preparação existe para você escolher o que entra em cada caixa.</p>
+
+<hr>
+
+<h2>Instalar e configurar</h2>
+<pre class="term">$ sudo apt install git
+$ git --version
+git version 2.53.0</pre>
+
+<p>Antes do primeiro commit, diga ao Git quem você é. Isso fica gravado em cada commit.</p>
+<dl class="anatomy">
+  <dt>git config</dt><dd>Lê ou grava configurações.</dd>
+  <dt>--global</dt><dd>Vale para todos os seus repositórios (grava em <code>~/.gitconfig</code>).</dd>
+  <dt>user.name</dt><dd>A chave da configuração.</dd>
+  <dt>"Ana Souza"</dt><dd>O valor. Aspas porque tem espaço.</dd>
+</dl>
+<pre class="term">$ git config --global user.name "Ana Souza"
+$ git config --global user.email "ana@exemplo.com"
+$ git config --global init.defaultBranch main        « o ramo inicial se chamará "main"
+$ git config --global core.editor nano               « editor para mensagens (veja nano e vim)
+$ git config --list --global
+user.name=Ana Souza
+user.email=ana@exemplo.com
+init.defaultbranch=main
+core.editor=nano</pre>
+
+<div class="note">
+<strong>Mensagens em português e inglês</strong>
+<p>No Ubuntu em português, a tradução do Git está incompleta: a maioria das mensagens sai em inglês e algumas frases em português (ex.: "Mudanças a serem submetidas:"). Nesta página as saídas aparecem em inglês. Se preferir o Git sempre em inglês, acrescente ao <code>~/.bashrc</code>: <code>alias git='LANGUAGE=en git'</code>.</p>
+</div>
+
+<hr>
+
+<h2>Criar um repositório: <code>git init</code></h2>
+<pre class="term">$ mkdir ~/site &amp;&amp; cd ~/site
+$ git init
+Initialized empty Git repository in /home/ana/site/.git/
+$ ls -a
+.  ..  .git                         « aqui dentro fica todo o histórico</pre>
+
+<div class="warning">
+<strong>Atenção: não apague a pasta <code>.git</code></strong>
+<p>Apagar <code>.git</code> apaga todo o histórico. Os arquivos atuais ficam, mas as versões antigas somem.</p>
+</div>
+
+<hr>
+
+<h2>O ciclo do dia a dia</h2>
+
+<h3>1. <code>git status</code>: o que mudou?</h3>
+<pre class="term" data-cwd="~/site">$ echo "&lt;h1&gt;Site da Ana&lt;/h1&gt;" &gt; index.html
+$ git status
+On branch main                                             « você está no ramo main
+
+No commits yet                                             « nenhum commit ainda
+
+Untracked files:                                           « arquivos que o Git não acompanha
+  (use "git add &lt;file&gt;..." to include in what will be committed)
+	index.html
+
+nothing added to commit but untracked files present (use "git add" to track)</pre>
+
+<p>O <code>git status</code> é o comando mais importante: ele sempre diz em que estado você está <strong>e qual o próximo comando</strong> (as linhas entre parênteses). Leia-o sempre.</p>
+
+<h3>2. <code>git add</code>: preparar</h3>
+<dl class="anatomy">
+  <dt>git add</dt><dd>Coloca mudanças na área de preparação.</dd>
+  <dt>index.html</dt><dd>Qual arquivo. Use <code>.</code> para "tudo nesta pasta".</dd>
+</dl>
+<pre class="term" data-cwd="~/site">$ git add index.html
+$ git status
+On branch main
+
+No commits yet
+
+Changes to be committed:                                   « pronto para o commit
+  (use "git rm --cached &lt;file&gt;..." to unstage)
+	new file:   index.html</pre>
+
+<h3>3. <code>git commit</code>: salvar a versão</h3>
+<dl class="anatomy">
+  <dt>git commit</dt><dd>Grava o que está preparado como uma versão nova.</dd>
+  <dt>-m "…"</dt><dd>A mensagem. Sem <code>-m</code>, o Git abre o editor para você escrever.</dd>
+</dl>
+<pre class="term" data-cwd="~/site">$ git commit -m "Cria a página inicial"
+[main (root-commit) 3f2a1b9] Cria a página inicial         « 3f2a1b9 = ID curto do commit
+ 1 file changed, 1 insertion(+)
+ create mode 100644 index.html
+$ git status
+On branch main
+nothing to commit, working tree clean                      « tudo salvo</pre>
+
+<div class="tip">
+<strong>Boas mensagens de commit</strong>
+<p>Escreva no imperativo e diga <em>o quê</em> e <em>por quê</em>: "Corrige link quebrado do menu" é melhor que "ajustes". Daqui a seis meses, você vai agradecer.</p>
+</div>
+
+<h3>Mudar um arquivo e ver a diferença: <code>git diff</code></h3>
+<pre class="term" data-cwd="~/site">$ echo "&lt;p&gt;Bem-vindo!&lt;/p&gt;" &gt;&gt; index.html
+$ git diff
+diff --git a/index.html b/index.html
+index 5c1d2e3..8a9b0c1 100644
+--- a/index.html                                           « versão salva
++++ b/index.html                                           « versão atual
+@@ -1 +1,2 @@
+ &lt;h1&gt;Site da Ana&lt;/h1&gt;
++&lt;p&gt;Bem-vindo!&lt;/p&gt;                                       « + = linha nova; - = linha removida
+$ git commit -am "Adiciona boas-vindas"
+[main a7c3e21] Adiciona boas-vindas
+ 1 file changed, 1 insertion(+)</pre>
+
+<p>O <code>-a</code> do <code>commit -am</code> faz o <code>add</code> automático de arquivos que o Git <strong>já acompanha</strong>. Arquivos novos ainda precisam de <code>git add</code>.</p>
+
+<h3>Formas de preparar mudanças</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>O que entra</th><th>Melhor quando…</th></tr>
+<tr><td><code>git add arquivo</code></td><td>Um arquivo</td><td>Você quer commits pequenos e separados.</td></tr>
+<tr><td><code>git add .</code></td><td>Tudo da pasta atual para baixo</td><td>Todas as mudanças são do mesmo assunto.</td></tr>
+<tr><td><code>git add -p</code></td><td>Pedaço por pedaço, perguntando</td><td>Um arquivo tem duas mudanças de assuntos diferentes.</td></tr>
+<tr><td><code>git commit -am "…"</code></td><td>Tudo que já era acompanhado</td><td>Mudanças rápidas, sem arquivos novos.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>O histórico: <code>git log</code></h2>
+<pre class="term" data-cwd="~/site">$ git log --oneline
+a7c3e21 (HEAD -&gt; main) Adiciona boas-vindas               « HEAD = onde você está agora
+3f2a1b9 Cria a página inicial
+$ git log -1
+commit a7c3e21f0b9d8c7e6a5b4c3d2e1f0a9b8c7d6e5f (HEAD -&gt; main)
+Author: Ana Souza &lt;ana@exemplo.com&gt;
+Date:   Thu Oct 15 10:42:17 2026 -0300
+
+    Adiciona boas-vindas
+$ git show 3f2a1b9 --stat
+commit 3f2a1b9…
+…
+ index.html | 1 +
+ 1 file changed, 1 insertion(+)</pre>
+
+<h3>Desfazer: formas diferentes para situações diferentes</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Situação</th><th>Comando</th></tr>
+<tr><td>Desfazer mudança <strong>não preparada</strong> num arquivo</td><td><code>git restore index.html</code> (perde a mudança!)</td></tr>
+<tr><td>Tirar da preparação, sem perder a mudança</td><td><code>git restore --staged index.html</code></td></tr>
+<tr><td>Corrigir a mensagem do último commit (ainda não enviado)</td><td><code>git commit --amend -m "nova mensagem"</code></td></tr>
+<tr><td>Desfazer um commit já enviado, criando um commit "ao contrário"</td><td><code>git revert a7c3e21</code></td></tr>
+<tr><td>Ver um arquivo como era numa versão antiga</td><td><code>git show 3f2a1b9:index.html</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Ramos: <code>branch</code>, <code>switch</code> e <code>merge</code></h2>
+<p>Um <strong>ramo</strong> (<em>branch</em>) é uma linha de trabalho separada. Você cria um ramo para uma tarefa, trabalha nele sem mexer no <code>main</code> e, quando estiver bom, junta (<em>merge</em>).</p>
+
+<dl class="anatomy">
+  <dt>git switch</dt><dd>Troca de ramo.</dd>
+  <dt>-c</dt><dd><em>create</em>: cria o ramo antes de trocar.</dd>
+  <dt>contato</dt><dd>O nome do ramo novo.</dd>
+</dl>
+<pre class="term" data-cwd="~/site">$ git switch -c contato
+Switched to a new branch 'contato'
+$ echo "&lt;p&gt;Email: ana@exemplo.com&lt;/p&gt;" &gt; contato.html
+$ git add contato.html &amp;&amp; git commit -m "Cria página de contato"
+[contato c41d0e8] Cria página de contato
+ 1 file changed, 1 insertion(+)
+ create mode 100644 contato.html
+$ git branch
+* contato                                                « o * marca o ramo atual
+  main
+$ git switch main
+Switched to branch 'main'
+$ ls
+index.html                                                « contato.html "sumiu": ele só existe no outro ramo
+$ git merge contato
+Updating a7c3e21..c41d0e8
+Fast-forward                                              « o main só "andou para frente"
+ contato.html | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 contato.html
+$ git branch -d contato
+Deleted branch contato (was c41d0e8).</pre>
+
+<h3>Resolver um conflito, passo a passo</h3>
+<p>Conflito acontece quando os dois ramos mudaram <strong>a mesma linha</strong> de formas diferentes. O Git não adivinha qual vale e pede a sua decisão.</p>
+<pre class="term" data-cwd="~/site">$ git merge cores
+Auto-merging index.html
+CONFLICT (content): Merge conflict in index.html
+Automatic merge failed; fix conflicts and then commit the result.
+$ git status
+On branch main
+You have unmerged paths.
+  (fix conflicts and run "git commit")
+  (use "git merge --abort" to abort the merge)
+
+Unmerged paths:
+  (use "git add &lt;file&gt;..." to mark resolution)
+	both modified:   index.html                         « os dois mexeram aqui</pre>
+
+<ol class="passo">
+  <li>Abra o arquivo. O Git marcou o trecho em disputa:
+<pre class="file" data-file="index.html (com conflito)">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+&lt;h1 style="color: blue"&gt;Site da Ana&lt;/h1&gt;
+=======
+&lt;h1 style="color: orange"&gt;Site da Ana&lt;/h1&gt;
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; cores
+&lt;p&gt;Bem-vindo!&lt;/p&gt;</pre>
+  Entre <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</code> e <code>=======</code> está a versão do ramo atual (<code>main</code>); entre <code>=======</code> e <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt; cores</code>, a do outro ramo.</li>
+  <li>Edite para ficar como deve ser e <strong>apague as três linhas de marcação</strong>:
+<pre class="file" data-file="index.html (resolvido)">&lt;h1 style="color: orange"&gt;Site da Ana&lt;/h1&gt;
+&lt;p&gt;Bem-vindo!&lt;/p&gt;</pre></li>
+  <li>Marque como resolvido e conclua:
+<pre class="term" data-cwd="~/site">$ git add index.html
+$ git commit -m "Junta o ramo cores"
+[main 9e8d7c6] Junta o ramo cores</pre></li>
+</ol>
+<p>Se ficou confuso, <code>git merge --abort</code> volta tudo para antes do merge.</p>
+
+<hr>
+
+<h2>GitHub: enviar e receber</h2>
+
+<h3>Passo 1: chave SSH</h3>
+<p>O GitHub não aceita senha no terminal. Use uma chave SSH (veja <a href="ssh.html">SSH</a>):</p>
+<pre class="term">$ ssh-keygen -t ed25519 -C "ana@exemplo.com"
+$ cat ~/.ssh/id_ed25519.pub
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK3p… ana@exemplo.com     « copie esta linha inteira</pre>
+<p>No GitHub: <strong>Settings → SSH and GPG keys → New SSH key</strong>, cole a linha e salve. Depois teste:</p>
+<pre class="term">$ ssh -T git@github.com
+Hi ana! You've successfully authenticated, but GitHub does not provide shell access.</pre>
+
+<h3>Passo 2: ligar o repositório e enviar</h3>
+<p>Crie um repositório vazio no GitHub (sem README) e copie o endereço SSH.</p>
+<dl class="anatomy">
+  <dt>git remote add</dt><dd>Registra um repositório remoto.</dd>
+  <dt>origin</dt><dd>O apelido do remoto. "origin" é o nome tradicional.</dd>
+  <dt>git@github.com:ana/site.git</dt><dd>O endereço SSH do repositório.</dd>
+</dl>
+<pre class="term" data-cwd="~/site">$ git remote add origin git@github.com:ana/site.git
+$ git push -u origin main
+Enumerating objects: 9, done.
+Counting objects: 100% (9/9), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (6/6), done.
+Writing objects: 100% (9/9), 812 bytes | 812.00 KiB/s, done.
+Total 9 (delta 1), reused 0 (delta 0), pack-reused 0 (from 0)
+To github.com:ana/site.git
+ * [new branch]      main -&gt; main
+branch 'main' set up to track 'origin/main'.             « -u: daqui pra frente, basta "git push"</pre>
+
+<h3>Receber mudanças: <code>git pull</code> e <code>git clone</code></h3>
+<pre class="term" data-cwd="~/site">$ git pull
+Updating 9e8d7c6..1b2c3d4
+Fast-forward
+ README.md | 3 +++
+ 1 file changed, 3 insertions(+)
+ create mode 100644 README.md</pre>
+<pre class="term">$ git clone git@github.com:ana/site.git site-copia
+Cloning into 'site-copia'...
+…
+Resolving deltas: 100% (2/2), done.</pre>
+
+<div class="tip">
+<strong>Publicar este guia</strong>
+<p>Com o repositório no GitHub, ative <strong>Settings → Pages</strong> e escolha a branch <code>main</code>. É assim que se hospeda um site estático, como este guia, no GitHub Pages.</p>
+</div>
+
+<hr>
+
+<h2>Não versionar o que não deve: <code>.gitignore</code></h2>
+<p>Senhas, logs e arquivos gerados não devem ir para o histórico. Liste-os num arquivo <code>.gitignore</code> na raiz do projeto:</p>
+<pre class="file" data-file=".gitignore"># segredos
+.env
+*.key
+
+# arquivos gerados
+node_modules/
+*.log
+dist/
+
+# lixo do sistema e de editores
+.DS_Store
+*.swp</pre>
+<pre class="term" data-cwd="~/site">$ git check-ignore -v .env
+.gitignore:2:.env	.env                    « ignorado pela linha 2</pre>
+
+<div class="warning">
+<strong>Atenção: <code>.gitignore</code> não apaga o passado</strong>
+<p>Se uma senha já entrou num commit, ela continua no histórico mesmo depois de adicionada ao <code>.gitignore</code>. Troque a senha imediatamente; considere-a vazada se o repositório foi enviado.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"fatal: not a git repository"</strong>
+<pre class="term">$ git status
+fatal: not a git repository (or any of the parent directories): .git</pre>
+<p><strong>O que aconteceu:</strong> você não está dentro de uma pasta com repositório. <strong>Como resolver:</strong> <code>cd</code> para a pasta do projeto, ou <code>git init</code> se for um projeto novo.</p>
+</div>
+
+<div class="cenario">
+<strong>"Author identity unknown"</strong>
+<pre class="term" data-cwd="~/site">$ git commit -m "teste"
+Author identity unknown
+
+*** Please tell me who you are.
+
+Run
+
+  git config --global user.email "you@example.com"
+  git config --global user.name "Your Name"
+…</pre>
+<p><strong>Como resolver:</strong> rode os dois <code>git config --global</code> com seus dados e repita o commit.</p>
+</div>
+
+<div class="cenario">
+<strong>"Permission denied (publickey)" no push</strong>
+<pre class="term" data-cwd="~/site">$ git push
+git@github.com: Permission denied (publickey).
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.</pre>
+<p><strong>O que aconteceu:</strong> o GitHub não reconheceu a sua chave. <strong>Como confirmar:</strong> <code>ssh -T git@github.com</code>. <strong>Como resolver:</strong> cadastre a chave pública no GitHub e confira se o endereço do remoto está certo (<code>git remote -v</code>).</p>
+</div>
+
+<div class="cenario">
+<strong>Push rejeitado: "fetch first"</strong>
+<pre class="term" data-cwd="~/site">$ git push
+To github.com:ana/site.git
+ ! [rejected]        main -&gt; main (fetch first)
+error: failed to push some refs to 'github.com:ana/site.git'
+hint: Updates were rejected because the remote contains work that you do not
+hint: have locally. …</pre>
+<p><strong>O que aconteceu:</strong> alguém (ou você, por outro computador) enviou commits que você ainda não tem. <strong>Como resolver:</strong> <code>git pull</code>, resolva conflitos se houver, e <code>git push</code> de novo. Não use <code>git push --force</code> num ramo compartilhado: ele apaga o trabalho dos outros.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>git init</code></td><td>Cria repositório na pasta atual</td></tr>
+<tr><td><code>git clone URL [pasta]</code></td><td>Copia um repositório remoto</td></tr>
+<tr><td><code>git status</code></td><td>Estado atual e próximo passo</td></tr>
+<tr><td><code>git add ARQ</code> / <code>.</code> / <code>-p</code></td><td>Prepara mudanças</td></tr>
+<tr><td><code>git commit -m "msg"</code> / <code>-am</code></td><td>Salva uma versão</td></tr>
+<tr><td><code>git diff</code> / <code>--staged</code></td><td>Diferenças não preparadas / preparadas</td></tr>
+<tr><td><code>git log --oneline --graph</code></td><td>Histórico compacto, com desenho dos ramos</td></tr>
+<tr><td><code>git restore ARQ</code></td><td>Descarta mudança não preparada</td></tr>
+<tr><td><code>git switch -c RAMO</code> / <code>git switch RAMO</code></td><td>Cria e troca / troca de ramo</td></tr>
+<tr><td><code>git merge RAMO</code></td><td>Junta outro ramo no atual</td></tr>
+<tr><td><code>git remote -v</code></td><td>Lista remotos</td></tr>
+<tr><td><code>git push</code> / <code>git pull</code></td><td>Envia / recebe commits</td></tr>
+<tr><td><code>git revert ID</code></td><td>Desfaz um commit com outro commit</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. O ciclo</h3>
+<p>Complete os dois comandos para preparar e salvar o arquivo <code>notas.md</code>:</p>
+<div class="ex-code">git <input data-answer="add" aria-label="comando 1"> notas.md
+git <input data-answer="commit" aria-label="comando 2"> -m "Adiciona notas"</div>
+</div>
+
+<div class="exercise">
+<h3>2. Ramo novo</h3>
+<p>Complete para criar o ramo <code>menu</code> e já trocar para ele:</p>
+<div class="ex-code">git switch <input data-answer="-c|--create" aria-label="opção"> menu</div>
+</div>
+
+<div class="exercise">
+<h3>3. Primeiro envio</h3>
+<div class="ex-code">git push <input data-answer="-u|--set-upstream" aria-label="opção"> origin main</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. No meio de um conflito, depois de editar o arquivo e apagar as marcações, o que você faz?</p>
+<label><input type="radio" name="q4"> <code>git push --force</code></label>
+<label><input type="radio" name="q4"> <code>git add arquivo</code> e depois <code>git commit</code></label>
+<label><input type="radio" name="q4"> Apaga a pasta <code>.git</code></label>
+<label><input type="radio" name="q4"> <code>git init</code> de novo</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. Uma senha foi commitada e enviada ao GitHub. O que é mais importante fazer?</p>
+<label><input type="radio" name="q5"> Adicionar o arquivo ao <code>.gitignore</code> e pronto.</label>
+<label><input type="radio" name="q5"> Rodar <code>git restore</code>.</label>
+<label><input type="radio" name="q5"> Nada: o repositório é seu.</label>
+<label><input type="radio" name="q5"> Trocar a senha imediatamente, porque ela continua no histórico.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Configure <code>user.name</code>, <code>user.email</code> e <code>init.defaultBranch</code> uma vez.</li>
+  <li>Ciclo: editar → <code>git status</code> → <code>git add</code> → <code>git commit -m</code>.</li>
+  <li><code>git log --oneline</code> e <code>git diff</code> mostram o histórico e as mudanças.</li>
+  <li>Ramos isolam tarefas; <code>git merge</code> junta. Conflito = editar, <code>add</code>, <code>commit</code>.</li>
+  <li>GitHub com chave SSH: <code>remote add</code>, <code>push -u</code> na primeira vez, depois <code>push</code> e <code>pull</code>.</li>
+  <li>Segredos no <code>.gitignore</code> desde o início.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

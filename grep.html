@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu grep — procurar texto dentro de arquivos | Guia Ubuntu</title>
+<meta name="description" content="Aprenda grep no Ubuntu: cada parte do comando explicada, opções -i -n -c -v -w -r -l -o, contexto, expressões regulares básicas, grep em pipes, erros reais e terminal simulado.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">grep</span></h1>
+
+<p class="intro">O <code>find</code> procura <strong>arquivos</strong>; o <code>grep</code> procura <strong>texto dentro</strong> dos arquivos. Ele lê linha por linha e mostra só as linhas que contêm o que você pediu. É a ferramenta para achar um erro num log de milhares de linhas, uma configuração esquecida ou um nome numa lista.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Como o <code>grep</code> funciona: um filtro de linhas.</li>
+  <li>As opções do dia a dia: <code>-i</code>, <code>-n</code>, <code>-c</code>, <code>-v</code>, <code>-w</code>, <code>-r</code>, <code>-l</code>, <code>-o</code>.</li>
+  <li>Expressões regulares básicas: <code>^</code>, <code>$</code>, <code>.</code>, <code>[ ]</code>, <code>|</code>.</li>
+  <li>Usar o <code>grep</code> no meio de um pipe, e a armadilha do <code>ps aux | grep</code>.</li>
+  <li>O que significa quando o <code>grep</code> não mostra nada.</li>
+</ul>
+</div>
+
+<p>O nome vem de um comando antigo do editor <code>ed</code>: <code>g/re/p</code>, ou <em>global / regular expression / print</em>, "em todo o arquivo, procure a expressão e mostre".</p>
+
+<hr>
+
+<h2>O arquivo de exemplo</h2>
+<p>Nesta aula vamos usar o log de um pequeno site, <code>Documentos/acesso.log</code>. Cada linha é uma visita: quem visitou (IP), quando, qual página e o resultado (<code>200</code> = deu certo, <code>403</code> = proibido, <code>404</code> = não encontrado).</p>
+
+<pre class="term">$ cat Documentos/acesso.log
+192.168.0.10 - - [15/Oct/2026:09:01:12] "GET / HTTP/1.1" 200
+192.168.0.23 - - [15/Oct/2026:09:01:40] "GET /contato HTTP/1.1" 200
+192.168.0.10 - - [15/Oct/2026:09:02:03] "GET /admin HTTP/1.1" 403
+192.168.0.57 - - [15/Oct/2026:09:05:19] "GET /fotos HTTP/1.1" 404
+192.168.0.10 - - [15/Oct/2026:09:06:44] "POST /login HTTP/1.1" 200
+192.168.0.23 - - [15/Oct/2026:09:07:02] "GET / HTTP/1.1" 200</pre>
+
+<hr>
+
+<h2>A forma mais simples</h2>
+
+<dl class="anatomy">
+  <dt>grep</dt><dd>O programa: filtra linhas.</dd>
+  <dt>403</dt><dd>O <strong>padrão</strong>: o texto que a linha precisa conter.</dd>
+  <dt>Documentos/acesso.log</dt><dd>O arquivo onde procurar.</dd>
+</dl>
+
+<pre class="term">$ grep 403 Documentos/acesso.log
+192.168.0.10 - - [15/Oct/2026:09:02:03] "GET /admin HTTP/1.1" 403</pre>
+
+<p>De seis linhas, só uma contém <code>403</code>, e é a única que aparece. No seu terminal, o trecho encontrado aparece em <strong>vermelho</strong>: o Ubuntu já vem com o atalho <code>alias grep='grep --color=auto'</code> no <code>~/.bashrc</code>.</p>
+
+<div class="tip">
+<strong>Padrão com espaço? Use aspas</strong>
+<p><code>grep GET /admin acesso.log</code> procuraria "GET" nos arquivos <code>/admin</code> e <code>acesso.log</code>. O certo é <code>grep "GET /admin" acesso.log</code>. Na dúvida, coloque o padrão sempre entre aspas.</p>
+</div>
+
+<div class="try" data-goal="ran:grep.*404">
+<p class="try-task"><strong>Missão:</strong> descubra qual página deu erro <code>404</code> (página não encontrada) no arquivo <code>Documentos/acesso.log</code>.</p>
+</div>
+
+<hr>
+
+<h2>Uma opção por vez</h2>
+
+<h3><code>-i</code>: ignorar maiúsculas</h3>
+<p>Por padrão, <code>Banana</code> e <code>banana</code> são diferentes. Com <code>-i</code> (de <em>ignore case</em>), não:</p>
+<pre class="term">$ grep BANANA frutas.txt
+$ grep -i BANANA frutas.txt
+banana
+banana
+banana</pre>
+
+<h3><code>-n</code>: mostrar o número da linha</h3>
+<p>Útil para abrir o arquivo no editor direto na linha certa (no nano: <code>nano +3 arquivo</code>).</p>
+<pre class="term">$ grep -n admin Documentos/acesso.log
+3:192.168.0.10 - - [15/Oct/2026:09:02:03] "GET /admin HTTP/1.1" 403     « linha 3</pre>
+
+<h3><code>-c</code>: só contar</h3>
+<p>Em vez de mostrar as linhas, mostra <strong>quantas</strong> combinam (de <em>count</em>):</p>
+<pre class="term">$ grep -c 192.168.0.10 Documentos/acesso.log
+3</pre>
+
+<h3><code>-v</code>: inverter (o que NÃO contém)</h3>
+<p>Mostra as linhas que <strong>não</strong> combinam. Aqui, tudo o que não deu <code>200</code>, ou seja, só os problemas:</p>
+
+<dl class="anatomy">
+  <dt>grep</dt><dd>O programa.</dd>
+  <dt>-v</dt><dd>Inverte: mostra as linhas que <strong>não</strong> contêm o padrão.</dd>
+  <dt>" 200"</dt><dd>O padrão, com um espaço antes para não pegar "2000" por engano.</dd>
+  <dt>Documentos/acesso.log</dt><dd>O arquivo.</dd>
+</dl>
+
+<pre class="term">$ grep -v " 200" Documentos/acesso.log
+192.168.0.10 - - [15/Oct/2026:09:02:03] "GET /admin HTTP/1.1" 403
+192.168.0.57 - - [15/Oct/2026:09:05:19] "GET /fotos HTTP/1.1" 404</pre>
+
+<h3><code>-w</code>: palavra inteira</h3>
+<p>O <code>grep</code> acha o padrão em <strong>qualquer lugar</strong> da linha, até no meio de uma palavra. Procurando "ana" em <code>frutas.txt</code>:</p>
+<pre class="term">$ grep ana frutas.txt
+banana                               « "ana" está dentro de "banana"
+banana
+banana
+$ grep -w ana frutas.txt
+$ echo $?
+1                                    « nenhuma linha tem a palavra "ana" sozinha</pre>
+<p>Com <code>-w</code> (de <em>word</em>), o padrão precisa ser uma palavra inteira, separada por espaço ou pontuação.</p>
+
+<h3><code>-o</code>: só o trecho encontrado</h3>
+<p>Em vez da linha inteira, mostra só o pedaço que combinou (de <em>only matching</em>). Ótimo para extrair dados:</p>
+<pre class="term">$ grep -o "192.168.0.[0-9]*" Documentos/acesso.log
+192.168.0.10
+192.168.0.23
+192.168.0.10
+192.168.0.57
+192.168.0.10
+192.168.0.23</pre>
+
+<h3><code>-A</code>, <code>-B</code>, <code>-C</code>: linhas ao redor</h3>
+<p>Num log, a linha do erro nem sempre basta: você quer ver o que veio antes e depois. <code>-A 2</code> mostra 2 linhas depois (<em>after</em>), <code>-B 2</code> mostra 2 antes (<em>before</em>) e <code>-C 2</code> mostra 2 de cada lado (<em>context</em>).</p>
+<pre class="term">$ grep -A1 João Documentos/notas.txt
+Ligar para o João
+Estudar Ubuntu                       « a linha seguinte
+$ grep -n -B1 Ubuntu Documentos/notas.txt
+2-Ligar para o João                  « "-" = linha de contexto
+3:Estudar Ubuntu                     « ":" = linha que combinou</pre>
+
+<hr>
+
+<h2>Procurar em vários arquivos</h2>
+
+<h3>Vários arquivos de uma vez</h3>
+<p>Com mais de um arquivo, cada linha vem com o nome do arquivo na frente:</p>
+<pre class="term">$ grep -c banana frutas.txt Documentos/notas.txt
+frutas.txt:3
+Documentos/notas.txt:0</pre>
+
+<h3><code>-r</code>: procurar dentro de uma pasta inteira</h3>
+
+<dl class="anatomy">
+  <dt>grep</dt><dd>O programa.</dd>
+  <dt>-r</dt><dd>Recursivo: entra em todas as subpastas (de <em>recursive</em>).</dd>
+  <dt>"Ubuntu"</dt><dd>O texto a procurar.</dd>
+  <dt>Documentos</dt><dd>A pasta onde começar.</dd>
+</dl>
+
+<pre class="term">$ grep -r "Ubuntu" Documentos
+Documentos/notas.txt:Estudar Ubuntu</pre>
+
+<h3><code>-l</code>: só o nome dos arquivos</h3>
+<p>Quando você só quer saber <strong>quais arquivos</strong> contêm o texto (de <em>list</em>):</p>
+<pre class="term">$ grep -rl "Olá" Documentos
+Documentos/projetos/site/index.html</pre>
+
+<p>Um uso real: descobrir em qual arquivo de configuração está uma opção.</p>
+<pre class="term">$ grep -rn "PasswordAuthentication" /etc/ssh/ 2&gt;/dev/null
+/etc/ssh/ssh_config:25:#   PasswordAuthentication yes</pre>
+<p>Resposta: arquivo <code>/etc/ssh/ssh_config</code>, linha 25. O <code>#</code> no começo indica que a linha está comentada (desativada).</p>
+
+<div class="try" data-goal="contains:~/erros.txt=403,contains:~/erros.txt=404">
+<p class="try-task"><strong>Missão:</strong> salve num arquivo <code>erros.txt</code> todas as linhas de <code>Documentos/acesso.log</code> que <strong>não</strong> terminaram com 200. Dica: <code>grep -v … &gt; erros.txt</code>. Depois confira com <code>cat erros.txt</code>.</p>
+</div>
+
+<hr>
+
+<h2>Expressões regulares básicas</h2>
+<p>O padrão do <code>grep</code> não é só texto: é uma <strong>expressão regular</strong> (<em>regex</em>), uma pequena linguagem para descrever textos. Alguns caracteres têm significado especial:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Símbolo</th><th>Significa</th><th>Exemplo</th><th>Combina com</th></tr>
+<tr><td><code>.</code></td><td>Qualquer caractere (um só)</td><td><code>b.n</code></td><td>ban, bin, b9n</td></tr>
+<tr><td><code>*</code></td><td>O anterior repetido 0 ou mais vezes</td><td><code>10*</code></td><td>1, 10, 1000</td></tr>
+<tr><td><code>^</code></td><td>Começo da linha</td><td><code>^b</code></td><td>linhas que começam com b</td></tr>
+<tr><td><code>$</code></td><td>Fim da linha</td><td><code>a$</code></td><td>linhas que terminam com a</td></tr>
+<tr><td><code>[abc]</code></td><td>Um dos caracteres da lista</td><td><code>[bm]</code></td><td>b ou m</td></tr>
+<tr><td><code>[0-9]</code></td><td>Uma faixa</td><td><code>[0-9][0-9]</code></td><td>dois dígitos</td></tr>
+<tr><td><code>[^0-9]</code></td><td>Qualquer um, menos os da lista</td><td><code>[^a-z]</code></td><td>o que não é letra minúscula</td></tr>
+<tr><td><code>\.</code></td><td>Um ponto de verdade</td><td><code>\.txt$</code></td><td>termina em ".txt"</td></tr>
+</table>
+</div>
+
+<pre class="term">$ grep "^[bm]" frutas.txt              # começa com b ou m
+banana
+maçã
+banana
+maçã
+banana
+$ grep "a$" frutas.txt                 # termina com a
+banana
+laranja
+banana
+uva
+banana</pre>
+
+<h3><code>-E</code>: regex estendida (com "ou")</h3>
+<p>Com <code>-E</code> (de <em>extended</em>), você ganha <code>|</code> ("ou"), <code>+</code> (1 ou mais), <code>?</code> (opcional) e parênteses para agrupar, sem precisar de barras:</p>
+
+<dl class="anatomy">
+  <dt>grep</dt><dd>O programa.</dd>
+  <dt>-E</dt><dd>Usa a regex estendida.</dd>
+  <dt>"40[34]$"</dt><dd>"40", depois 3 ou 4, no fim da linha: pega 403 e 404.</dd>
+  <dt>Documentos/acesso.log</dt><dd>O arquivo.</dd>
+</dl>
+
+<pre class="term">$ grep -E "40[34]$" Documentos/acesso.log
+192.168.0.10 - - [15/Oct/2026:09:02:03] "GET /admin HTTP/1.1" 403
+192.168.0.57 - - [15/Oct/2026:09:05:19] "GET /fotos HTTP/1.1" 404
+$ grep -E "POST|admin" Documentos/acesso.log
+192.168.0.10 - - [15/Oct/2026:09:02:03] "GET /admin HTTP/1.1" 403
+192.168.0.10 - - [15/Oct/2026:09:06:44] "POST /login HTTP/1.1" 200</pre>
+
+<div class="note">
+<strong>Quer procurar o texto exato, sem regex?</strong>
+<p>Use <code>-F</code> (de <em>fixed</em>, "fixo"). Assim <code>grep -F "1.1" arquivo</code> procura "1.1" de verdade, e o ponto não vira "qualquer caractere".</p>
+</div>
+
+<div class="try" data-goal="ran:grep.*\^">
+<p class="try-task"><strong>Missão:</strong> usando <code>^</code>, mostre só as frutas de <code>frutas.txt</code> que começam com a letra <strong>l</strong> ou <strong>u</strong>.</p>
+</div>
+
+<hr>
+
+<h2>grep no meio de um pipe</h2>
+<p>O <code>grep</code> também filtra a saída de <strong>outros comandos</strong>. O <code>|</code> (pipe) entrega a saída do primeiro como entrada do segundo (veja <a href="pipes.html">Pipes e xargs</a>):</p>
+
+<pre class="term">$ ls -l | grep frutas
+-rw-rw-r-- 1 ana ana   47 Oct 14 16:05 frutas.txt
+$ history | grep apt
+   12  sudo apt update
+   13  sudo apt install htop</pre>
+
+<h3>A armadilha do <code>ps aux | grep</code></h3>
+<p>Procurando um programa na lista de processos, o próprio <code>grep</code> aparece no resultado:</p>
+
+<pre class="term">$ ps aux | grep chrome
+ana         2210  5.4  6.8 1100000 1093000 ?     Sl   08:00   0:16 /snap/chromium/3554/usr/lib/chromium-browser/chrome --password-store
+ana         2251  2.0  3.9  636000  629000 ?     Sl   08:00   0:06 /snap/chromium/3554/usr/lib/chromium-browser/chrome --type=renderer
+ana         3305  0.0  0.0    9284    2304 pts/0 S+   10:30   0:00 grep --color=auto chrome     « o próprio grep!</pre>
+
+<p>Isso acontece porque, no momento em que o <code>ps</code> tira a foto dos processos, o <code>grep chrome</code> já está rodando, e a linha de comando dele contém "chrome". Duas saídas:</p>
+<ul>
+  <li>Use <code>pgrep -a chrome</code>, feito exatamente para isso (veja <a href="processos.html">ps, pgrep, top</a>).</li>
+  <li>Ou o truque <code>ps aux | grep "[c]hrome"</code>: a regex <code>[c]hrome</code> combina com "chrome", mas a linha do grep contém "[c]hrome", que não combina com ela mesma.</li>
+</ul>
+
+<hr>
+
+<h2>O que o grep devolve</h2>
+<p>O <code>grep</code> é um dos poucos comandos em que o código de saída diz se ele <strong>achou</strong> algo:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Código</th><th>Significado</th></tr>
+<tr><td><code>0</code></td><td>Achou pelo menos uma linha</td></tr>
+<tr><td><code>1</code></td><td>Não achou nada (não é erro!)</td></tr>
+<tr><td><code>2</code></td><td>Houve erro: arquivo inexistente, regex inválida…</td></tr>
+</table>
+</div>
+
+<pre class="term">$ grep uva frutas.txt
+uva
+$ echo $?
+0
+$ grep abacaxi frutas.txt
+$ echo $?
+1                                    « silêncio + 1 = não achou
+$ grep uva frutas.text
+grep: frutas.text: Arquivo ou diretório inexistente
+$ echo $?
+2</pre>
+
+<p>Em scripts, use <code>-q</code> (de <em>quiet</em>, "quieto"): não mostra nada, só devolve o código.</p>
+<pre class="term">$ grep -q "Ubuntu" /etc/os-release &amp;&amp; echo "É Ubuntu!"
+É Ubuntu!</pre>
+
+<hr>
+
+<h2>Formas diferentes de fazer</h2>
+
+<h3>Contar linhas que combinam</h3>
+<pre class="term">$ grep -c banana frutas.txt
+3
+$ grep banana frutas.txt | wc -l
+3</pre>
+<p>Os dois dão o mesmo resultado. O <code>-c</code> é mais curto; o <code>| wc -l</code> funciona com qualquer comando no lugar do <code>grep</code>.</p>
+
+<h3>Procurar em muitos arquivos</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td><code>grep -r</code></td><td><code>grep -rn "erro" ~/projeto</code></td><td>Quer procurar em tudo dentro de uma pasta. É a forma mais simples.</td></tr>
+<tr><td><code>grep -r --include</code></td><td><code>grep -rn --include="*.py" "def " .</code></td><td>Quer só certos tipos de arquivo.</td></tr>
+<tr><td><code>find … -exec grep</code></td><td><code>find . -name "*.log" -mtime -1 -exec grep -H erro {} +</code></td><td>Precisa dos filtros do <code>find</code>, como data e tamanho.</td></tr>
+<tr><td><code>find … | xargs grep</code></td><td><code>find . -name "*.conf" -print0 | xargs -0 grep -l porta</code></td><td>Mesmo caso; forma clássica em scripts.</td></tr>
+</table>
+</div>
+
+<h3>Procurar um processo</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Diferença</th></tr>
+<tr><td><code>ps aux | grep chrome</code></td><td>Mostra tudo do processo, mas inclui o próprio grep.</td></tr>
+<tr><td><code>pgrep -a chrome</code></td><td>Mostra PID e linha de comando, sem a armadilha.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Não apareceu nada</strong>
+<pre class="term">$ grep Banana frutas.txt
+$</pre>
+<p><strong>O que aconteceu:</strong> nenhuma linha tem "Banana" com B maiúsculo. Silêncio no <code>grep</code> não é erro: só quer dizer "não achei" (código 1).</p>
+<p><strong>Como confirmar:</strong> <code>echo $?</code> mostra 1. Se mostrar 2, é erro de verdade.</p>
+<p><strong>Como resolver:</strong> tente <code>-i</code>, confira a grafia (acentos contam: "maca" não acha "maçã") e se o arquivo é o certo.</p>
+</div>
+
+<div class="cenario">
+<strong>"É um diretório"</strong>
+<pre class="term">$ grep Ubuntu Documentos
+grep: Documentos: É um diretório</pre>
+<p><strong>Como resolver:</strong> para procurar dentro da pasta, use <code>-r</code>: <code>grep -r Ubuntu Documentos</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Arquivo ou diretório inexistente"</strong>
+<pre class="term">$ grep 403 acesso.log
+grep: acesso.log: Arquivo ou diretório inexistente</pre>
+<p><strong>O que aconteceu:</strong> o arquivo está em outra pasta (<code>Documentos/acesso.log</code>). Também acontece quando o padrão tem espaço e está sem aspas: a segunda palavra vira "arquivo".</p>
+</div>
+
+<div class="cenario">
+<strong>"( ou \( descasados"</strong>
+<pre class="term">$ grep -E "(erro" app.log
+grep: ( ou \( descasados</pre>
+<p><strong>O que aconteceu:</strong> na regex, <code>(</code> abre um grupo que nunca foi fechado.</p>
+<p><strong>Como resolver:</strong> para procurar o caractere <code>(</code> literalmente, use <code>-F</code>: <code>grep -F "(erro" app.log</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"arquivo binário coincide com o padrão"</strong>
+<pre class="term">$ grep ELF /usr/bin/bash
+grep: /usr/bin/bash: arquivo binário coincide com o padrão</pre>
+<p><strong>O que aconteceu:</strong> o arquivo não é texto (é um programa, imagem, PDF…). O <code>grep</code> avisa que achou, mas não imprime a linha para não sujar o terminal.</p>
+<p><strong>Como resolver:</strong> normalmente não há o que resolver. Se precisar mesmo, <code>grep -a</code> trata o arquivo como texto.</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-i</code></td><td>Ignora maiúsculas e minúsculas</td><td><code>grep -i erro log</code></td></tr>
+<tr><td><code>-n</code></td><td>Mostra o número da linha</td><td><code>grep -n erro log</code></td></tr>
+<tr><td><code>-c</code></td><td>Conta as linhas que combinam</td><td><code>grep -c erro log</code></td></tr>
+<tr><td><code>-v</code></td><td>Mostra as que <strong>não</strong> combinam</td><td><code>grep -v "^#" config</code></td></tr>
+<tr><td><code>-w</code></td><td>Só palavras inteiras</td><td><code>grep -w ana lista</code></td></tr>
+<tr><td><code>-x</code></td><td>Só se a linha inteira for igual ao padrão</td><td><code>grep -x uva frutas.txt</code></td></tr>
+<tr><td><code>-o</code></td><td>Mostra só o trecho encontrado</td><td><code>grep -o "[0-9]*" arq</code></td></tr>
+<tr><td><code>-r</code> / <code>-R</code></td><td>Procura dentro de pastas (<code>-R</code> segue links)</td><td><code>grep -r senha /etc</code></td></tr>
+<tr><td><code>-l</code></td><td>Só os nomes dos arquivos que combinam</td><td><code>grep -rl TODO .</code></td></tr>
+<tr><td><code>-L</code></td><td>Só os nomes dos que <strong>não</strong> combinam</td><td><code>grep -L licença *.py</code></td></tr>
+<tr><td><code>-h</code> / <code>-H</code></td><td>Esconde / mostra o nome do arquivo</td><td><code>grep -h erro *.log</code></td></tr>
+<tr><td><code>-A N</code> / <code>-B N</code> / <code>-C N</code></td><td>N linhas depois / antes / ao redor</td><td><code>grep -C 2 erro log</code></td></tr>
+<tr><td><code>-E</code></td><td>Regex estendida (<code>|</code> <code>+</code> <code>?</code> <code>()</code>)</td><td><code>grep -E "403|404" log</code></td></tr>
+<tr><td><code>-F</code></td><td>Texto fixo, sem regex</td><td><code>grep -F "a.b" arq</code></td></tr>
+<tr><td><code>-q</code></td><td>Silencioso: só o código de saída</td><td><code>grep -q x arq &amp;&amp; echo sim</code></td></tr>
+<tr><td><code>-s</code></td><td>Esconde mensagens de erro de arquivos</td><td><code>grep -s x *</code></td></tr>
+<tr><td><code>--include</code></td><td>Com <code>-r</code>, só arquivos com esse nome</td><td><code>--include="*.conf"</code></td></tr>
+<tr><td><code>--color=auto</code></td><td>Destaca o trecho (já ativo no Ubuntu)</td><td>—</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Contar ocorrências</h3>
+<p>Complete para mostrar <strong>quantas</strong> linhas de <code>acesso.log</code> contêm <code>GET</code>:</p>
+<div class="ex-code">grep <input data-answer="-c" aria-label="opção"> GET acesso.log</div>
+</div>
+
+<div class="exercise">
+<h3>2. Sem os comentários</h3>
+<p>Em arquivos de configuração, linhas que começam com <code>#</code> são comentários. Complete para mostrar só as linhas que <strong>não</strong> começam com <code>#</code>:</p>
+<div class="ex-code">grep <input data-answer="-v" aria-label="opção"> "<input data-answer="^#" aria-label="padrão">" /etc/ssh/ssh_config</div>
+</div>
+
+<div class="exercise">
+<h3>3. Pasta inteira com número da linha</h3>
+<p>Complete para procurar "senha" em todos os arquivos dentro de <code>~/projeto</code>, mostrando o número da linha:</p>
+<div class="ex-code">grep <input data-answer="-rn|-nr|-r -n|-n -r" aria-label="opções"> senha ~/projeto</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. <code>grep erro app.log</code> não mostrou nada e <code>echo $?</code> mostrou <code>1</code>. O que isso significa?</p>
+<label><input type="radio" name="q4"> O arquivo <code>app.log</code> não existe.</label>
+<label><input type="radio" name="q4"> O <code>grep</code> travou.</label>
+<label><input type="radio" name="q4"> O arquivo existe, mas nenhuma linha contém "erro".</label>
+<label><input type="radio" name="q4"> Você não tem permissão para ler o arquivo.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. Qual padrão acha linhas que <strong>terminam</strong> em ".conf"?</p>
+<label><input type="radio" name="q5"> <code>"\.conf$"</code></label>
+<label><input type="radio" name="q5"> <code>"^.conf"</code></label>
+<label><input type="radio" name="q5"> <code>"*.conf"</code></label>
+<label><input type="radio" name="q5"> <code>"conf^"</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>grep padrão arquivo</code> mostra as linhas que contêm o padrão; coloque o padrão entre aspas.</li>
+  <li>As opções mais usadas: <code>-i</code> (maiúsculas), <code>-n</code> (número), <code>-c</code> (contar), <code>-v</code> (inverter), <code>-r</code> (pasta), <code>-l</code> (só nomes).</li>
+  <li><code>^</code> = começo, <code>$</code> = fim, <code>.</code> = qualquer caractere, <code>[ ]</code> = um da lista; <code>-E</code> libera o <code>|</code>.</li>
+  <li>Código 0 = achou, 1 = não achou, 2 = erro.</li>
+  <li>Em <code>ps aux | grep</code>, o próprio grep aparece; prefira <code>pgrep -a</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

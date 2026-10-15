@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu journalctl — ler os logs do sistema | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a ler os logs do Ubuntu com journalctl: filtrar por serviço, boot, prioridade e horário, acompanhar ao vivo, investigar um serviço que não sobe e controlar o espaço ocupado pelos logs.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Logs (journalctl)</span></h1>
+
+<p class="intro">Quando algo dá errado no Linux, a resposta quase sempre está nos <strong>logs</strong>: registros com data e hora do que cada programa fez. No Ubuntu, o systemd guarda tudo num lugar só, o <strong>journal</strong>, e o comando <code>journalctl</code> lê esse registro. Saber filtrar os logs é o que separa "o serviço não funciona" de "o serviço não funciona porque a linha 22 tem um erro de digitação".</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que é o journal e quem pode ler o quê.</li>
+  <li>Filtrar por serviço (<code>-u</code>), boot (<code>-b</code>), prioridade (<code>-p</code>), horário (<code>--since</code>) e palavra (<code>-g</code>).</li>
+  <li>Acompanhar o log ao vivo com <code>-f</code>.</li>
+  <li>Investigar, passo a passo, um serviço que não sobe.</li>
+  <li>Ver e limitar o espaço que os logs ocupam.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes do comando: como funciona o journal</h2>
+<p>O <strong>systemd-journald</strong> é um serviço que recolhe mensagens de várias fontes:</p>
+<ul>
+  <li>tudo o que os serviços escrevem na tela (a saída do <code>echo</code> de um script, por exemplo);</li>
+  <li>mensagens do kernel (hardware, pendrive conectado, falta de memória);</li>
+  <li>mensagens de login, <code>sudo</code>, cron e outros programas do sistema.</li>
+</ul>
+<p>Cada linha guarda data, máquina, programa, PID e a mensagem. O journal fica em <code>/var/log/journal/</code>, num formato próprio que só o <code>journalctl</code> lê.</p>
+
+<h3>Quem pode ler</h3>
+<p>Usuários dos grupos <code>adm</code> ou <code>systemd-journal</code> leem o log inteiro, sem <code>sudo</code>. No Ubuntu, o primeiro usuário criado já está no <code>adm</code>. Confira:</p>
+
+<pre class="term">$ groups
+ana adm cdrom sudo dip plugdev users lpadmin          « "adm" está na lista</pre>
+
+<p>Fora desses grupos, você só vê as suas próprias mensagens, e o journalctl avisa:</p>
+<pre class="term" data-user="joao">$ journalctl
+Hint: You are currently not seeing messages from other users and the system.
+      Users in groups 'adm', 'systemd-journal' can see all messages.
+      Pass -q to turn off this notice.</pre>
+
+<hr>
+
+<h2>A forma mais simples: <code>journalctl</code></h2>
+<pre class="term">$ journalctl</pre>
+<p>Sem opções, ele abre <strong>todo</strong> o log, do mais antigo para o mais novo, dentro do paginador <code>less</code>. São centenas de milhares de linhas, então quase nunca é o que você quer. Use as teclas:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tecla</th><th>Ação</th></tr>
+<tr><td><kbd>Espaço</kbd> / <kbd>B</kbd></td><td>Página para baixo / para cima</td></tr>
+<tr><td><kbd>G</kbd> (maiúsculo)</td><td>Vai para o fim (as mensagens mais novas)</td></tr>
+<tr><td><kbd>/</kbd> texto <kbd>Enter</kbd></td><td>Procura; <kbd>N</kbd> vai para a próxima ocorrência</td></tr>
+<tr><td><kbd>Q</kbd></td><td>Sai</td></tr>
+</table>
+</div>
+
+<p>A partir daqui, vamos sempre <strong>filtrar</strong>.</p>
+
+<hr>
+
+<h2>As últimas linhas: <code>-n</code> e <code>-e</code></h2>
+
+<dl class="anatomy">
+  <dt>journalctl</dt><dd>O leitor de logs.</dd>
+  <dt>-n 5</dt><dd>De <em>number</em>: só as 5 linhas mais recentes.</dd>
+</dl>
+
+<pre class="term">$ journalctl -n 5
+out 15 10:17:01 notebook CRON[32051]: (root) CMD (cd / &amp;&amp; run-parts --report /etc/cron.hourly)
+out 15 10:17:01 notebook CRON[32049]: pam_unix(cron:session): session closed for user root
+out 15 10:20:44 notebook sudo[33410]:      ana : TTY=pts/0 ; PWD=/home/ana ; USER=root ; COMMAND=/usr/bin/apt update
+out 15 10:20:44 notebook sudo[33410]: pam_unix(sudo:session): session opened for user root(uid=0) by ana(uid=1000)
+out 15 10:20:49 notebook sudo[33410]: pam_unix(sudo:session): session closed for user root</pre>
+
+<p>Cada linha tem quatro partes:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Parte</th><th>Exemplo</th><th>Significado</th></tr>
+<tr><td>Data e hora</td><td><code>out 15 10:20:44</code></td><td>Quando aconteceu (o mês vem em português)</td></tr>
+<tr><td>Máquina</td><td><code>notebook</code></td><td>Em qual computador</td></tr>
+<tr><td>Programa[PID]</td><td><code>sudo[33410]</code></td><td>Quem escreveu, e o número do processo</td></tr>
+<tr><td>Mensagem</td><td><code>ana : … COMMAND=/usr/bin/apt update</code></td><td>O que aconteceu. Aqui: a ana usou sudo para rodar <code>apt update</code></td></tr>
+</table>
+</div>
+
+<p>Para abrir o paginador já no fim, use <code>-e</code> (de <em>end</em>). <code>-r</code> (de <em>reverse</em>) inverte a ordem: mais novo primeiro.</p>
+
+<hr>
+
+<h2>Um serviço só: <code>-u</code></h2>
+<p>O filtro mais usado. <code>-u</code> é de <em>unit</em>:</p>
+
+<dl class="anatomy">
+  <dt>journalctl</dt><dd>O leitor.</dd>
+  <dt>-u cron</dt><dd>Só as mensagens do serviço <code>cron</code>.</dd>
+  <dt>-n 3</dt><dd>Só as 3 últimas.</dd>
+</dl>
+
+<pre class="term">$ journalctl -u cron -n 3
+out 15 10:30:01 notebook CRON[37467]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+out 15 10:30:01 notebook CRON[37469]: (root) CMD (if [ -x /etc/init.d/anacron ] &amp;&amp; ! [ -d /run/systemd/system ]; then exec /usr/sbin/invoke-rc.d anacron start &gt;/dev/null; fi)
+out 15 10:30:01 notebook CRON[37467]: pam_unix(cron:session): session closed for user root</pre>
+
+<p>Você pode repetir o <code>-u</code> para ver dois serviços juntos: <code>journalctl -u nginx -u php8.4-fpm</code>.</p>
+
+<h3>Ao vivo: <code>-f</code></h3>
+<p><code>-f</code> (de <em>follow</em>, "seguir") mostra as últimas linhas e fica esperando novas. Ideal para ver o que acontece enquanto você testa algo em outra janela:</p>
+<pre class="term" data-host="servidor">$ journalctl -u ssh -f
+out 15 10:41:02 servidor sshd-session[6610]: Accepted publickey for ana from 192.168.0.10 port 51234 ssh2: ED25519 SHA256:k3J…
+out 15 10:41:02 servidor sshd-session[6610]: pam_unix(sshd:session): session opened for user ana(uid=1000) by ana(uid=0)
+^C                                                      « Ctrl+C para sair</pre>
+
+<hr>
+
+<h2>Por boot: <code>-b</code></h2>
+<p>O journal separa as mensagens por <strong>boot</strong> (cada vez que o computador ligou). Isso é precioso quando o problema foi "antes de reiniciar".</p>
+
+<pre class="term">$ journalctl --list-boots
+IDX BOOT ID                          FIRST ENTRY                 LAST ENTRY
+ -2 aa184955aef34b8890f1ad575241b32a Wed 2026-10-14 19:09:12 -03 Wed 2026-10-14 20:21:40 -03
+ -1 668d4e261c4b45bfae8192400148225d Thu 2026-10-15 07:06:14 -03 Thu 2026-10-15 07:43:07 -03   « o anterior
+  0 a24bc39a819e4383bb915613ee653a2f Thu 2026-10-15 07:43:43 -03 Thu 2026-10-15 10:30:56 -03   « o atual</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Mostra</th></tr>
+<tr><td><code>journalctl -b</code></td><td>Só o boot atual</td></tr>
+<tr><td><code>journalctl -b -1</code></td><td>O boot anterior (ótimo para "o computador travou e eu reiniciei")</td></tr>
+<tr><td><code>journalctl -b -1 -e</code></td><td>O fim do boot anterior: os últimos momentos antes do travamento ou desligamento</td></tr>
+<tr><td><code>journalctl -k</code></td><td>Só o kernel, no boot atual (o mesmo que o <code>dmesg</code>)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Por gravidade: <code>-p</code></h2>
+<p>Cada mensagem tem uma <strong>prioridade</strong>, de 0 (o pior) a 7 (detalhe de depuração):</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Número</th><th>Nome</th><th>Significado</th></tr>
+<tr><td>0</td><td><code>emerg</code></td><td>Sistema inutilizável</td></tr>
+<tr><td>1</td><td><code>alert</code></td><td>Ação imediata necessária</td></tr>
+<tr><td>2</td><td><code>crit</code></td><td>Condição crítica</td></tr>
+<tr><td>3</td><td><code>err</code></td><td>Erro</td></tr>
+<tr><td>4</td><td><code>warning</code></td><td>Aviso</td></tr>
+<tr><td>5</td><td><code>notice</code></td><td>Normal, mas digno de nota</td></tr>
+<tr><td>6</td><td><code>info</code></td><td>Informativo</td></tr>
+<tr><td>7</td><td><code>debug</code></td><td>Depuração</td></tr>
+</table>
+</div>
+
+<p><code>-p err</code> mostra erros <strong>e tudo mais grave</strong> (err, crit, alert, emerg). Combinado com <code>-b</code>, vira um "checkup" rápido do boot atual:</p>
+
+<pre class="term">$ journalctl -b -p err
+out 15 10:25:13 notebook adduser[35808]: Only root may add a user or group to the system.
+out 15 10:29:40 notebook kernel: usb 1-4: device descriptor read/64, error -71</pre>
+
+<p>Para uma faixa, use dois pontos: <code>-p warning..err</code> mostra de "aviso" até "erro". Linhas de erro aparecem em vermelho e avisos em amarelo no seu terminal.</p>
+
+<hr>
+
+<h2>Por horário: <code>--since</code> e <code>--until</code></h2>
+
+<dl class="anatomy">
+  <dt>journalctl</dt><dd>O leitor.</dd>
+  <dt>-u ssh</dt><dd>Só o SSH.</dd>
+  <dt>--since "1 hour ago"</dt><dd>Desde uma hora atrás. Entre aspas, por causa dos espaços.</dd>
+</dl>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Valor</th><th>Significado</th></tr>
+<tr><td><code>"2026-10-15 08:00"</code></td><td>Data e hora exatas</td></tr>
+<tr><td><code>"08:00"</code></td><td>Hoje, às 8h</td></tr>
+<tr><td><code>today</code> / <code>yesterday</code></td><td>Desde a meia-noite de hoje / de ontem</td></tr>
+<tr><td><code>"1 hour ago"</code>, <code>"30 min ago"</code>, <code>"2 days ago"</code></td><td>Relativo a agora</td></tr>
+</table>
+</div>
+
+<pre class="term">$ journalctl --since "08:00" --until "09:00"
+$ journalctl -u ssh --since yesterday
+$ journalctl --since ontem
+Failed to parse timestamp: ontem              « as palavras são sempre em inglês</pre>
+
+<hr>
+
+<h2>Por palavra: <code>-g</code></h2>
+<p><code>-g</code> (de <em>grep</em>) filtra pelo texto da mensagem, ignorando maiúsculas quando o padrão está todo em minúsculas:</p>
+
+<pre class="term">$ journalctl -b -g "usb"
+out 15 07:44:01 notebook kernel: usb 1-4: new high-speed USB device number 5 using xhci_hcd
+out 15 07:44:01 notebook kernel: usb-storage 1-4:1.0: USB Mass Storage device detected</pre>
+
+<p>A alternativa clássica é passar para o <code>grep</code>: <code>journalctl -b | grep -i usb</code>. O resultado é parecido; o <code>-g</code> é mais rápido em logs grandes.</p>
+
+<hr>
+
+<h2>Combinando filtros</h2>
+<p>Os filtros se somam. Esta é a pergunta típica de quem administra um servidor:</p>
+
+<pre class="term" data-host="servidor">$ journalctl -u ssh --since today -g "Failed password"
+out 15 03:12:44 servidor sshd-session[2210]: Failed password for root from 203.0.113.50 port 40112 ssh2      « tentativas de invasão
+out 15 03:12:47 servidor sshd-session[2210]: Failed password for root from 203.0.113.50 port 40112 ssh2</pre>
+
+<p>"Quem tentou entrar no servidor hoje e errou a senha?" Esse é o tipo de investigação da página <a href="seguranca.html">Segurança do Servidor</a>.</p>
+
+<h3>Formatos de saída: <code>-o</code></h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Formato</th><th>Para que serve</th></tr>
+<tr><td><code>-o short-iso</code></td><td>Data completa no padrão ISO (<code>2026-10-15T10:30:01-03:00</code>), boa para relatórios</td></tr>
+<tr><td><code>-o cat</code></td><td>Só a mensagem, sem data nem programa</td></tr>
+<tr><td><code>-o json-pretty</code></td><td>Todos os campos internos, para programas</td></tr>
+<tr><td><code>--no-pager</code></td><td>Imprime direto, sem o <code>less</code> (útil em scripts)</td></tr>
+</table>
+</div>
+
+<pre class="term">$ journalctl -u cron -n 1 -o short-iso
+2026-10-15T10:30:01-03:00 notebook CRON[37467]: pam_unix(cron:session): session closed for user root</pre>
+
+<hr>
+
+<h2>Cenário completo: o serviço não sobe</h2>
+<p>A Ana editou o site no servidor e reiniciou o nginx. Deu errado. Veja como investigar, do sintoma até a causa.</p>
+
+<ol class="passo">
+  <li>
+    <p><strong>O sintoma.</strong></p>
+    <pre class="term" data-host="servidor">$ sudo systemctl restart nginx
+Job for nginx.service failed because the control process exited with error code.
+See "systemctl status nginx.service" and "journalctl -xeu nginx.service" for details.</pre>
+    <p>A mensagem já diz onde olhar. Vamos seguir a dica.</p>
+  </li>
+  <li>
+    <p><strong>O log do serviço, com explicações.</strong></p>
+    <dl class="anatomy">
+      <dt>journalctl</dt><dd>O leitor.</dd>
+      <dt>-x</dt><dd>Acrescenta explicações (linhas com <code>░░</code>) a mensagens conhecidas.</dd>
+      <dt>-e</dt><dd>Pula para o fim: as mensagens mais recentes.</dd>
+      <dt>-u nginx</dt><dd>Só o nginx.</dd>
+    </dl>
+    <pre class="term" data-host="servidor">$ journalctl -xeu nginx
+out 15 10:52:10 servidor systemd[1]: Starting nginx.service - A high performance web server and a reverse proxy server...
+out 15 10:52:10 servidor nginx[6120]: 2026/10/15 10:52:10 [emerg] 6120#6120: unknown directive "servr_name" in /etc/nginx/sites-enabled/default:22   « a causa
+out 15 10:52:10 servidor nginx[6120]: nginx: configuration file /etc/nginx/nginx.conf test failed
+out 15 10:52:10 servidor systemd[1]: nginx.service: Control process exited, code=exited, status=1/FAILURE
+░░ Subject: Unit process exited
+░░ Defined-By: systemd
+░░
+░░ An ExecStartPre= process belonging to unit nginx.service has exited.
+░░
+░░ The process' exit code is 'exited' and its exit status is 1.
+out 15 10:52:10 servidor systemd[1]: nginx.service: Failed with result 'exit-code'.
+out 15 10:52:10 servidor systemd[1]: Failed to start nginx.service - A high performance web server and a reverse proxy server.</pre>
+    <p>Leia <strong>de baixo para cima</strong> até achar a primeira mensagem do próprio programa (não do systemd). Aqui: <code>[emerg] unknown directive "servr_name"</code>, ou seja, "diretiva desconhecida" no arquivo <code>default</code>, linha 22. É um erro de digitação: o certo é <code>server_name</code>.</p>
+  </li>
+  <li>
+    <p><strong>Confirme.</strong> Muitos serviços têm um modo de testar a configuração. O nginx usa <code>-t</code>:</p>
+    <pre class="term" data-host="servidor">$ sudo nginx -t
+nginx: [emerg] unknown directive "servr_name" in /etc/nginx/sites-enabled/default:22
+nginx: configuration file /etc/nginx/nginx.conf test failed</pre>
+  </li>
+  <li>
+    <p><strong>Corrija e teste de novo.</strong></p>
+    <pre class="term" data-host="servidor">$ sudo nano +22 /etc/nginx/sites-enabled/default     « abre o nano direto na linha 22
+$ sudo nginx -t
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful</pre>
+  </li>
+  <li>
+    <p><strong>Reinicie e confira.</strong></p>
+    <pre class="term" data-host="servidor">$ sudo systemctl restart nginx
+$ systemctl is-active nginx
+active</pre>
+  </li>
+</ol>
+
+<h3>Outras causas comuns e como aparecem no log</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Mensagem típica</th><th>Causa</th><th>Próximo passo</th></tr>
+<tr><td><code>Address already in use</code></td><td>Outro programa já usa a porta</td><td><code>sudo ss -tlnp | grep :80</code> para ver quem (veja <a href="ip.html">ip, ping, ss</a>)</td></tr>
+<tr><td><code>Permission denied</code></td><td>O usuário do serviço não pode ler um arquivo ou pasta</td><td><code>ls -l</code> no caminho citado</td></tr>
+<tr><td><code>No such file or directory</code></td><td>Caminho errado na configuração ou no <code>ExecStart</code></td><td>Confira o caminho com <code>ls</code></td></tr>
+<tr><td><code>status=203/EXEC</code></td><td>O programa não pôde ser executado</td><td>Veja <a href="criar-servico.html">Criar um Serviço</a></td></tr>
+<tr><td><code>Start request repeated too quickly</code></td><td>Caiu várias vezes seguidas</td><td>Leia as linhas anteriores; depois <code>reset-failed</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Espaço ocupado pelos logs</h2>
+<pre class="term">$ journalctl --disk-usage
+Archived and active journals take up 535.8M in the file system.</pre>
+
+<p>O journal se limita sozinho (por padrão, até 10% do disco, com teto de 4 GB). Para liberar espaço agora:</p>
+
+<dl class="anatomy">
+  <dt>sudo journalctl</dt><dd>Como administrador.</dd>
+  <dt>--vacuum-time=2weeks</dt><dd>"Aspira" (apaga) arquivos de log com mais de 2 semanas.</dd>
+</dl>
+
+<pre class="term">$ sudo journalctl --vacuum-time=2weeks
+$ sudo journalctl --vacuum-size=200M       # ou: deixe no máximo 200 MB</pre>
+
+<div class="warning">
+<strong>Atenção: não volta</strong>
+<p>O vacuum apaga os logs antigos de vez. Se você está investigando um problema, leia o que precisa antes de limpar.</p>
+</div>
+
+<p>Para mudar o limite de forma permanente, crie <code>/etc/systemd/journald.conf.d/tamanho.conf</code> com <code>[Journal]</code> e <code>SystemMaxUse=500M</code>, e rode <code>sudo systemctl restart systemd-journald</code>.</p>
+
+<hr>
+
+<h2>Formas diferentes de ver logs</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td><code>systemctl status</code></td><td><code>systemctl status nginx</code></td><td>Quer o estado + as 10 últimas linhas, rápido</td></tr>
+<tr><td><code>journalctl -u</code></td><td><code>journalctl -u nginx --since today</code></td><td>Quer filtrar e investigar</td></tr>
+<tr><td>Arquivos de texto</td><td><code>tail -f /var/log/syslog</code></td><td>Está acostumado com <code>grep</code>/<code>tail</code>; o Ubuntu ainda grava cópias em texto pelo <code>rsyslog</code></td></tr>
+<tr><td>Log do próprio programa</td><td><code>tail -f /var/log/nginx/error.log</code></td><td>Alguns programas (nginx, apache) também têm logs próprios</td></tr>
+<tr><td>App Logs (gráfico)</td><td><code>gnome-logs</code></td><td>Prefere interface gráfica (instale com <code>sudo apt install gnome-logs</code>)</td></tr>
+</table>
+</div>
+
+<h3>Os arquivos em <code>/var/log</code></h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Arquivo</th><th>Conteúdo</th></tr>
+<tr><td><code>/var/log/syslog</code></td><td>Quase tudo, em texto</td></tr>
+<tr><td><code>/var/log/auth.log</code></td><td>Logins, sudo, SSH</td></tr>
+<tr><td><code>/var/log/kern.log</code></td><td>Kernel</td></tr>
+<tr><td><code>/var/log/apt/history.log</code></td><td>O que foi instalado e removido pelo apt, e quando</td></tr>
+<tr><td><code>/var/log/dpkg.log</code></td><td>Cada ação do dpkg</td></tr>
+</table>
+</div>
+
+<p>Arquivos terminados em <code>.1</code> e <code>.2.gz</code> são versões antigas, "rotacionadas". Para ler os <code>.gz</code> sem descompactar, use <code>zcat</code> ou <code>zgrep</code>.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"-- No entries --"</strong>
+<pre class="term">$ journalctl -u apache
+-- No entries --
+$ echo $?
+0</pre>
+<p><strong>O que aconteceu:</strong> não há mensagens para esse filtro. O nome do serviço pode estar errado (no Ubuntu é <code>apache2</code>), ou o filtro de horário é estreito demais. Repare que o código de saída é <code>0</code>: para o journalctl, "nada encontrado" não é erro.</p>
+<p><strong>Como resolver:</strong> confira o nome com <code>systemctl list-unit-files | grep -i apache</code> e afrouxe os filtros.</p>
+</div>
+
+<div class="cenario">
+<strong>"Failed to parse timestamp"</strong>
+<pre class="term">$ journalctl --since ontem
+Failed to parse timestamp: ontem</pre>
+<p><strong>O que aconteceu:</strong> as palavras de data são em inglês, e datas precisam do formato <code>AAAA-MM-DD</code>.</p>
+<p><strong>Como resolver:</strong> <code>--since yesterday</code> ou <code>--since "2026-10-14"</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>dmesg: "Operação não permitida"</strong>
+<pre class="term">$ dmesg
+dmesg: leitura de buffer de kernel falhou: Operação não permitida</pre>
+<p><strong>O que aconteceu:</strong> no Ubuntu, o <code>dmesg</code> é restrito ao administrador por segurança.</p>
+<p><strong>Como resolver:</strong> use <code>sudo dmesg -T</code> (o <code>-T</code> mostra horas legíveis) ou, sem sudo, <code>journalctl -k</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Só aparecem as minhas mensagens</strong>
+<p><strong>O que aconteceu:</strong> seu usuário não está nos grupos <code>adm</code> ou <code>systemd-journal</code> (aparece o "Hint" do início da página).</p>
+<p><strong>Como resolver:</strong> use <code>sudo journalctl …</code>, ou peça a um administrador: <code>sudo usermod -aG adm joao</code> (vale no próximo login).</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-u nome</code></td><td>Só um serviço</td><td><code>journalctl -u ssh</code></td></tr>
+<tr><td><code>-f</code></td><td>Ao vivo</td><td><code>journalctl -u nginx -f</code></td></tr>
+<tr><td><code>-n N</code></td><td>Últimas N linhas</td><td><code>journalctl -n 50</code></td></tr>
+<tr><td><code>-e</code></td><td>Abre no fim</td><td><code>journalctl -e</code></td></tr>
+<tr><td><code>-r</code></td><td>Mais novo primeiro</td><td><code>journalctl -r</code></td></tr>
+<tr><td><code>-b [N]</code></td><td>Boot atual ou anterior (<code>-1</code>, <code>-2</code>…)</td><td><code>journalctl -b -1</code></td></tr>
+<tr><td><code>--list-boots</code></td><td>Lista os boots guardados</td><td><code>journalctl --list-boots</code></td></tr>
+<tr><td><code>-k</code></td><td>Só o kernel</td><td><code>journalctl -k</code></td></tr>
+<tr><td><code>-p prioridade</code></td><td>Desta gravidade para cima</td><td><code>journalctl -p err</code></td></tr>
+<tr><td><code>--since</code> / <code>--until</code></td><td>Faixa de horário</td><td><code>journalctl --since "1 hour ago"</code></td></tr>
+<tr><td><code>-g padrão</code></td><td>Filtra pelo texto</td><td><code>journalctl -g "error"</code></td></tr>
+<tr><td><code>-x</code></td><td>Explicações extras</td><td><code>journalctl -xeu nginx</code></td></tr>
+<tr><td><code>-o formato</code></td><td>Formato de saída</td><td><code>journalctl -o short-iso</code></td></tr>
+<tr><td><code>--no-pager</code></td><td>Sem paginador</td><td><code>journalctl -n 20 --no-pager</code></td></tr>
+<tr><td><code>--user</code></td><td>Logs dos serviços de usuário</td><td><code>journalctl --user -u relogio</code></td></tr>
+<tr><td><code>--disk-usage</code></td><td>Espaço ocupado</td><td><code>journalctl --disk-usage</code></td></tr>
+<tr><td><code>--vacuum-time</code> / <code>--vacuum-size</code></td><td>Apaga logs antigos</td><td><code>sudo journalctl --vacuum-time=2weeks</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Só um serviço, ao vivo</h3>
+<p>Complete para acompanhar ao vivo as mensagens do serviço <code>ssh</code>:</p>
+<div class="ex-code">journalctl <input data-answer="-u ssh -f|-f -u ssh|-fu ssh" aria-label="opções"></div>
+</div>
+
+<div class="exercise">
+<h3>2. O que aconteceu antes de reiniciar?</h3>
+<p>O computador travou e você reiniciou. Complete para ver o log do boot anterior:</p>
+<div class="ex-code">journalctl -b <input data-answer="-1" aria-label="número"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Só os erros</h3>
+<p>Complete para ver apenas erros (e mais graves) do boot atual:</p>
+<div class="ex-code">journalctl -b -p <input data-answer="err|3|error" aria-label="prioridade"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. O <code>systemctl restart</code> falhou. Qual comando a própria mensagem de erro sugere?</p>
+<label><input type="radio" name="q4"> <code>dmesg -T</code></label>
+<label><input type="radio" name="q4"> <code>journalctl -xeu nome.service</code></label>
+<label><input type="radio" name="q4"> <code>tail /var/log/dpkg.log</code></label>
+<label><input type="radio" name="q4"> <code>journalctl --vacuum-time=1d</code></label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. No log de um serviço que falhou, onde costuma estar a causa real?</p>
+<label><input type="radio" name="q5"> Na última linha, "Failed to start".</label>
+<label><input type="radio" name="q5"> Nas linhas com <code>░░</code>.</label>
+<label><input type="radio" name="q5"> Na mensagem do próprio programa, um pouco acima das linhas do systemd.</label>
+<label><input type="radio" name="q5"> No primeiro boot da lista.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>O journal guarda os logs de serviços, kernel e logins; quem está no grupo <code>adm</code> lê tudo sem sudo.</li>
+  <li>Filtros: <code>-u</code> serviço, <code>-b</code> boot, <code>-p</code> gravidade, <code>--since</code> horário, <code>-g</code> texto. Eles se somam.</li>
+  <li><code>-f</code> acompanha ao vivo; <code>-n</code> e <code>-e</code> mostram o fim.</li>
+  <li>Serviço não sobe: <code>journalctl -xeu nome</code>, leia de baixo para cima até a mensagem do programa, teste a configuração, corrija, reinicie.</li>
+  <li><code>--disk-usage</code> mostra o espaço; <code>--vacuum-time</code> limpa (sem volta).</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

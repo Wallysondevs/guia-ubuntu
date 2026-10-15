@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu ZFS — pools, datasets, snapshots e scrub | Guia Ubuntu</title>
+<meta name="description" content="Aprenda ZFS no Ubuntu: instalar zfsutils-linux, criar um pool espelhado, datasets, compressão, snapshots, rollback, scrub e como ler o zpool status, num laboratório com arquivos.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">ZFS</span></h1>
+
+<p class="intro"><strong>ZFS</strong> é um sistema de arquivos e gerenciador de discos ao mesmo tempo. Ele faz sozinho o que, no método tradicional, exige RAID + LVM + ext4: espelha discos, divide o espaço em volumes, comprime, tira snapshots instantâneos e <strong>detecta e corrige dados corrompidos</strong>. O Ubuntu é uma das poucas distribuições que traz ZFS pronto nos repositórios.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que são pool, vdev e dataset no ZFS.</li>
+  <li>Montar um laboratório com arquivos, sem discos extras.</li>
+  <li>Criar um pool espelhado e ler o <code>zpool status</code>.</li>
+  <li>Criar datasets, ligar compressão e definir cotas.</li>
+  <li>Tirar snapshots, voltar no tempo (<code>rollback</code>) e verificar os dados com <code>scrub</code>.</li>
+</ul>
+</div>
+
+<p>Leia antes <a href="raid.html">RAID</a> e <a href="lvm.html">LVM</a>: o ZFS junta as duas ideias. Os exemplos acontecem na máquina fictícia <strong>servidor</strong>, com os discos <code>/dev/sdb</code> e <code>/dev/sdc</code>.</p>
+
+<hr>
+
+<h2>Conceito: pool, vdev e dataset</h2>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Peça</th><th>O que é</th><th>Comparando com o método tradicional</th><th>Exemplo</th></tr>
+<tr><td><strong>vdev</strong></td><td>Um grupo de discos com uma forma de proteção (espelho, raidz)</td><td>Um RAID</td><td><code>mirror-0</code> = sdb + sdc</td></tr>
+<tr><td><strong>pool</strong> (zpool)</td><td>Todo o espaço de um ou mais vdevs</td><td>O VG do LVM</td><td><code>tank</code></td></tr>
+<tr><td><strong>dataset</strong></td><td>Uma "pasta especial" dentro do pool, com regras próprias (compressão, cota, snapshots)</td><td>Um LV já formatado e montado</td><td><code>tank/fotos</code>, montado em <code>/tank/fotos</code></td></tr>
+<tr><td><strong>snapshot</strong></td><td>Uma foto de um dataset num instante</td><td>Snapshot do LVM, só que instantâneo e sem tamanho reservado</td><td><code>tank/fotos@antes</code></td></tr>
+</table>
+</div>
+
+<p>Duas diferenças importantes em relação ao ext4:</p>
+<ul>
+  <li><strong>Não existe "formatar e montar"</strong>: ao criar o pool e os datasets, eles já aparecem montados.</li>
+  <li><strong>Checksums</strong>: cada bloco gravado tem uma "impressão digital". Na leitura, o ZFS confere. Se o dado estiver corrompido e houver espelho, ele lê a cópia boa e conserta a ruim sozinho.</li>
+</ul>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tipo de vdev</th><th>Equivale a</th><th>Discos mín.</th><th>Aguenta perder</th></tr>
+<tr><td>(disco único)</td><td>Sem proteção</td><td>1</td><td>Nenhum</td></tr>
+<tr><td><code>mirror</code></td><td>RAID 1</td><td>2</td><td>Todos menos um</td></tr>
+<tr><td><code>raidz1</code></td><td>RAID 5</td><td>3</td><td>1</td></tr>
+<tr><td><code>raidz2</code></td><td>RAID 6</td><td>4</td><td>2</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Instalar e montar o laboratório</h2>
+<pre class="term" data-host="servidor">$ sudo apt install zfsutils-linux
+$ zfs version
+zfs-2.4.1-1ubuntu5.1
+zfs-kmod-2.4.1-1ubuntu5.1</pre>
+
+<p>O ZFS aceita <strong>arquivos</strong> como discos, desde que você passe o caminho completo. Para treinar, não precisa nem de <code>losetup</code>:</p>
+
+<pre class="term" data-host="servidor" data-cwd="~/lab">$ truncate -s 1G z1.img z2.img z3.img
+$ sudo zpool create lab mirror /home/ana/lab/z1.img /home/ana/lab/z2.img
+$ zpool list lab
+NAME   SIZE  ALLOC   FREE  CKPOINT  EXPANDSZ   FRAG    CAP  DEDUP    HEALTH  ALTROOT
+lab    960M   116K   960M        -         -     0%     0%  1.00x    ONLINE  -</pre>
+
+<p>Nos exemplos a seguir, o pool se chama <code>tank</code> (nome tradicional nos tutoriais de ZFS) e usa discos reais. No laboratório, troque <code>tank</code> por <code>lab</code>.</p>
+
+<hr>
+
+<h2>Criar um pool espelhado</h2>
+
+<dl class="anatomy">
+  <dt>sudo zpool create</dt><dd>Cria um pool.</dd>
+  <dt>tank</dt><dd>O nome do pool. Ele será montado em <code>/tank</code>.</dd>
+  <dt>mirror</dt><dd>O tipo de vdev: os discos seguintes formam um espelho.</dd>
+  <dt>/dev/sdb /dev/sdc</dt><dd>Os discos inteiros. O ZFS cria as partições sozinho.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo zpool create tank mirror /dev/sdb /dev/sdc
+$ df -h /tank
+Sist. Arq.  Tam. Usado Disp. Uso% Montado em
+tank         49G  128K   49G   1% /tank                 « já montado, sem mkfs nem mount</pre>
+
+<p>Silêncio é sucesso: o <code>zpool create</code> não imprime nada quando dá certo.</p>
+
+<div class="tip">
+<strong>Discos pelo ID, não pelo nome</strong>
+<p>Os nomes <code>sdb</code> e <code>sdc</code> podem trocar de lugar depois de reiniciar. Em servidores, use os nomes fixos de <code>/dev/disk/by-id/</code>: <code>ls -l /dev/disk/by-id/</code> mostra algo como <code>ata-WDC_WD20EFRX_WD-WCC4M1234567</code>.</p>
+</div>
+
+<h2>Ler o <code>zpool status</code></h2>
+<pre class="term" data-host="servidor">$ zpool status tank
+  pool: tank
+ state: ONLINE                                          « o pool está saudável
+config:
+
+	NAME        STATE     READ WRITE CKSUM
+	tank        ONLINE       0     0     0
+	  mirror-0  ONLINE       0     0     0                 « o vdev espelhado
+	    sdb     ONLINE       0     0     0
+	    sdc     ONLINE       0     0     0
+
+errors: No known data errors                           « nenhum dado corrompido</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna / estado</th><th>Significado</th></tr>
+<tr><td><code>ONLINE</code></td><td>Funcionando normalmente</td></tr>
+<tr><td><code>DEGRADED</code></td><td>Funciona, mas perdeu proteção (um disco do espelho falhou)</td></tr>
+<tr><td><code>FAULTED</code> / <code>UNAVAIL</code></td><td>Disco com defeito / não encontrado</td></tr>
+<tr><td><code>READ</code> / <code>WRITE</code></td><td>Erros de leitura / gravação no disco</td></tr>
+<tr><td><code>CKSUM</code></td><td>Dados que não bateram com a "impressão digital" (corrupção detectada)</td></tr>
+</table>
+</div>
+
+<p>Para ver só se há algo errado em qualquer pool: <code>zpool status -x</code>, que responde <code>all pools are healthy</code> quando está tudo bem.</p>
+
+<hr>
+
+<h2>Datasets: organizar o pool</h2>
+<p>Em vez de criar pastas comuns em <code>/tank</code>, crie <strong>datasets</strong>. Cada um pode ter compressão, cota e snapshots próprios.</p>
+
+<dl class="anatomy">
+  <dt>sudo zfs create</dt><dd>Cria um dataset (repare: <code>zfs</code>, não <code>zpool</code>).</dd>
+  <dt>tank/fotos</dt><dd>Pool/nome. Vai aparecer em <code>/tank/fotos</code>.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo zfs create tank/fotos
+$ sudo zfs create tank/backup
+$ zfs list
+NAME          USED  AVAIL  REFER  MOUNTPOINT
+tank          660K  48.0G    96K  /tank
+tank/backup    96K  48.0G    96K  /tank/backup
+tank/fotos     96K  48.0G    96K  /tank/fotos</pre>
+
+<p><code>USED</code> é o que o dataset e seus filhos ocupam; <code>AVAIL</code> é o que ainda cabe; <code>REFER</code> é o que os dados atuais ocupam (sem contar snapshots).</p>
+
+<h3>Regras por dataset: <code>zfs set</code></h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Propriedade</th><th>Comando</th><th>Efeito</th></tr>
+<tr><td>Compressão</td><td><code>sudo zfs set compression=lz4 tank/backup</code></td><td>Comprime o que for gravado daqui em diante. O <code>lz4</code> é tão rápido que costuma até acelerar</td></tr>
+<tr><td>Cota</td><td><code>sudo zfs set quota=20G tank/fotos</code></td><td>O dataset não passa de 20 GB</td></tr>
+<tr><td>Reserva</td><td><code>sudo zfs set reservation=5G tank/backup</code></td><td>Garante 5 GB só para ele</td></tr>
+<tr><td>Ponto de montagem</td><td><code>sudo zfs set mountpoint=/srv/fotos tank/fotos</code></td><td>Muda onde aparece</td></tr>
+<tr><td>Data de acesso</td><td><code>sudo zfs set atime=off tank</code></td><td>Não grava a data de cada leitura (menos escrita)</td></tr>
+</table>
+</div>
+
+<pre class="term" data-host="servidor">$ sudo zfs set compression=lz4 tank/backup
+$ zfs get compression,compressratio tank/backup
+NAME         PROPERTY       VALUE           SOURCE
+tank/backup  compression    lz4             local
+tank/backup  compressratio  2.31x           -           « depois de copiar logs: ocupam 2,3 vezes menos</pre>
+
+<p>A coluna <code>SOURCE</code> diz de onde veio o valor: <code>local</code> (definido neste dataset), <code>inherited from tank</code> (herdado do pai) ou <code>default</code>.</p>
+
+<hr>
+
+<h2>Snapshots e rollback</h2>
+<p>Um snapshot do ZFS é <strong>instantâneo</strong> e, no começo, não ocupa espaço: ele só passa a ocupar conforme os arquivos originais mudam.</p>
+
+<dl class="anatomy">
+  <dt>sudo zfs snapshot</dt><dd>Tira a foto.</dd>
+  <dt>tank/fotos@antes-limpeza</dt><dd>Dataset + <code>@</code> + nome do snapshot.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo zfs snapshot tank/fotos@antes-limpeza
+$ zfs list -t snapshot
+NAME                       USED  AVAIL  REFER  MOUNTPOINT
+tank/fotos@antes-limpeza     0B      -  3.20G  -          « 0B: nada mudou ainda
+$ rm /tank/fotos/2025/*.jpg                                « ops, apagou demais</pre>
+
+<p>Agora, duas formas de recuperar:</p>
+
+<h3>Forma 1: pegar só alguns arquivos de volta</h3>
+<p>Todo dataset tem uma pasta escondida <code>.zfs/snapshot</code> com o conteúdo de cada snapshot, só para leitura:</p>
+<pre class="term" data-host="servidor">$ ls /tank/fotos/.zfs/snapshot/antes-limpeza/2025 | head -3
+IMG_0001.jpg
+IMG_0002.jpg
+IMG_0003.jpg
+$ cp /tank/fotos/.zfs/snapshot/antes-limpeza/2025/IMG_0002.jpg /tank/fotos/2025/</pre>
+
+<h3>Forma 2: voltar o dataset inteiro</h3>
+<pre class="term" data-host="servidor">$ sudo zfs rollback tank/fotos@antes-limpeza
+$ ls /tank/fotos/2025 | wc -l
+412                                                      « tudo de volta</pre>
+
+<div class="warning">
+<strong>Atenção</strong>
+<p><code>zfs rollback</code> descarta tudo o que foi gravado depois do snapshot. Se houver snapshots mais novos, ele pede <code>-r</code>, que <strong>apaga</strong> esses snapshots mais novos.</p>
+</div>
+
+<p>Para apagar um snapshot que não serve mais: <code>sudo zfs destroy tank/fotos@antes-limpeza</code>. O <code>@</code> é essencial: <code>zfs destroy tank/fotos</code> (sem <code>@</code>) apaga o dataset inteiro.</p>
+
+<div class="tip">
+<strong>Snapshots automáticos</strong>
+<p>O pacote <code>zfs-auto-snapshot</code> tira snapshots a cada 15 minutos, de hora em hora, por dia e por semana, e apaga os antigos sozinho.</p>
+</div>
+
+<hr>
+
+<h2>Scrub: conferir todos os dados</h2>
+<p>O <strong>scrub</strong> lê todos os blocos do pool e confere as impressões digitais. Se achar algo corrompido e houver espelho, conserta. No Ubuntu, um scrub automático já roda todo mês (pacote <code>zfsutils-linux</code>). Para rodar agora:</p>
+
+<pre class="term" data-host="servidor">$ sudo zpool scrub tank
+$ zpool status tank | grep scan
+  scan: scrub repaired 0B in 00:04:12 with 0 errors on Thu Oct 15 10:40:12 2026</pre>
+
+<p><code>repaired 0B</code> e <code>0 errors</code>: nada precisou ser consertado.</p>
+
+<hr>
+
+<h2>Trocar um disco com defeito</h2>
+<pre class="term" data-host="servidor">$ zpool status tank
+  pool: tank
+ state: DEGRADED                                        « perdeu a proteção
+status: One or more devices could not be used because the label is missing or
+	invalid.  Sufficient replicas exist for the pool to continue
+	functioning in a degraded state.
+action: Replace the device using 'zpool replace'.
+config:
+
+	NAME        STATE     READ WRITE CKSUM
+	tank        DEGRADED     0     0     0
+	  mirror-0  DEGRADED     0     0     0
+	    sdb     ONLINE       0     0     0
+	    sdc     UNAVAIL      0     0     0                 « disco sumiu
+
+errors: No known data errors
+$ sudo zpool replace tank sdc /dev/sdd
+$ zpool status tank | grep -A1 scan
+  scan: resilver in progress since Thu Oct 15 11:02:40 2026
+	2.10G / 3.20G scanned, 1.95G / 3.20G issued at 410M/s</pre>
+
+<p><strong>Resilver</strong> é o nome do ZFS para reconstrução. Note que ele só copia os dados existentes, não o disco inteiro, por isso é mais rápido que no <code>mdadm</code>. O próprio <code>zpool status</code> diz o que fazer na linha <code>action:</code>.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"is in use and contains a … filesystem"</strong>
+<pre class="term" data-host="servidor">$ sudo zpool create tank mirror /dev/sdb /dev/sdc
+invalid vdev specification
+use '-f' to override the following errors:
+/dev/sdb contains a filesystem of type 'ext4'</pre>
+<p><strong>O que aconteceu:</strong> o disco tem um sistema de arquivos antigo. O ZFS não apaga sem você confirmar.</p>
+<p><strong>Como resolver:</strong> se tem certeza de que pode apagar, repita com <code>-f</code>: <code>sudo zpool create -f tank mirror /dev/sdb /dev/sdc</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"mountpoint '/tank' exists and is not empty"</strong>
+<p><strong>O que aconteceu:</strong> já existe uma pasta comum <code>/tank</code> com arquivos. O ZFS não monta por cima.</p>
+<p><strong>Como resolver:</strong> mova ou apague o conteúdo da pasta, ou escolha outro lugar: <code>sudo zpool create -m /srv/dados tank mirror …</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O pool sumiu depois de mover os discos para outro servidor</strong>
+<p><strong>O que aconteceu:</strong> pools não são montados automaticamente em outra máquina.</p>
+<p><strong>Como resolver:</strong> <code>sudo zpool import</code> lista os pools encontrados nos discos; <code>sudo zpool import tank</code> traz o pool. Antes de desligar a máquina antiga, o ideal é rodar <code>sudo zpool export tank</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"dataset is busy" ao destruir</strong>
+<p><strong>O que aconteceu:</strong> algum programa (ou um terminal com <code>cd</code> lá dentro) está usando o dataset.</p>
+<p><strong>Como resolver:</strong> saia da pasta e descubra quem usa: <code>sudo lsof /tank/fotos</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência rápida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>sudo zpool create NOME mirror D1 D2</code></td><td>Cria pool espelhado</td></tr>
+<tr><td><code>zpool list</code> / <code>zpool status</code></td><td>Espaço / saúde dos pools</td></tr>
+<tr><td><code>zpool status -x</code></td><td>Só mostra pools com problema</td></tr>
+<tr><td><code>sudo zpool scrub NOME</code></td><td>Confere todos os dados</td></tr>
+<tr><td><code>sudo zpool replace NOME VELHO NOVO</code></td><td>Troca disco</td></tr>
+<tr><td><code>sudo zpool export</code> / <code>import NOME</code></td><td>Desliga / traz pool (mover entre máquinas)</td></tr>
+<tr><td><code>sudo zfs create POOL/DATASET</code></td><td>Cria dataset</td></tr>
+<tr><td><code>zfs list</code> / <code>zfs list -t snapshot</code></td><td>Lista datasets / snapshots</td></tr>
+<tr><td><code>sudo zfs set PROP=VALOR DATASET</code></td><td>Define propriedade</td></tr>
+<tr><td><code>zfs get PROP DATASET</code></td><td>Mostra propriedade</td></tr>
+<tr><td><code>sudo zfs snapshot DATASET@NOME</code></td><td>Tira snapshot</td></tr>
+<tr><td><code>sudo zfs rollback DATASET@NOME</code></td><td>Volta ao snapshot</td></tr>
+<tr><td><code>sudo zfs destroy DATASET@NOME</code></td><td>Apaga snapshot (sem <code>@</code>, apaga o dataset)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Pool espelhado</h3>
+<p>Complete para criar o pool <code>dados</code> espelhando <code>/dev/sdb</code> e <code>/dev/sdc</code>:</p>
+<div class="ex-code">sudo zpool create dados <input data-answer="mirror" aria-label="tipo"> /dev/sdb /dev/sdc</div>
+</div>
+
+<div class="exercise">
+<h3>2. Snapshot</h3>
+<p>Complete para tirar um snapshot chamado <code>segunda</code> do dataset <code>dados/docs</code>:</p>
+<div class="ex-code">sudo zfs snapshot <input data-answer="dados/docs@segunda" aria-label="nome completo"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Compressão</h3>
+<p>Complete para ligar compressão lz4 no dataset <code>dados/logs</code>:</p>
+<div class="ex-code">sudo zfs set <input data-answer="compression=lz4|compress=lz4" aria-label="propriedade"> dados/logs</div>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">4. Qual comando apaga <strong>o dataset inteiro</strong>, e não só um snapshot?</p>
+<label><input type="radio" name="q4"> <code>zfs destroy tank/fotos@antes</code></label>
+<label><input type="radio" name="q4"> <code>zfs rollback tank/fotos@antes</code></label>
+<label><input type="radio" name="q4"> <code>zpool scrub tank</code></label>
+<label><input type="radio" name="q4"> <code>zfs destroy tank/fotos</code></label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. O <code>zpool status</code> mostra <code>state: DEGRADED</code>. O que isso significa?</p>
+<label><input type="radio" name="q5"> O pool funciona, mas um disco falhou e a proteção foi perdida.</label>
+<label><input type="radio" name="q5"> Os dados foram perdidos.</label>
+<label><input type="radio" name="q5"> O pool está lento por causa da compressão.</label>
+<label><input type="radio" name="q5"> Um scrub está em andamento.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>ZFS junta RAID, gerenciador de volumes e sistema de arquivos: <strong>pool</strong> (com vdevs) → <strong>datasets</strong> → <strong>snapshots</strong>.</li>
+  <li><code>zpool create tank mirror D1 D2</code> cria e já monta; <code>zfs create tank/x</code> cria datasets.</li>
+  <li><code>zpool status</code>: <code>ONLINE</code> bom, <code>DEGRADED</code> troque o disco com <code>zpool replace</code>.</li>
+  <li>Snapshots são instantâneos; arquivos antigos ficam em <code>.zfs/snapshot</code>; <code>rollback</code> volta tudo.</li>
+  <li>Scrub confere e conserta os dados; treine com arquivos-imagem antes de usar discos reais.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu pwd e cd — andar entre as pastas | Guia Ubuntu</title>
+<meta name="description" content="Aprenda pwd e cd no Ubuntu parte por parte: saber onde você está, entrar e sair de pastas, voltar para a pasta anterior, pushd/popd e erros comuns, com terminal simulado.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">pwd e cd</span></h1>
+
+<p class="intro">No terminal você está sempre "dentro" de alguma pasta, chamada <strong>pasta atual</strong> ou diretório de trabalho. O <code>pwd</code> diz qual é. O <code>cd</code> muda de pasta. Com esses dois, você anda pela <a href="estrutura-diretorios.html">árvore de diretórios</a> como faz com o mouse no app Arquivos.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Descobrir onde você está, pelo prompt e pelo <code>pwd</code>.</li>
+  <li>Entrar numa pasta, voltar um nível, ir para a pasta pessoal e para a raiz.</li>
+  <li>Alternar entre duas pastas com <code>cd -</code> e guardar caminhos com <code>pushd</code>/<code>popd</code>.</li>
+  <li>Entender as mensagens de erro do <code>cd</code>.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>A ideia: o terminal está sempre em algum lugar</h2>
+<p>Quando você abre o terminal, ele começa na sua pasta pessoal, <code>/home/ana</code>. Todo caminho relativo que você digitar (veja <a href="caminhos.html">Caminhos</a>) parte dessa pasta. Mudar de pasta muda o ponto de partida.</p>
+
+<p>O próprio prompt mostra a pasta atual, entre os dois-pontos e o <code>$</code>:</p>
+
+<pre class="term">$ cd Documentos
+$ cd projetos
+$ cd /etc</pre>
+
+<p>Observe como o prompt muda a cada linha: <code>~</code>, depois <code>~/Documentos</code>, depois <code>~/Documentos/projetos</code>, e por fim <code>/etc</code>. O <code>cd</code> não mostra nada quando dá certo; a "resposta" é o prompt novo.</p>
+
+<hr>
+
+<h2>pwd: onde estou?</h2>
+<p><code>pwd</code> vem de <em>print working directory</em>, "mostrar o diretório de trabalho". O prompt abrevia a pasta pessoal como <code>~</code>; o <code>pwd</code> mostra o caminho absoluto completo.</p>
+
+<dl class="anatomy">
+  <dt>pwd</dt><dd>Mostra o caminho absoluto da pasta atual. Não precisa de argumentos.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/Documentos/projetos">$ pwd
+/home/ana/Documentos/projetos</pre>
+
+<h3>O caminho "de verdade": <code>pwd -P</code></h3>
+<p>Algumas pastas são atalhos (links) para outras. No Ubuntu, <code>/bin</code> é um atalho para <code>/usr/bin</code>. O <code>pwd</code> mostra o caminho por onde você entrou; com <code>-P</code> (de <em>physical</em>, "físico"), mostra onde você realmente está:</p>
+
+<pre class="term" data-cwd="/bin">$ pwd
+/bin
+$ pwd -P
+/usr/bin           « /bin é só um atalho para /usr/bin</pre>
+
+<hr>
+
+<h2>cd: mudar de pasta</h2>
+<p><code>cd</code> vem de <em>change directory</em>, "mudar de diretório". Ele recebe um caminho, absoluto ou relativo.</p>
+
+<dl class="anatomy">
+  <dt>cd</dt><dd>O comando. Ele faz parte do próprio shell (bash), não é um programa separado.</dd>
+  <dt>Documentos</dt><dd>Para onde ir. Aqui, um caminho relativo: a pasta Documentos dentro da atual.</dd>
+</dl>
+
+<pre class="term">$ pwd
+/home/ana
+$ cd Documentos
+$ pwd
+/home/ana/Documentos
+$ ls
+acesso.log  notas.txt  projetos  relatorio.odt</pre>
+
+<h3>Os destinos mais usados</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Vai para</th></tr>
+<tr><td><code>cd pasta</code></td><td>Uma pasta dentro da atual</td></tr>
+<tr><td><code>cd ..</code></td><td>Um nível acima</td></tr>
+<tr><td><code>cd ../..</code></td><td>Dois níveis acima</td></tr>
+<tr><td><code>cd</code> ou <code>cd ~</code></td><td>Sua pasta pessoal</td></tr>
+<tr><td><code>cd /</code></td><td>A raiz</td></tr>
+<tr><td><code>cd -</code></td><td>A pasta onde você estava antes</td></tr>
+<tr><td><code>cd /caminho/absoluto</code></td><td>Direto para qualquer lugar</td></tr>
+</table>
+</div>
+
+<h3>Subir e descer</h3>
+<pre class="term">$ cd Documentos/projetos/site
+$ pwd
+/home/ana/Documentos/projetos/site
+$ cd ..
+$ pwd
+/home/ana/Documentos/projetos
+$ cd ../..
+$ pwd
+/home/ana</pre>
+
+<p>Você pode descer vários níveis num comando só (<code>cd Documentos/projetos/site</code>) em vez de três <code>cd</code> separados.</p>
+
+<h3>Voltar para casa</h3>
+<p>Esteja onde estiver, <code>cd</code> sozinho leva para a pasta pessoal. É a forma mais rápida de "se achar" quando você se perdeu.</p>
+
+<pre class="term" data-cwd="/etc/apt/sources.list.d">$ cd
+$ pwd
+/home/ana</pre>
+
+<div class="try" data-goal="cwd:~/Documentos/projetos/site">
+<p class="try-task"><strong>Missão:</strong> chegue em <code>~/Documentos/projetos/site</code>. Depois volte para casa com um único comando e entre de novo, desta vez com um só <code>cd</code>. Termine dentro de <code>site</code>.</p>
+</div>
+
+<hr>
+
+<h2>Alternar entre duas pastas: <code>cd -</code></h2>
+<p>O hífen significa "a pasta anterior". O <code>cd -</code> volta para lá e mostra o caminho. Repetir <code>cd -</code> alterna entre as duas, como o "voltar" do navegador.</p>
+
+<pre class="term">$ cd /var/log
+$ cd ~/Documentos
+$ cd -
+/var/log
+$ cd -
+/home/ana/Documentos</pre>
+
+<p>É útil quando você edita uma configuração em <code>/etc</code> e confere o log em <code>/var/log</code>, indo e voltando.</p>
+
+<hr>
+
+<h2>Uma pilha de pastas: <code>pushd</code> e <code>popd</code></h2>
+<p>O <code>cd -</code> lembra só uma pasta. Para lembrar várias, use a <strong>pilha de diretórios</strong>. <code>pushd</code> ("empurre") entra numa pasta e guarda a atual na pilha. <code>popd</code> ("tire") volta para a última guardada.</p>
+
+<dl class="anatomy">
+  <dt>pushd</dt><dd>Guarda a pasta atual na pilha e entra na pasta indicada.</dd>
+  <dt>/etc</dt><dd>Para onde ir.</dd>
+</dl>
+
+<pre class="term">$ pushd /etc
+/etc ~                 « a pilha: estou em /etc, e ~ está guardada
+$ pushd /tmp
+/tmp /etc ~
+$ popd
+/etc ~                 « voltei para /etc
+$ popd
+~                      « e para casa</pre>
+
+<p>A linha que eles mostram é a pilha, da esquerda (pasta atual) para a direita. <code>dirs -v</code> mostra a pilha numerada.</p>
+
+<hr>
+
+<h2>Formas diferentes de chegar ao mesmo lugar</h2>
+<p>Estando em <code>/home/ana/Documentos/projetos</code>, todos estes levam a <code>/home/ana/Downloads</code>:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Como pensa</th><th>Quando é melhor</th></tr>
+<tr><td><code>cd ~/Downloads</code></td><td>A partir da pasta pessoal</td><td>Quase sempre. Funciona de qualquer lugar.</td></tr>
+<tr><td><code>cd /home/ana/Downloads</code></td><td>Endereço completo</td><td>Em scripts e documentação.</td></tr>
+<tr><td><code>cd ../../Downloads</code></td><td>Sobe dois níveis e desce</td><td>Quando o destino é "vizinho".</td></tr>
+<tr><td><code>cd</code> e depois <code>cd Downloads</code></td><td>Passa por casa</td><td>Quando você se perdeu.</td></tr>
+<tr><td><code>cd Dow</code> + <kbd>Tab</kbd></td><td>Deixa o terminal completar</td><td>Sempre que der: evita erros.</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Abrir o terminal numa pasta pelo app Arquivos</strong>
+<p>No app Arquivos, clique com o botão direito numa área vazia da pasta e escolha <strong>Abrir no terminal</strong>. O terminal abre já dentro dela.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Arquivo ou diretório inexistente"</strong>
+<pre class="term">$ cd documentos
+bash: cd: documentos: Arquivo ou diretório inexistente</pre>
+<p><strong>O que aconteceu:</strong> não existe uma pasta com esse nome exato na pasta atual. Pode ser maiúscula/minúscula, erro de digitação, ou você está em outra pasta.</p>
+<p><strong>Como confirmar:</strong> <code>pwd</code> para ver onde você está e <code>ls</code> para ver o que existe ali.</p>
+<p><strong>Como resolver:</strong> use o <kbd>Tab</kbd> para completar o nome.</p>
+</div>
+
+<div class="cenario">
+<strong>"Não é um diretório"</strong>
+<pre class="term">$ cd frutas.txt
+bash: cd: frutas.txt: Não é um diretório</pre>
+<p><strong>O que aconteceu:</strong> <code>frutas.txt</code> é um arquivo. Só dá para "entrar" em pastas.</p>
+<p><strong>Como resolver:</strong> para ver o conteúdo do arquivo, use <code>cat frutas.txt</code> (veja <a href="ver-arquivos.html">cat, less, head, tail</a>).</p>
+</div>
+
+<div class="cenario">
+<strong>"Permissão negada"</strong>
+<pre class="term">$ cd /root
+bash: cd: /root: Permissão negada</pre>
+<p><strong>O que aconteceu:</strong> sua conta não tem permissão de entrar nessa pasta.</p>
+<p><strong>Como resolver:</strong> <code>sudo cd</code> <strong>não funciona</strong>, porque o <code>cd</code> faz parte do shell, e não é um programa que o <code>sudo</code> possa executar. Se precisar trabalhar como administrador, use <code>sudo -i</code> e depois <code>exit</code> (veja <a href="sudo.html">sudo</a>).</p>
+</div>
+
+<div class="cenario">
+<strong>"número excessivo de argumentos"</strong>
+<pre class="term">$ cd Área de trabalho
+bash: cd: número excessivo de argumentos</pre>
+<p><strong>O que aconteceu:</strong> o espaço separou o nome em três argumentos, e o <code>cd</code> aceita só um.</p>
+<p><strong>Como resolver:</strong> <code>cd "Área de trabalho"</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"OLDPWD não definida"</strong>
+<pre class="term">$ cd -
+bash: cd: OLDPWD não definida</pre>
+<p><strong>O que aconteceu:</strong> você ainda não mudou de pasta neste terminal, então não existe "pasta anterior".</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Descrição</th></tr>
+<tr><td><code>pwd</code></td><td>Mostra a pasta atual (caminho lógico)</td></tr>
+<tr><td><code>pwd -P</code></td><td>Mostra o caminho físico, resolvendo links</td></tr>
+<tr><td><code>cd caminho</code></td><td>Vai para o caminho</td></tr>
+<tr><td><code>cd</code> / <code>cd ~</code></td><td>Vai para a pasta pessoal</td></tr>
+<tr><td><code>cd ..</code></td><td>Sobe um nível</td></tr>
+<tr><td><code>cd -</code></td><td>Volta para a pasta anterior</td></tr>
+<tr><td><code>cd -P caminho</code></td><td>Entra resolvendo links</td></tr>
+<tr><td><code>pushd caminho</code></td><td>Guarda a pasta atual e entra no caminho</td></tr>
+<tr><td><code>popd</code></td><td>Volta para a última pasta guardada</td></tr>
+<tr><td><code>dirs -v</code></td><td>Mostra a pilha de pastas numerada</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Onde estou?</h3>
+<p>Qual comando mostra o caminho completo da pasta atual?</p>
+<div class="ex-code"><input data-answer="pwd" aria-label="comando"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Para casa</h3>
+<p>Complete para ir para a pasta pessoal usando o til:</p>
+<div class="ex-code">cd <input data-answer="~|~/" aria-label="destino"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Ida e volta</h3>
+<p>Complete para voltar à pasta em que você estava antes:</p>
+<div class="ex-code">cd <input data-answer="-" aria-label="destino"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Você está em <code>/home/ana/Documentos/projetos</code> e roda <code>cd ..</code>. Onde vai parar?</p>
+<label><input type="radio" name="q4"> <code>/home/ana</code></label>
+<label><input type="radio" name="q4"> <code>/home/ana/Documentos</code></label>
+<label><input type="radio" name="q4"> <code>/</code></label>
+<label><input type="radio" name="q4"> <code>/home/ana/Documentos/projetos/..</code>, uma pasta nova</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Por que <code>sudo cd /root</code> não funciona?</p>
+<label><input type="radio" name="q5"> Porque o <code>sudo</code> não aceita caminhos.</label>
+<label><input type="radio" name="q5"> Porque <code>/root</code> não existe.</label>
+<label><input type="radio" name="q5"> Porque <code>cd</code> é um comando interno do shell, não um programa separado.</label>
+<label><input type="radio" name="q5"> Porque falta a opção <code>-r</code>.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>O prompt mostra a pasta atual; <code>pwd</code> mostra o caminho completo.</li>
+  <li><code>cd pasta</code> entra, <code>cd ..</code> sobe, <code>cd</code> volta para casa, <code>cd -</code> alterna.</li>
+  <li><code>cd</code> não mostra nada quando dá certo: confira pelo prompt.</li>
+  <li><code>pushd</code>/<code>popd</code> guardam e recuperam várias pastas.</li>
+  <li>Para pastas do root, <code>sudo cd</code> não serve; use <code>sudo -i</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu systemctl — gerenciar serviços do systemd | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a ler o systemctl status linha por linha, iniciar, parar, reiniciar, habilitar e desabilitar serviços no Ubuntu, listar serviços com falha e usar os códigos de saída em scripts.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">systemctl</span></h1>
+
+<p class="intro">Um <strong>serviço</strong> é um programa que roda o tempo todo em segundo plano, sem janela: o servidor SSH, o agendador de tarefas, o servidor web. Quem liga, desliga e vigia esses serviços no Ubuntu é o <strong>systemd</strong>, e você conversa com ele pelo comando <code>systemctl</code>.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que são systemd, units e serviços.</li>
+  <li>Ler o <code>systemctl status</code> linha por linha.</li>
+  <li>A diferença entre <code>start</code> (agora) e <code>enable</code> (no próximo boot).</li>
+  <li>Listar serviços rodando e com falha.</li>
+  <li>Usar <code>is-active</code> e os códigos de saída em scripts.</li>
+  <li>Resolver "could not be found", "changed on disk" e serviços que não sobem.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes do comando: systemd e units</h2>
+<p>Quando o computador liga, o kernel inicia <strong>um</strong> programa: o <strong>systemd</strong>. Ele é o processo número 1 (PID 1) e é responsável por iniciar todo o resto, na ordem certa: rede, som, login, serviços. Depois, continua vigiando: se um serviço cai, ele pode reiniciá-lo.</p>
+
+<p>Cada coisa que o systemd gerencia é uma <strong>unit</strong> ("unidade"), descrita num arquivo de texto. O tipo aparece no fim do nome:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tipo</th><th>O que é</th><th>Exemplo</th></tr>
+<tr><td><code>.service</code></td><td>Um programa (serviço)</td><td><code>ssh.service</code>, <code>cron.service</code></td></tr>
+<tr><td><code>.timer</code></td><td>Um agendamento, como o cron</td><td><code>apt-daily.timer</code></td></tr>
+<tr><td><code>.socket</code></td><td>Uma porta que liga o serviço quando alguém conecta</td><td><code>ssh.socket</code></td></tr>
+<tr><td><code>.mount</code></td><td>Um disco montado</td><td><code>home.mount</code></td></tr>
+<tr><td><code>.target</code></td><td>Um grupo de units, como um "estágio" do boot</td><td><code>multi-user.target</code>, <code>graphical.target</code></td></tr>
+</table>
+</div>
+
+<p>Quando você omite o tipo, o <code>systemctl</code> assume <code>.service</code>: <code>systemctl status cron</code> é o mesmo que <code>systemctl status cron.service</code>.</p>
+
+<div class="note">
+<strong>"Daemon"</strong>
+<p>Programas de serviço são chamados de <strong>daemons</strong>, e muitos têm nome terminado em <code>d</code>: <code>sshd</code>, <code>systemd</code>, <code>journald</code>. Veja o <a href="glossario.html">Glossário</a>.</p>
+</div>
+
+<hr>
+
+<h2>Ver o estado de um serviço: <code>status</code></h2>
+
+<dl class="anatomy">
+  <dt>systemctl</dt><dd>O programa que conversa com o systemd.</dd>
+  <dt>status</dt><dd>A ação: mostrar o estado. Não precisa de <code>sudo</code>.</dd>
+  <dt>cron</dt><dd>O serviço (o agendador de tarefas, que vem em todo Ubuntu).</dd>
+</dl>
+
+<pre class="term">$ systemctl status cron
+● cron.service - Regular background program processing daemon         « bolinha verde = rodando
+     Loaded: loaded (/usr/lib/systemd/system/cron.service; enabled; preset: enabled)
+     Active: active (running) since Thu 2026-10-15 08:00:07 -03; 2h 30min ago
+ Invocation: 3621e95c278e44258095379b22b5828b
+       Docs: man:cron(8)
+   Main PID: 1961 (cron)
+      Tasks: 1 (limit: 18339)
+     Memory: 524K (peak: 2.8M)
+        CPU: 44ms
+     CGroup: /system.slice/cron.service
+             └─1961 /usr/sbin/cron -f -P
+
+out 15 08:00:07 notebook systemd[1]: Started cron.service - Regular background program processing daemon.
+out 15 08:00:07 notebook cron[1961]: (CRON) INFO (pidfile fd = 3)
+out 15 10:17:01 notebook CRON[32051]: (root) CMD (cd / &amp;&amp; run-parts --report /etc/cron.hourly)</pre>
+
+<p>A saída é longa, mas cada linha responde uma pergunta:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Linha</th><th>Pergunta que responde</th><th>No exemplo</th></tr>
+<tr><td>Primeira linha</td><td>Que serviço é este?</td><td>O cron, com a descrição em inglês</td></tr>
+<tr><td><code>Loaded</code></td><td>Onde está o arquivo da unit? Liga sozinho no boot?</td><td>Arquivo em <code>/usr/lib/systemd/system/</code>; <code>enabled</code> = liga no boot</td></tr>
+<tr><td><code>Active</code></td><td>Está rodando agora? Desde quando?</td><td><code>active (running)</code> há 2h30</td></tr>
+<tr><td><code>Main PID</code></td><td>Qual é o processo principal?</td><td>PID 1961</td></tr>
+<tr><td><code>Tasks</code>, <code>Memory</code>, <code>CPU</code></td><td>Quanto recurso está usando?</td><td>1 tarefa, 524 KB de memória, 44 ms de CPU no total</td></tr>
+<tr><td><code>CGroup</code></td><td>Quais processos pertencem ao serviço?</td><td>Só o <code>/usr/sbin/cron</code></td></tr>
+<tr><td>Últimas linhas</td><td>O que o serviço registrou por último?</td><td>As 10 últimas linhas do log (veja <a href="journalctl.html">journalctl</a>)</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>A saída parou e não volta o prompt?</strong>
+<p>Quando a saída é maior que a tela, o <code>systemctl</code> abre um paginador (o <code>less</code>). Aperte <kbd>Q</kbd> para sair. Para não abrir o paginador, use <code>--no-pager</code>: <code>systemctl status cron --no-pager</code>.</p>
+</div>
+
+<h3>Os estados possíveis</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Símbolo</th><th>Active</th><th>Significado</th></tr>
+<tr><td>● verde</td><td><code>active (running)</code></td><td>Rodando normalmente</td></tr>
+<tr><td>● verde</td><td><code>active (exited)</code></td><td>Rodou uma vez e terminou com sucesso (normal para tarefas de configuração)</td></tr>
+<tr><td>●</td><td><code>activating</code></td><td>Está ligando</td></tr>
+<tr><td>○ branco</td><td><code>inactive (dead)</code></td><td>Parado</td></tr>
+<tr><td>× vermelho</td><td><code>failed</code></td><td>Tentou rodar e deu erro</td></tr>
+</table>
+</div>
+
+<p>Um serviço com falha fica assim (repare no <code>×</code> e no código de saída do processo):</p>
+
+<pre class="term">$ systemctl status meuapp
+× meuapp.service - Meu aplicativo
+     Loaded: loaded (/etc/systemd/system/meuapp.service; enabled; preset: enabled)
+     Active: failed (Result: exit-code) since Thu 2026-10-15 10:14:22 -03; 1min ago   « falhou
+   Duration: 19ms
+    Process: 5210 ExecStart=/usr/local/bin/meuapp (code=exited, status=2)             « saiu com erro 2
+   Main PID: 5210 (code=exited, status=2)
+        CPU: 10ms</pre>
+
+<p>O <code>status</code> diz <strong>que</strong> falhou. Para descobrir <strong>por quê</strong>, leia o log com <code>journalctl -u meuapp</code>. A página <a href="journalctl.html">Logs (journalctl)</a> mostra a investigação completa.</p>
+
+<hr>
+
+<h2>Ligar, desligar e reiniciar</h2>
+<p>Estas ações mudam o sistema, então precisam de <code>sudo</code>.</p>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Como administrador.</dd>
+  <dt>systemctl</dt><dd>O programa.</dd>
+  <dt>restart</dt><dd>A ação: parar e iniciar de novo.</dd>
+  <dt>ssh</dt><dd>O serviço.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo systemctl restart ssh
+[sudo: authenticate] Senha:
+$ systemctl is-active ssh
+active</pre>
+
+<p>Como quase todo comando, o <code>systemctl restart</code> não mostra nada quando dá certo. Por isso conferimos com <code>is-active</code>.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Ação</th><th>O que faz</th><th>Quando usar</th></tr>
+<tr><td><code>start</code></td><td>Inicia</td><td>O serviço está parado</td></tr>
+<tr><td><code>stop</code></td><td>Para</td><td>Você quer desligar agora</td></tr>
+<tr><td><code>restart</code></td><td>Para e inicia</td><td>Depois de mudar a configuração</td></tr>
+<tr><td><code>reload</code></td><td>Relê a configuração sem parar</td><td>Serviços que suportam (nginx, ssh); não derruba conexões</td></tr>
+<tr><td><code>reload-or-restart</code></td><td><code>reload</code> se der, senão <code>restart</code></td><td>Quando você não sabe se o serviço suporta reload</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Esqueceu o sudo?</strong>
+<p>No desktop, aparece uma janela pedindo a senha (é o <strong>polkit</strong>, que autoriza ações de administrador). Num terminal por SSH, ele pergunta a senha ali mesmo. Funciona, mas o hábito correto é usar <code>sudo</code>.</p>
+</div>
+
+<hr>
+
+<h2>Ligar no boot: <code>enable</code> e <code>disable</code></h2>
+<p>Esta é a confusão mais comum com o systemd: <strong><code>start</code> liga agora</strong>, <strong><code>enable</code> liga nos próximos boots</strong>. São coisas independentes.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Agora</th><th>Depois de reiniciar</th></tr>
+<tr><td><code>start</code></td><td>Rodando</td><td>Parado (não volta)</td></tr>
+<tr><td><code>enable</code></td><td>Não muda nada</td><td>Liga sozinho</td></tr>
+<tr><td><code>enable --now</code></td><td>Rodando</td><td>Liga sozinho</td></tr>
+<tr><td><code>disable</code></td><td>Não muda nada</td><td>Não liga</td></tr>
+<tr><td><code>disable --now</code></td><td>Para</td><td>Não liga</td></tr>
+</table>
+</div>
+
+<dl class="anatomy">
+  <dt>sudo systemctl</dt><dd>Como administrador.</dd>
+  <dt>enable</dt><dd>Habilita no boot.</dd>
+  <dt>--now</dt><dd>E também inicia agora.</dd>
+  <dt>nginx</dt><dd>O serviço.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo systemctl enable --now nginx
+Synchronizing state of nginx.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.
+Executing: /usr/lib/systemd/systemd-sysv-install enable nginx
+Created symlink '/etc/systemd/system/multi-user.target.wants/nginx.service' → '/usr/lib/systemd/system/nginx.service'.
+$ systemctl is-enabled nginx
+enabled</pre>
+
+<p>O <code>enable</code> cria um <strong>link</strong> dentro de <code>multi-user.target.wants</code>. É assim que o systemd sabe o que ligar no boot: tudo que o estágio <code>multi-user.target</code> "quer" (<em>wants</em>). As linhas "SysV" aparecem em serviços que também têm um script antigo de inicialização; podem ser ignoradas.</p>
+
+<h3>Proibir de vez: <code>mask</code></h3>
+<p><code>disable</code> só tira do boot: outro programa ainda pode ligar o serviço. <code>mask</code> impede que ele seja ligado de qualquer forma, até você rodar <code>unmask</code>:</p>
+
+<pre class="term">$ sudo systemctl mask cups
+Created symlink '/etc/systemd/system/cups.service' → '/dev/null'.
+$ sudo systemctl start cups
+Failed to start cups.service: Unit cups.service is masked.
+$ sudo systemctl unmask cups</pre>
+
+<hr>
+
+<h2>O que o comando devolve: perguntas para scripts</h2>
+<p>Três ações respondem com uma palavra e um código de saída, perfeitas para scripts:</p>
+
+<pre class="term">$ systemctl is-active cron
+active
+$ echo $?
+0                                   « 0 = sim, está ativo
+$ systemctl is-active cups
+inactive
+$ echo $?
+3                                   « diferente de 0 = não
+$ systemctl is-enabled cron
+enabled
+$ systemctl is-failed meuapp
+failed</pre>
+
+<p>Num script, use direto no <code>if</code>, sem imprimir nada (<code>--quiet</code>):</p>
+
+<pre class="file" data-file="verifica.sh">#!/usr/bin/env bash
+if ! systemctl is-active --quiet nginx; then
+    echo "nginx caiu! Reiniciando..."
+    sudo systemctl restart nginx
+fi</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Código de <code>systemctl status</code></th><th>Significado</th></tr>
+<tr><td><code>0</code></td><td>Ativo</td></tr>
+<tr><td><code>3</code></td><td>Parado ou com falha</td></tr>
+<tr><td><code>4</code></td><td>A unit não existe</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Listar serviços</h2>
+
+<h3>Os que estão rodando</h3>
+<dl class="anatomy">
+  <dt>systemctl list-units</dt><dd>Lista as units carregadas.</dd>
+  <dt>--type=service</dt><dd>Só serviços.</dd>
+  <dt>--state=running</dt><dd>Só os que estão rodando.</dd>
+</dl>
+
+<pre class="term">$ systemctl list-units --type=service --state=running
+  UNIT                               LOAD   ACTIVE SUB     DESCRIPTION
+  accounts-daemon.service            loaded active running Accounts Service
+  avahi-daemon.service               loaded active running Avahi mDNS/DNS-SD Stack
+  cron.service                       loaded active running Regular background program processing daemon
+  cups.service                       loaded active running CUPS Scheduler
+  dbus.service                       loaded active running D-Bus System Message Bus
+  …</pre>
+
+<h3>Os que falharam</h3>
+<p>Comece por aqui quando "algo está estranho" no sistema:</p>
+<pre class="term">$ systemctl --failed
+  UNIT            LOAD   ACTIVE SUB    DESCRIPTION
+● vboxdrv.service loaded failed failed VirtualBox Linux kernel module     « algo para investigar
+
+Legend: LOAD   → Reflects whether the unit definition was properly loaded.
+        ACTIVE → The high-level unit activation state, i.e. generalization of SUB.
+        SUB    → The low-level unit activation state, values depend on unit type.
+
+1 loaded units listed.</pre>
+
+<p>Nenhuma falha? Ele mostra <code>0 loaded units listed.</code></p>
+
+<h3>Os que ligam no boot</h3>
+<pre class="term">$ systemctl list-unit-files --type=service --state=enabled</pre>
+
+<h3>Os agendamentos (timers)</h3>
+<pre class="term">$ systemctl list-timers
+NEXT                            LEFT LAST                          PASSED UNIT                ACTIVATES
+Thu 2026-10-15 10:43:21 -03    13min Thu 2026-10-15 09:35:43 -03  54min ago fwupd-refresh.timer fwupd-refresh.service
+Thu 2026-10-15 10:59:27 -03    29min Tue 2026-10-13 12:34:43 -03        - motd-news.timer     motd-news.service</pre>
+
+<hr>
+
+<h2>Ver e ajustar o arquivo de um serviço</h2>
+
+<h3>Ler: <code>cat</code></h3>
+<pre class="term">$ systemctl cat cron
+# /usr/lib/systemd/system/cron.service
+[Unit]
+Description=Regular background program processing daemon
+Documentation=man:cron(8)
+After=remote-fs.target nss-user-lookup.target
+
+[Service]
+EnvironmentFile=-/etc/default/cron
+ExecStart=/usr/sbin/cron -f -P $EXTRA_OPTS
+IgnoreSIGPIPE=false
+KillMode=process
+Restart=on-failure
+SyslogFacility=cron
+
+[Install]
+WantedBy=multi-user.target</pre>
+
+<p>A página <a href="criar-servico.html">Criar um Serviço</a> explica cada linha.</p>
+
+<h3>Ajustar sem mexer no original: <code>edit</code></h3>
+<p>Nunca edite os arquivos em <code>/usr/lib/systemd/system/</code>: uma atualização do pacote apaga sua mudança. O <code>systemctl edit</code> cria um arquivo de "ajuste" (<em>override</em>) separado, em <code>/etc/systemd/system/cron.service.d/override.conf</code>:</p>
+
+<pre class="term">$ sudo systemctl edit cron</pre>
+
+<p>Abre um editor; escreva só o que quer mudar, entre as linhas de comentário indicadas, por exemplo:</p>
+<pre class="file" data-file="override.conf">[Service]
+Restart=always
+RestartSec=5</pre>
+<p>Ao salvar, o systemd recarrega a configuração sozinho. Depois, reinicie o serviço.</p>
+
+<h3>Mudou um arquivo à mão? <code>daemon-reload</code></h3>
+<p>Se você editou ou criou um arquivo <code>.service</code> diretamente, avise o systemd:</p>
+<pre class="term">$ sudo systemctl daemon-reload</pre>
+
+<hr>
+
+<h2>Formas diferentes de fazer</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Observação</th></tr>
+<tr><td><code>systemctl</code></td><td><code>sudo systemctl restart ssh</code></td><td>A forma atual e completa</td></tr>
+<tr><td><code>service</code></td><td><code>sudo service ssh restart</code></td><td>Comando antigo, ainda funciona; repare na ordem invertida</td></tr>
+<tr><td>Interface gráfica</td><td>—</td><td>O Ubuntu não traz uma tela de serviços; o terminal é o caminho</td></tr>
+<tr><td>Serviços do usuário</td><td><code>systemctl --user status</code></td><td>Serviços que rodam como você, sem sudo (ex.: o som, <code>pipewire</code>)</td></tr>
+</table>
+</div>
+
+<h3>Desligar e reiniciar a máquina</h3>
+<pre class="term">$ systemctl reboot        # reiniciar
+$ systemctl poweroff      # desligar
+$ systemctl suspend       # suspender</pre>
+<p>No desktop, com você logado, não pedem senha. Num servidor por SSH, use <code>sudo</code>.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"could not be found"</strong>
+<pre class="term">$ systemctl status apache
+Unit apache.service could not be found.
+$ echo $?
+4</pre>
+<p><strong>O que aconteceu:</strong> não existe serviço com esse nome. O nome pode ser diferente do programa: no Ubuntu, o Apache é <code>apache2</code> e o SSH é <code>ssh</code> (não <code>sshd</code>).</p>
+<p><strong>Como resolver:</strong> procure o nome certo:</p>
+<pre class="term">$ systemctl list-unit-files | grep -i apache
+apache2.service                              enabled         enabled</pre>
+</div>
+
+<div class="cenario">
+<strong>"changed on disk"</strong>
+<pre class="term">$ sudo systemctl restart meuapp
+Warning: The unit file, source configuration file or drop-ins of meuapp.service changed on disk. Run 'systemctl daemon-reload' to reload units.</pre>
+<p><strong>O que aconteceu:</strong> você editou o arquivo do serviço, mas o systemd ainda está usando a versão antiga.</p>
+<p><strong>Como resolver:</strong> <code>sudo systemctl daemon-reload</code> e depois <code>sudo systemctl restart meuapp</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O serviço não sobe (failed)</strong>
+<pre class="term">$ sudo systemctl start meuapp
+Job for meuapp.service failed because the control process exited with error code.
+See "systemctl status meuapp.service" and "journalctl -xeu meuapp.service" for details.</pre>
+<p><strong>O que aconteceu:</strong> o programa iniciou e saiu com erro. A causa está no log.</p>
+<p><strong>Como resolver:</strong> faça o que a própria mensagem sugere: <code>journalctl -xeu meuapp</code>. As causas mais comuns são erro no arquivo de configuração, porta já em uso e caminho errado no <code>ExecStart</code>. Siga o roteiro completo em <a href="journalctl.html">Logs (journalctl)</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>Liguei o serviço, reiniciei e ele não voltou</strong>
+<p><strong>O que aconteceu:</strong> você usou <code>start</code>, mas não <code>enable</code>.</p>
+<p><strong>Como resolver:</strong> <code>sudo systemctl enable nome</code>. Confira com <code>systemctl is-enabled nome</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>sudo?</th></tr>
+<tr><td><code>systemctl status nome</code></td><td>Estado detalhado + últimas linhas do log</td><td>Não</td></tr>
+<tr><td><code>systemctl start | stop | restart nome</code></td><td>Liga, para, reinicia</td><td>Sim</td></tr>
+<tr><td><code>systemctl reload nome</code></td><td>Relê a configuração sem parar</td><td>Sim</td></tr>
+<tr><td><code>systemctl enable | disable [--now] nome</code></td><td>Liga/desliga no boot (e agora, com <code>--now</code>)</td><td>Sim</td></tr>
+<tr><td><code>systemctl mask | unmask nome</code></td><td>Proíbe/libera totalmente</td><td>Sim</td></tr>
+<tr><td><code>systemctl is-active | is-enabled | is-failed nome</code></td><td>Responde com uma palavra e código de saída</td><td>Não</td></tr>
+<tr><td><code>systemctl list-units --type=service --state=running</code></td><td>Serviços rodando</td><td>Não</td></tr>
+<tr><td><code>systemctl --failed</code></td><td>Units com falha</td><td>Não</td></tr>
+<tr><td><code>systemctl list-unit-files --state=enabled</code></td><td>O que liga no boot</td><td>Não</td></tr>
+<tr><td><code>systemctl list-timers</code></td><td>Agendamentos</td><td>Não</td></tr>
+<tr><td><code>systemctl cat nome</code></td><td>Mostra o arquivo da unit</td><td>Não</td></tr>
+<tr><td><code>systemctl edit nome</code></td><td>Cria um ajuste (override)</td><td>Sim</td></tr>
+<tr><td><code>systemctl daemon-reload</code></td><td>Relê os arquivos de unit</td><td>Sim</td></tr>
+<tr><td><code>--no-pager</code></td><td>Não abre o paginador</td><td>—</td></tr>
+<tr><td><code>--user</code></td><td>Serviços do usuário</td><td>Não</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Ligar agora e no boot</h3>
+<p>Complete para iniciar o <code>ssh</code> agora <strong>e</strong> fazê-lo ligar em todo boot, num comando só:</p>
+<div class="ex-code">sudo systemctl enable <input data-answer="--now" aria-label="opção"> ssh</div>
+</div>
+
+<div class="exercise">
+<h3>2. Algo falhou?</h3>
+<p>Complete para listar todas as units com falha:</p>
+<div class="ex-code">systemctl <input data-answer="--failed|list-units --failed|list-units --state=failed" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Editei o arquivo do serviço</h3>
+<p>Você mudou <code>/etc/systemd/system/meuapp.service</code> à mão. Complete o comando que faz o systemd reler os arquivos:</p>
+<div class="ex-code">sudo systemctl <input data-answer="daemon-reload" aria-label="ação"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Você rodou <code>sudo systemctl start nginx</code> e reiniciou o servidor. O nginx está rodando?</p>
+<label><input type="radio" name="q4"> Sim, o start vale para sempre.</label>
+<label><input type="radio" name="q4"> Só se ele estiver <code>enabled</code>; o start vale só até desligar.</label>
+<label><input type="radio" name="q4"> Não, o systemd desliga todos os serviços no boot.</label>
+<label><input type="radio" name="q4"> Só se você rodar <code>daemon-reload</code>.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. No <code>systemctl status</code>, o que significa <code>Active: failed (Result: exit-code)</code>?</p>
+<label><input type="radio" name="q5"> O serviço está rodando normalmente.</label>
+<label><input type="radio" name="q5"> O serviço foi desabilitado no boot.</label>
+<label><input type="radio" name="q5"> O arquivo da unit não existe.</label>
+<label><input type="radio" name="q5"> O programa iniciou e saiu com um código de erro.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>systemd é o PID 1: inicia e vigia os serviços. Você fala com ele pelo <code>systemctl</code>.</li>
+  <li><code>status</code> mostra tudo: se liga no boot (<code>Loaded</code>), se está rodando (<code>Active</code>), o PID e o log recente.</li>
+  <li><code>start</code>/<code>stop</code>/<code>restart</code> valem agora; <code>enable</code>/<code>disable</code> valem para o boot; <code>--now</code> faz os dois.</li>
+  <li><code>is-active</code>, <code>is-enabled</code> e <code>is-failed</code> devolvem códigos para scripts.</li>
+  <li>Falhou? <code>systemctl --failed</code> e <code>journalctl -xeu nome</code>. Editou o arquivo? <code>daemon-reload</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

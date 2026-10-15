@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Variáveis e Argumentos — shell script | Guia Ubuntu</title>
+<meta name="description" content="Aprenda variáveis em shell script no Ubuntu: criar e ler, aspas simples e duplas, $(comando), contas, read, argumentos $1 $# $@, valores padrão e manipulação de texto, com cada parte explicada.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Variáveis e Argumentos</span></h1>
+
+<p class="intro">Uma <strong>variável</strong> é um nome que guarda um valor: um texto, um número, o resultado de um comando. Com variáveis, um script deixa de fazer sempre a mesma coisa e passa a se adaptar: ao usuário, à data de hoje, ao arquivo que você passou na linha de comando.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Criar e ler variáveis, e a regra de ouro: sem espaços em volta do <code>=</code>.</li>
+  <li>A diferença entre aspas simples, duplas e nenhuma aspa.</li>
+  <li>Guardar a saída de um comando com <code>$( )</code> e fazer contas com <code>$(( ))</code>.</li>
+  <li>Ler o que o usuário digita (<code>read</code>) e os argumentos do script (<code>$1</code>, <code>$#</code>, <code>$@</code>).</li>
+  <li>Valores padrão e recortes de texto: tirar extensão, pegar o nome do arquivo.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Criar e ler uma variável</h2>
+
+<dl class="anatomy">
+  <dt>nome</dt><dd>O nome da variável. Use letras, números e <code>_</code>; não pode começar com número.</dd>
+  <dt>=</dt><dd>Atribui o valor. <strong>Sem espaços</strong> antes nem depois.</dd>
+  <dt>"Ana Maria"</dt><dd>O valor. As aspas são necessárias porque ele tem espaço.</dd>
+</dl>
+
+<pre class="term">$ nome="Ana Maria"
+$ echo $nome
+Ana Maria
+$ echo "Olá, $nome!"
+Olá, Ana Maria!</pre>
+
+<p>Para <strong>ler</strong> a variável, coloque <code>$</code> antes do nome. O bash troca <code>$nome</code> pelo valor <strong>antes</strong> de rodar o comando. Criar a variável não mostra nada: silêncio, como sempre, é sucesso.</p>
+
+<h3>Chaves: onde o nome termina</h3>
+<p>Quando o nome da variável fica colado em outro texto, o bash não sabe onde ele termina. As chaves resolvem:</p>
+
+<pre class="term">$ fruta=banana
+$ echo "Comprei 3 $frutas"
+Comprei 3                                  « procurou a variável "frutas", que não existe
+$ echo "Comprei 3 ${fruta}s"
+Comprei 3 bananas</pre>
+
+<div class="tip">
+<strong>Convenção de nomes</strong>
+<p>Variáveis do sistema são MAIÚSCULAS (<code>HOME</code>, <code>PATH</code>). Nos seus scripts, prefira minúsculas (<code>pasta_destino</code>) para não sobrescrever uma variável do sistema sem querer.</p>
+</div>
+
+<div class="try" data-goal="ran:^\s*cidade=,ran:echo.*\$\{?cidade">
+<p class="try-task"><strong>Missão:</strong> crie uma variável <code>cidade</code> com o nome da sua cidade e mostre a frase <code>Eu moro em …</code> usando <code>echo</code> e <code>$cidade</code>. Depois tente <code>cidade = Recife</code>, com espaços, e veja o erro.</p>
+</div>
+
+<hr>
+
+<h2>Aspas: simples, duplas ou nenhuma</h2>
+<p>As aspas mudam o que o bash faz com o texto. Esta é a parte mais importante da aula:</p>
+
+<pre class="term">$ nome="Ana"
+$ echo "Olá, $nome"                        « duplas: troca as variáveis
+Olá, Ana
+$ echo 'Olá, $nome'                        « simples: tudo literal
+Olá, $nome
+$ echo Olá,     $nome                      « sem aspas: espaços extras somem
+Olá, Ana</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th><code>$variável</code> é trocada?</th><th>Espaços preservados?</th><th>Use para</th></tr>
+<tr><td><code>"texto $var"</code></td><td>Sim</td><td>Sim</td><td>Quase tudo. É o padrão seguro.</td></tr>
+<tr><td><code>'texto $var'</code></td><td>Não</td><td>Sim</td><td>Texto que deve sair exatamente como está.</td></tr>
+<tr><td><code>texto $var</code></td><td>Sim</td><td>Não: o valor é quebrado em palavras</td><td>Evite com variáveis.</td></tr>
+</table>
+</div>
+
+<h3>Por que sempre usar aspas em volta de variáveis</h3>
+<p>Sem aspas, um valor com espaço vira <strong>vários</strong> argumentos. Veja o que acontece ao criar um arquivo:</p>
+
+<pre class="term" data-cwd="~/teste">$ arquivo="Meu Relatório.pdf"
+$ touch $arquivo
+$ ls
+Meu  Relatório.pdf                         « dois arquivos!</pre>
+
+<pre class="term" data-cwd="~/teste2">$ arquivo="Meu Relatório.pdf"
+$ touch "$arquivo"
+$ ls
+'Meu Relatório.pdf'                        « um arquivo, como esperado</pre>
+
+<p>Regra prática: escreva <code>"$variável"</code>, com aspas duplas, sempre que usá-la como argumento.</p>
+
+<hr>
+
+<h2>Guardar a saída de um comando: <code>$( )</code></h2>
+<p>A <strong>substituição de comando</strong> roda o comando de dentro e coloca a saída dele no lugar. Combinada com uma variável, guarda o resultado para usar depois.</p>
+
+<dl class="anatomy">
+  <dt>hoje=</dt><dd>A variável que vai receber o resultado.</dd>
+  <dt>$(</dt><dd>Abre a substituição: "rode o que vem a seguir".</dd>
+  <dt>date +%F</dt><dd>O comando: a data no formato 2026-10-15.</dd>
+  <dt>)</dt><dd>Fecha a substituição.</dd>
+</dl>
+
+<pre class="term">$ hoje=$(date +%F)
+$ echo "Backup de $hoje"
+Backup de 2026-10-15
+$ qtd=$(ls ~/Downloads | wc -l)
+$ echo "Há $qtd arquivos em Downloads"
+Há 5 arquivos em Downloads</pre>
+
+<p>Em scripts antigos você vai ver a forma com crases: <code>hoje=`date +%F`</code>. Ela funciona, mas a forma <code>$( )</code> é mais legível e pode ser aninhada.</p>
+
+<div class="try" data-goal="dir:~/2026-10-15">
+<p class="try-task"><strong>Missão:</strong> guarde a data de hoje numa variável chamada <code>pasta</code>, usando <code>$(date +%F)</code>, e crie uma pasta com esse nome usando <code>mkdir "$pasta"</code>. Confira com <code>ls</code>.</p>
+</div>
+
+<hr>
+
+<h2>Contas: <code>$(( ))</code></h2>
+<p>Para o bash, tudo é texto. Para fazer contas com números inteiros, use dois parênteses:</p>
+
+<pre class="term">$ a=7
+$ b=2
+$ echo $((a + b))
+9
+$ echo $((a / b))                          « divisão inteira: sem casas decimais
+3
+$ echo $((a % b))                          « resto da divisão
+1
+$ echo $((2 ** 10))                        « potência
+1024
+$ contador=5
+$ ((contador++))
+$ echo $contador
+6</pre>
+
+<p>Dentro de <code>$(( ))</code> não precisa do <code>$</code> antes das variáveis. Para números com vírgula, use o <code>bc</code>: <code>echo "7/2" | bc -l</code>.</p>
+
+<div class="note">
+<strong>Formas de fazer contas</strong>
+<p><code>$(( ))</code> é a forma moderna. Você também pode ver <code>let "n = n + 1"</code> e <code>expr 7 + 2</code>, que são mais antigas e fazem o mesmo.</p>
+</div>
+
+<hr>
+
+<h2>Ler o que o usuário digita: <code>read</code></h2>
+<p>O <code>read</code> pausa o script, espera o usuário digitar e guarda o texto numa variável.</p>
+
+<dl class="anatomy">
+  <dt>read</dt><dd>O comando que lê do teclado.</dd>
+  <dt>-r</dt><dd>Lê as barras invertidas <code>\</code> literalmente. Use sempre.</dd>
+  <dt>-p "Seu nome: "</dt><dd><em>Prompt</em>: mostra uma pergunta antes.</dd>
+  <dt>nome</dt><dd>A variável que vai receber a resposta.</dd>
+</dl>
+
+<pre class="file" data-file="cadastro.sh">#!/usr/bin/env bash
+read -rp "Seu nome: " nome
+read -rsp "Uma senha: " senha
+echo                               # pula a linha depois da senha
+echo "Olá, $nome! Sua senha tem ${#senha} caracteres."</pre>
+
+<pre class="term" data-cwd="~/scripts">$ ./cadastro.sh
+Seu nome: Ana
+Uma senha:                         « -s: o que você digita não aparece
+Olá, Ana! Sua senha tem 8 caracteres.</pre>
+
+<hr>
+
+<h2>Argumentos: o que vem depois do nome do script</h2>
+<p>Em vez de perguntar com <code>read</code>, o script pode receber informações na própria linha de comando, como qualquer programa. Cada palavra depois do nome é um <strong>argumento</strong>, guardado em variáveis numeradas:</p>
+
+<pre class="file" data-file="args.sh">#!/usr/bin/env bash
+echo "Script: $0"
+echo "Primeiro: $1"
+echo "Segundo: $2"
+echo "Quantidade: $#"
+echo "Todos: $@"</pre>
+
+<dl class="anatomy">
+  <dt>./args.sh</dt><dd>O script: fica em <code>$0</code>.</dd>
+  <dt>foto.jpg</dt><dd>O 1º argumento: <code>$1</code>.</dd>
+  <dt>"Meu Relatório.pdf"</dt><dd>O 2º argumento: <code>$2</code>. Com aspas, é um argumento só.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/scripts">$ ./args.sh foto.jpg "Meu Relatório.pdf"
+Script: ./args.sh
+Primeiro: foto.jpg
+Segundo: Meu Relatório.pdf
+Quantidade: 2
+Todos: foto.jpg Meu Relatório.pdf</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Variável</th><th>Contém</th></tr>
+<tr><td><code>$0</code></td><td>O nome do script, como foi chamado</td></tr>
+<tr><td><code>$1</code> … <code>$9</code></td><td>Os argumentos 1 a 9 (do 10 em diante: <code>${10}</code>)</td></tr>
+<tr><td><code>$#</code></td><td>Quantos argumentos foram passados</td></tr>
+<tr><td><code>"$@"</code></td><td>Todos os argumentos, cada um separado, mesmo com espaços. Use este.</td></tr>
+<tr><td><code>$*</code></td><td>Todos juntos num texto só. Raramente é o que você quer.</td></tr>
+<tr><td><code>$?</code></td><td>Código de saída do último comando</td></tr>
+<tr><td><code>$$</code></td><td>O PID (número do processo) do próprio script</td></tr>
+<tr><td><code>$RANDOM</code></td><td>Um número aleatório de 0 a 32767</td></tr>
+</table>
+</div>
+
+<h3>shift: andar pela lista de argumentos</h3>
+<p>O <code>shift</code> descarta o <code>$1</code> e "puxa" os outros: o <code>$2</code> vira <code>$1</code>, e assim por diante. É útil quando o primeiro argumento é especial e o resto é uma lista:</p>
+
+<pre class="file" data-file="copiar-para.sh">#!/usr/bin/env bash
+destino="$1"
+shift                                  # agora "$@" tem só os arquivos
+cp -v "$@" "$destino"</pre>
+
+<pre class="term" data-cwd="~/scripts">$ ./copiar-para.sh /media/ana/PENDRIVE notas.txt foto.jpg
+'notas.txt' -&gt; '/media/ana/PENDRIVE/notas.txt'
+'foto.jpg' -&gt; '/media/ana/PENDRIVE/foto.jpg'</pre>
+
+<hr>
+
+<h2>Valores padrão e argumentos obrigatórios</h2>
+<p>E se o usuário não passar um argumento? O bash tem atalhos para isso:</p>
+
+<dl class="anatomy">
+  <dt>${1</dt><dd>O primeiro argumento…</dd>
+  <dt>:-</dt><dd>…mas, se ele estiver vazio ou não existir…</dd>
+  <dt>.}</dt><dd>…use <code>.</code> (a pasta atual) no lugar.</dd>
+</dl>
+
+<pre class="file" data-file="conta.sh">#!/usr/bin/env bash
+pasta="${1:-.}"
+echo "A pasta $pasta tem $(ls "$pasta" | wc -l) itens."</pre>
+
+<pre class="term">$ ./scripts/conta.sh ~/Downloads
+A pasta /home/ana/Downloads tem 5 itens.
+$ ./scripts/conta.sh
+A pasta . tem 9 itens.</pre>
+
+<p>Quando o argumento é obrigatório, use <code>:?</code>. O script para com a mensagem que você escolher:</p>
+
+<pre class="file" data-file="apaga-antigos.sh">#!/usr/bin/env bash
+pasta="${1:?informe a pasta}"
+find "$pasta" -type f -mtime +30 -print</pre>
+
+<pre class="term" data-cwd="~/scripts">$ ./apaga-antigos.sh
+./apaga-antigos.sh: linha 2: 1: informe a pasta</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Significa</th></tr>
+<tr><td><code>${var:-padrão}</code></td><td>Usa "padrão" se <code>var</code> estiver vazia (não altera <code>var</code>)</td></tr>
+<tr><td><code>${var:=padrão}</code></td><td>Igual, mas também guarda "padrão" em <code>var</code></td></tr>
+<tr><td><code>${var:?mensagem}</code></td><td>Para o script com a mensagem se <code>var</code> estiver vazia</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Recortar e transformar texto</h2>
+<p>O bash consegue mexer no valor da variável sem chamar outros programas. As formas mais úteis no dia a dia:</p>
+
+<pre class="term">$ arq="ferias.tar.gz"
+$ echo ${#arq}                              « tamanho do texto
+13
+$ echo ${arq%.*}                            « tira a última extensão
+ferias.tar
+$ echo ${arq%%.*}                           « tira todas as extensões
+ferias
+$ echo ${arq#*.}                            « tira até o primeiro ponto
+tar.gz
+$ echo ${arq/ferias/praia}                  « troca um trecho
+praia.tar.gz
+$ echo ${arq^^}                             « tudo maiúsculo
+FERIAS.TAR.GZ
+$ caminho=/home/ana/Documentos/notas.txt
+$ echo ${caminho##*/}                       « só o nome do arquivo
+notas.txt
+$ echo ${caminho%/*}                        « só a pasta
+/home/ana/Documentos</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Lembrete</th></tr>
+<tr><td><code>${var#padrão}</code> / <code>${var##padrão}</code></td><td>Tira do <strong>começo</strong> (<code>#</code> = o menor trecho, <code>##</code> = o maior)</td></tr>
+<tr><td><code>${var%padrão}</code> / <code>${var%%padrão}</code></td><td>Tira do <strong>fim</strong> (<code>%</code> = o menor, <code>%%</code> = o maior)</td></tr>
+<tr><td><code>${var/de/para}</code></td><td>Troca a primeira ocorrência; <code>${var//de/para}</code> troca todas</td></tr>
+<tr><td><code>${var^^}</code> / <code>${var,,}</code></td><td>Tudo maiúsculo / tudo minúsculo</td></tr>
+</table>
+</div>
+
+<p>Essas formas também têm equivalentes com comandos externos: <code>basename caminho</code> (= <code>${caminho##*/}</code>) e <code>dirname caminho</code> (= <code>${caminho%/*}</code>).</p>
+
+<hr>
+
+<h2>Listas: arrays</h2>
+<p>Um <strong>array</strong> guarda vários valores numa variável só. As posições começam em 0:</p>
+
+<pre class="term">$ frutas=(maçã banana uva)
+$ echo ${frutas[1]}                         « posição 1 = o segundo item
+banana
+$ echo ${#frutas[@]}                        « quantos itens
+3
+$ frutas+=(kiwi)                            « acrescenta no fim
+$ echo "${frutas[@]}"
+maçã banana uva kiwi</pre>
+
+<p>Você vai percorrer arrays com <code>for</code> em <a href="script-lacos.html">Laços</a>.</p>
+
+<hr>
+
+<h2>Um script completo</h2>
+<p>Juntando tudo: um script que faz backup de uma pasta, com nome padrão e data no arquivo:</p>
+
+<pre class="file" data-file="~/.local/bin/backup-pasta">#!/usr/bin/env bash
+set -euo pipefail
+
+origem="${1:?uso: backup-pasta PASTA [DESTINO]}"
+destino="${2:-$HOME/backups}"
+nome="$(basename "$origem")-$(date +%F).tar.gz"
+
+mkdir -p "$destino"
+tar -czf "$destino/$nome" -C "$(dirname "$origem")" "$(basename "$origem")"
+
+tamanho=$(du -h "$destino/$nome" | cut -f1)
+echo "Backup criado: $destino/$nome ($tamanho)"</pre>
+
+<pre class="term">$ backup-pasta ~/Documentos
+Backup criado: /home/ana/backups/Documentos-2026-10-15.tar.gz (8,0K)
+$ backup-pasta
+/home/ana/.local/bin/backup-pasta: linha 4: 1: uso: backup-pasta PASTA [DESTINO]</pre>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"comando não encontrado" ao criar a variável</strong>
+<pre class="term">$ nome = Ana
+nome: comando não encontrado</pre>
+<p><strong>O que aconteceu:</strong> com espaços, o bash acha que <code>nome</code> é um comando e <code>=</code> e <code>Ana</code> são argumentos dele.</p>
+<p><strong>Como resolver:</strong> <code>nome=Ana</code>, tudo junto.</p>
+</div>
+
+<div class="cenario">
+<strong>A variável aparece vazia</strong>
+<pre class="term">$ echo "Arquivo: $arqivo"
+Arquivo:</pre>
+<p><strong>O que aconteceu:</strong> o nome foi digitado errado (<code>arqivo</code>), ou a variável foi criada em outro terminal, ou dentro de um script que já terminou. Para o bash, uma variável que não existe vale "vazio", sem erro.</p>
+<p><strong>Como resolver:</strong> confira o nome. Em scripts, <code>set -u</code> transforma isso em erro: <code>linha 3: arqivo: variável não associada</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Arquivo com espaço virou dois</strong>
+<p><strong>O que aconteceu:</strong> faltaram aspas: <code>cp $arquivo /backup</code> com <code>arquivo="Meu Relatório.pdf"</code> vira <code>cp Meu Relatório.pdf /backup</code>, e o <code>cp</code> procura dois arquivos.</p>
+<p><strong>Como resolver:</strong> <code>cp "$arquivo" /backup</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"$variavel" aparece literalmente na tela</strong>
+<pre class="term">$ echo 'Bem-vinda, $USER'
+Bem-vinda, $USER</pre>
+<p><strong>O que aconteceu:</strong> aspas simples desligam a troca de variáveis.</p>
+<p><strong>Como resolver:</strong> use aspas duplas: <code>echo "Bem-vinda, $USER"</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"a variável permite somente leitura" e "divisão por 0"</strong>
+<pre class="term">$ readonly PI=3
+$ PI=4
+bash: PI: a variável permite somente leitura
+$ echo $((10 / 0))
+bash: 10 / 0: divisão por 0 (token de erro é "0")</pre>
+<p><strong>O que aconteceu:</strong> <code>readonly</code> trava a variável, e divisão por zero é proibida. Os dois param o comando com erro.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Criar e usar</h3>
+<p>Complete para criar a variável <code>cor</code> com o valor <code>azul</code>:</p>
+<div class="ex-code"><input data-answer="cor=azul|cor=&quot;azul&quot;|cor='azul'" aria-label="atribuição"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Saída de comando</h3>
+<p>Complete para guardar o nome da máquina na variável <code>maquina</code>:</p>
+<div class="ex-code">maquina=<input data-answer="$(hostname)|`hostname`" aria-label="substituição"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Quantidade de argumentos</h3>
+<p>Complete para o script mostrar quantos argumentos recebeu:</p>
+<div class="ex-code">echo "Recebi <input data-answer="$#" aria-label="variável"> argumentos"</div>
+</div>
+
+<div class="exercise">
+<h3>4. Valor padrão</h3>
+<p>Complete para usar <code>/tmp</code> quando o primeiro argumento não for informado:</p>
+<div class="ex-code">pasta="${1<input data-answer=":-/tmp" aria-label="padrão">}"</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. Com <code>nome="Ana"</code>, o que mostra <code>echo 'Oi, $nome'</code>?</p>
+<label><input type="radio" name="q5"> <code>Oi, Ana</code></label>
+<label><input type="radio" name="q5"> <code>Oi, $nome</code></label>
+<label><input type="radio" name="q5"> <code>Oi,</code></label>
+<label><input type="radio" name="q5"> Um erro.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>nome=valor</code> cria (sem espaços); <code>$nome</code> ou <code>${nome}</code> lê.</li>
+  <li>Aspas duplas trocam variáveis e preservam espaços; simples deixam tudo literal. Use <code>"$var"</code> sempre.</li>
+  <li><code>$(comando)</code> guarda a saída de um comando; <code>$(( ))</code> faz contas inteiras.</li>
+  <li><code>read -rp</code> pergunta ao usuário; <code>$1</code>, <code>$#</code> e <code>"$@"</code> trazem os argumentos.</li>
+  <li><code>${1:-padrão}</code> dá um valor padrão; <code>${1:?msg}</code> torna obrigatório; <code>${arq%.*}</code> tira a extensão.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu ps, pgrep, top — ver e achar processos | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a ver os programas que estão rodando no Ubuntu com ps, pgrep, pidof, top e htop. Entenda por que pgrep chromium não acha nada e como descobrir o nome real de um processo.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">ps, pgrep, top</span></h1>
+
+<p class="intro">Todo programa aberto no seu Ubuntu vira um ou mais <strong>processos</strong>. Nesta aula você vai listar esses processos, encontrar um pelo nome e entender os casos em que o terminal "não acha nada", mesmo com o programa aberto na sua frente.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que é um processo e o que é um PID.</li>
+  <li>Por que <code>ps</code> sozinho mostra só dois processos.</li>
+  <li>Como ler cada coluna do <code>ps aux</code>.</li>
+  <li>Por que <code>pgrep chromium</code> não encontra o Chromium, e como descobrir o nome certo.</li>
+  <li>Como acompanhar tudo ao vivo com <code>top</code> e <code>htop</code>.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>O que é um processo</h2>
+<p>Um <strong>programa</strong> é um arquivo parado no disco, como <code>/usr/bin/nautilus</code>. Quando você o abre, o sistema carrega esse arquivo na memória e começa a executá-lo. Essa execução é um <strong>processo</strong>.</p>
+<ul>
+  <li>Cada processo recebe um número único, o <strong>PID</strong> (<em>process ID</em>, "identificador do processo").</li>
+  <li>Cada processo tem um <strong>dono</strong>: o usuário que o iniciou.</li>
+  <li>Um programa pode virar <strong>vários</strong> processos. O Chromium, por exemplo, cria um processo para a janela principal e outros para as abas.</li>
+  <li>Cada processo tem um <strong>nome</strong> curto, que nem sempre é o nome que aparece no menu de aplicativos. Isso vai ser importante daqui a pouco.</li>
+</ul>
+
+<p>Nos exemplos, a máquina fictícia <strong>notebook</strong> está com o Chromium, o app Arquivos (Nautilus) e o Editor de Texto abertos.</p>
+
+<hr>
+
+<h2>ps: a foto dos processos</h2>
+<p><code>ps</code> vem de <em>process status</em>, "situação dos processos". Ele tira uma <strong>foto</strong> do momento: mostra a lista e termina.</p>
+
+<dl class="anatomy">
+  <dt>ps</dt><dd>O programa, sem nenhuma opção.</dd>
+</dl>
+
+<pre class="term">$ ps
+    PID TTY          TIME CMD
+   3001 pts/0    00:00:00 bash          « o shell deste terminal
+   3100 pts/0    00:00:00 ps            « o próprio ps</pre>
+
+<h3>Por que só aparecem dois processos?</h3>
+<p>O Chromium está aberto, mas não apareceu. Isso não é erro: <strong><code>ps</code> sem opções mostra só os processos do terminal em que você está</strong>. Neste terminal só existem o <code>bash</code> (o programa que lê o que você digita) e o próprio <code>ps</code>.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Exemplo</th><th>Significado</th></tr>
+<tr><td><code>PID</code></td><td><code>3001</code></td><td>O número do processo.</td></tr>
+<tr><td><code>TTY</code></td><td><code>pts/0</code></td><td>O terminal ao qual o processo pertence. <code>pts/0</code> é a primeira janela de terminal aberta; outra janela seria <code>pts/1</code>.</td></tr>
+<tr><td><code>TIME</code></td><td><code>00:00:00</code></td><td>Tempo de processador que o processo já usou (não é há quanto tempo ele está aberto).</td></tr>
+<tr><td><code>CMD</code></td><td><code>bash</code></td><td>O nome do processo.</td></tr>
+</table>
+</div>
+
+<p>Programas abertos pelo menu, como o Chromium, não pertencem a nenhum terminal. Para vê-los, você precisa pedir ao <code>ps</code> que mostre <strong>todos</strong>.</p>
+
+<hr>
+
+<h2>ps aux: todos os processos</h2>
+
+<dl class="anatomy">
+  <dt>ps</dt><dd>O programa.</dd>
+  <dt>a</dt><dd>Processos de <strong>todos os usuários</strong> (não só os seus) que tenham terminal.</dd>
+  <dt>u</dt><dd>Formato voltado ao <strong>usuário</strong>: mostra dono, CPU, memória e horário.</dd>
+  <dt>x</dt><dd>Inclui os processos <strong>sem terminal</strong>, como os apps abertos pelo menu.</dd>
+</dl>
+
+<div class="note">
+<strong>Sem hífen?</strong>
+<p>O <code>ps</code> aceita dois estilos de opção: o estilo BSD, sem hífen (<code>ps aux</code>), e o estilo Unix, com hífen (<code>ps -ef</code>). Os dois funcionam no Ubuntu. <code>ps aux</code> é o mais usado.</p>
+</div>
+
+<pre class="term">$ ps aux
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           1  0.0  0.1  26960 17868 ?        Ss   08:00   0:04 /sbin/init splash
+root         812  0.0  0.2 342104 21480 ?        Ssl  08:00   0:01 /usr/sbin/NetworkManager --no-daemon
+ana         1534  3.1  4.2 5012344 662140 ?      Ssl  08:01   2:15 /usr/bin/gnome-shell
+ana         2210  5.4  6.8 55665664 1093120 ?    Sl   08:05   4:36 /snap/chromium/3554/usr/lib/chromium-browser/chrome --password-store
+ana         2251  2.0  3.9 54541540 629004 ?     Sl   08:05   1:02 /snap/chromium/3554/usr/lib/chromium-browser/chrome --type=renderer
+ana         2304  0.1  1.5 1252104 245100 ?      Sl   08:06   0:03 /usr/bin/nautilus --gapplication-service
+ana         2388  0.0  1.1 988204 181400 ?       Sl   08:10   0:01 /usr/bin/gnome-text-editor
+ana         3001  0.0  0.1  12104  5640 pts/0    Ss   08:12   0:00 bash
+ana         3105  0.0  0.0  13900  4420 pts/0    R+   10:30   0:00 ps aux</pre>
+
+<p>Num computador de verdade essa lista tem centenas de linhas; aqui ela foi encurtada. Repare que a última coluna mostra o <strong>comando completo</strong> que iniciou o processo, e não só o nome.</p>
+
+<h3>Cada coluna do ps aux</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Exemplo</th><th>Significado</th></tr>
+<tr><td><code>USER</code></td><td><code>ana</code></td><td>Dono do processo. <code>root</code> é o administrador.</td></tr>
+<tr><td><code>PID</code></td><td><code>2210</code></td><td>Número do processo. É ele que você usa no <a href="kill.html">kill</a>.</td></tr>
+<tr><td><code>%CPU</code></td><td><code>5.4</code></td><td>Quanto do processador ele usa, em média. Acima de 100 significa mais de um núcleo.</td></tr>
+<tr><td><code>%MEM</code></td><td><code>6.8</code></td><td>Quanto da memória RAM ele ocupa.</td></tr>
+<tr><td><code>VSZ</code></td><td><code>55665664</code></td><td>Memória virtual reservada, em KB. Costuma ser enorme e não indica uso real.</td></tr>
+<tr><td><code>RSS</code></td><td><code>1093120</code></td><td>Memória realmente ocupada na RAM, em KB (1093120 KB ≈ 1 GB). É a que importa.</td></tr>
+<tr><td><code>TTY</code></td><td><code>?</code></td><td>Terminal do processo. <code>?</code> = não pertence a nenhum terminal.</td></tr>
+<tr><td><code>STAT</code></td><td><code>Sl</code></td><td>Estado: <code>R</code> rodando, <code>S</code> dormindo (esperando algo), <code>D</code> esperando disco, <code>Z</code> zumbi, <code>T</code> parado. Letras extras: <code>s</code> líder de sessão, <code>l</code> várias threads, <code>+</code> em primeiro plano.</td></tr>
+<tr><td><code>START</code></td><td><code>08:05</code></td><td>Horário em que o processo começou.</td></tr>
+<tr><td><code>TIME</code></td><td><code>4:36</code></td><td>Tempo total de CPU já usado (minutos:segundos).</td></tr>
+<tr><td><code>COMMAND</code></td><td><code>/snap/chromium/…/chrome</code></td><td>Comando completo, com caminho e argumentos.</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Olhe o caminho do Chromium</strong>
+<p>O Chromium do Ubuntu é instalado como <a href="snap.html">snap</a>, por isso mora em <code>/snap/chromium/…</code>. E o arquivo que roda se chama <code>chrome</code>, não <code>chromium</code>. Guarde esse detalhe.</p>
+</div>
+
+<h3>Outras formas de listar</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que mostra</th></tr>
+<tr><td><code>ps aux</code></td><td>Todos os processos, formato com CPU e memória.</td></tr>
+<tr><td><code>ps -ef</code></td><td>Todos os processos, formato com <code>PPID</code> (o processo "pai").</td></tr>
+<tr><td><code>ps aux --sort=-%cpu | head</code></td><td>Os que mais usam processador primeiro. O <code>-</code> antes de <code>%cpu</code> inverte a ordem.</td></tr>
+<tr><td><code>ps aux --sort=-%mem | head</code></td><td>Os que mais usam memória primeiro.</td></tr>
+<tr><td><code>ps -C chrome</code></td><td>Só os processos com o nome exato <code>chrome</code>.</td></tr>
+<tr><td><code>ps -u ana</code></td><td>Só os processos da usuária ana.</td></tr>
+<tr><td><code>ps -eo pid,comm,%mem --sort=-%mem</code></td><td>Só as colunas que você escolher.</td></tr>
+</table>
+</div>
+
+<pre class="term">$ ps -eo pid,comm,%mem --sort=-%mem | head -4
+    PID COMMAND         %MEM
+   2210 chrome           6.8
+   1534 gnome-shell      4.2
+   2251 chrome           3.9</pre>
+
+<hr>
+
+<h2>pgrep: achar um processo pelo nome</h2>
+<p><code>pgrep</code> junta <em>process</em> com <em>grep</em> (a ferramenta de busca do Linux): ele procura processos pelo nome e mostra os PIDs.</p>
+
+<dl class="anatomy">
+  <dt>pgrep</dt><dd>O programa: procura processos.</dd>
+  <dt>-l</dt><dd>De <em>list</em>: mostra o nome ao lado do PID.</dd>
+  <dt>chrome</dt><dd>O texto a procurar no <strong>nome</strong> do processo.</dd>
+</dl>
+
+<pre class="term">$ pgrep -l chrome
+2210 chrome
+2251 chrome</pre>
+
+<p>Dois resultados: a janela principal e o processo de uma aba. Sem o <code>-l</code>, o pgrep mostraria só os números.</p>
+
+<h3>O caso real: "pgrep chromium não mostra nada"</h3>
+<p>Um leitor deste guia, com o Chromium aberto, tentou várias vezes:</p>
+
+<pre class="term">$ pgrep chromium
+$ pgrep -l chromium
+$ pgrep -l Chromium
+$ pgrep -l Chrome
+$ pgrep firefox
+$</pre>
+
+<p>Nenhuma resposta. O terminal não deu erro e não mostrou nada. Para saber o que aconteceu, olhe o <strong>código de saída</strong>:</p>
+
+<pre class="term">$ pgrep chromium
+$ echo $?
+1                                            « 1 = nenhum processo encontrado</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Código</th><th>Significado no pgrep</th></tr>
+<tr><td><code>0</code></td><td>Achou pelo menos um processo.</td></tr>
+<tr><td><code>1</code></td><td>Não achou nenhum. Não é um erro do comando: é a resposta "não existe".</td></tr>
+<tr><td><code>2</code></td><td>Erro de uso, como uma opção errada.</td></tr>
+</table>
+</div>
+
+<p>Por que não achou nada? São três motivos diferentes:</p>
+<ol class="passo">
+  <li><strong>O pgrep procura no nome do processo, não no nome do aplicativo.</strong> O app se chama "Chromium", mas o processo se chama <code>chrome</code>. Como "chromium" não aparece dentro de "chrome", nada bate.</li>
+  <li><strong>Maiúsculas importam.</strong> <code>Chromium</code> e <code>Chrome</code>, com C maiúsculo, nunca batem com <code>chrome</code>. Use <code>-i</code> para ignorar maiúsculas.</li>
+  <li><strong>O Firefox simplesmente não estava aberto.</strong> Aí o certo é mesmo não aparecer nada.</li>
+</ol>
+
+<p>Repare que <code>pgrep -l chrom</code> funcionaria, porque "chrom" está dentro de "chrome". O pgrep procura um <strong>pedaço</strong> do nome, não o nome inteiro.</p>
+
+<h3>Procurar na linha de comando inteira: <code>-f</code></h3>
+<p>Com <code>-f</code> (de <em>full</em>, "completo"), o pgrep procura no comando completo, aquele da coluna <code>COMMAND</code> do <code>ps aux</code>. Como o caminho tem <code>/snap/chromium/</code>, agora a palavra "chromium" é encontrada.</p>
+
+<dl class="anatomy">
+  <dt>pgrep</dt><dd>O programa.</dd>
+  <dt>-a</dt><dd>De <em>all</em>: mostra a linha de comando completa de cada resultado.</dd>
+  <dt>-f</dt><dd>Procura no comando completo, não só no nome.</dd>
+  <dt>chromium</dt><dd>O texto procurado.</dd>
+</dl>
+
+<pre class="term">$ pgrep -af chromium
+2210 /snap/chromium/3554/usr/lib/chromium-browser/chrome --password-store
+2251 /snap/chromium/3554/usr/lib/chromium-browser/chrome --type=renderer
+$ pgrep -il CHROME
+2210 chrome
+2251 chrome</pre>
+
+<div class="warning">
+<strong>Cuidado com o -f</strong>
+<p>Com <code>-f</code>, qualquer processo que tenha a palavra em algum lugar do comando aparece, inclusive outros programas que abriram um arquivo com esse nome. Antes de usar o mesmo padrão para encerrar processos com <code>pkill -f</code>, confira a lista com <code>pgrep -af</code>.</p>
+</div>
+
+<h3>O nome do processo tem no máximo 15 caracteres</h3>
+<p>O Linux guarda só os 15 primeiros caracteres do nome. O Editor de Texto roda o arquivo <code>gnome-text-editor</code>, mas o nome do processo fica cortado:</p>
+
+<pre class="term">$ pgrep -l gnome
+1534 gnome-shell
+2388 gnome-text-edit                         « cortado em 15 caracteres
+$ pgrep gnome-text-editor
+pgrep: o padrão que pesquisa por nomes de processo maiores que 15 caracteres vai resultar em zero correspondências
+Tente a opção "pgrep -f" para corresponder com a linha de comando completa.
+$ pgrep -fl gnome-text-editor
+2388 gnome-text-edit</pre>
+
+<p>Aqui o próprio pgrep avisa: um padrão com mais de 15 caracteres nunca vai bater com o nome, e ele sugere o <code>-f</code>. Com <code>-f</code>, a busca vai no comando completo (<code>/usr/bin/gnome-text-editor</code>) e funciona.</p>
+
+<div class="try">
+<p class="try-task"><strong>Missão 1:</strong> reproduza o problema. Rode <code>pgrep chromium</code> e depois <code>echo $?</code>. Em seguida, descubra os PIDs do navegador com <code>pgrep -l chrome</code> e confirme com <code>pgrep -af chromium</code>.</p>
+</div>
+
+<hr>
+
+<h2>Descobrir o nome real de um processo</h2>
+<p>Quando você não sabe como o processo se chama, há várias formas de descobrir:</p>
+
+<h3>Forma 1: <code>ps aux</code> filtrado com <code>grep</code></h3>
+<pre class="term">$ ps aux | grep -i chrom
+ana   2210  5.4  6.8 55665664 1093120 ?  Sl   08:05   4:36 /snap/chromium/3554/usr/lib/chromium-browser/chrome --password-store
+ana   2251  2.0  3.9 54541540 629004 ?   Sl   08:05   1:02 /snap/chromium/3554/usr/lib/chromium-browser/chrome --type=renderer
+ana   3120  0.0  0.0   6720  2764 pts/0  S+   10:31   0:00 grep -i chrom      « o próprio grep!</pre>
+
+<p>A última linha é o próprio <code>grep</code> procurando "chrom": ele também é um processo e tem "chrom" no comando. É normal. Para escondê-lo, use colchetes no padrão: <code>ps aux | grep -i '[c]hrom'</code>. O padrão continua achando "chrom", mas o texto do comando do grep passa a ser "[c]hrom", que não bate consigo mesmo.</p>
+
+<h3>Forma 2: <code>pgrep -af</code></h3>
+<p>Mais curto e sem a linha do grep: <code>pgrep -af chrom</code>. É a forma recomendada.</p>
+
+<h3>Forma 3: <code>pidof</code></h3>
+<p><code>pidof</code> ("PID de") recebe o nome <strong>exato</strong> e devolve os PIDs numa linha só:</p>
+<pre class="term">$ pidof chrome
+2251 2210
+$ pidof chromium
+$ echo $?
+1</pre>
+
+<h3>Forma 4: ao vivo, no <code>top</code> ou no <code>htop</code></h3>
+<p>Veja a seção seguinte. No <code>htop</code>, pressione <kbd>F4</kbd> e digite parte do nome.</p>
+
+<h3>Forma 5: pela interface gráfica</h3>
+<p>Abra o app <strong>Recursos</strong> (o monitor do sistema do Ubuntu 26.04) e use a aba de aplicativos ou de processos. Ele mostra o nome amigável e o nome do processo.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Comando</th><th>Melhor quando…</th></tr>
+<tr><td>pgrep com -af</td><td><code>pgrep -af chrom</code></td><td>Você sabe parte do nome ou do caminho. Primeira opção.</td></tr>
+<tr><td>ps + grep</td><td><code>ps aux | grep -i '[c]hrom'</code></td><td>Você quer ver também CPU, memória e dono.</td></tr>
+<tr><td>pidof</td><td><code>pidof chrome</code></td><td>Você já sabe o nome exato.</td></tr>
+<tr><td>htop</td><td><kbd>F4</kbd> + nome</td><td>Você quer acompanhar ao vivo.</td></tr>
+<tr><td>App Recursos</td><td>menu de aplicativos</td><td>Você prefere a interface gráfica.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>top: os processos ao vivo</h2>
+<p>O <code>ps</code> é uma foto; o <code>top</code> é um <strong>vídeo</strong>. Ele atualiza a tela a cada 3 segundos e coloca no topo quem mais usa o processador. Para sair, pressione <kbd>q</kbd>.</p>
+
+<pre class="term" data-title="ana@notebook: ~ — top">$ top
+top - 10:32:17 up  2:31,  1 user,  load average: 0,61, 0,71, 0,74
+Tarefas: 312 total,   1 em exec., 311 dormindo,   0 parado,   0 zumbi
+%CPU(s):  4,8 us,  1,3 sy,  0,0 ni, 93,5 id,  0,2 wa,  0,0 hi,  0,0 si,  0,0 st
+MB mem :  15374,2 total,   3755,2 free,   4700,1 used,   7371,0 buff/cache
+MB swap:   4096,0 total,   4096,0 free,      0,0 used.  10674,1 avail mem
+
+    PID USUARIO   PR  NI    VIRT    RES    SHR S  %CPU  %MEM    TEMPO+ COMANDO
+   2210 ana       20   0   53,1g   1,0g 182144 S  12,0   6,8   4:36.12 chrome
+   1534 ana       20   0 4894,9m 646,6m 120332 S   6,3   4,2   2:15.40 gnome-shell
+   2251 ana       20   0   52,0g 614,3m 101220 S   2,1   3,9   1:02.08 chrome
+   3130 ana       20   0   10876   6096   3984 R   0,3   0,0   0:00.02 top</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Linha do topo</th><th>O que diz</th></tr>
+<tr><td><code>up 2:31</code></td><td>A máquina está ligada há 2 horas e 31 minutos.</td></tr>
+<tr><td><code>load average</code></td><td>Carga média em 1, 5 e 15 minutos. Comparada ao número de núcleos: abaixo dele, tudo tranquilo.</td></tr>
+<tr><td><code>Tarefas</code></td><td>Total de processos e quantos estão rodando, dormindo, parados ou zumbis.</td></tr>
+<tr><td><code>%CPU(s)</code></td><td><code>us</code> programas, <code>sy</code> sistema, <code>id</code> ocioso, <code>wa</code> esperando disco.</td></tr>
+<tr><td><code>MB mem</code></td><td>Memória total, livre, usada e em cache. O número que importa é <code>avail mem</code> (disponível).</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Mistura de idiomas</strong>
+<p>Repare que o <code>top</code> do Ubuntu em português traduz só parte da tela ("Tarefas", "USUARIO", "COMANDO") e usa vírgula nos decimais.</p>
+</div>
+
+<h3>Teclas do top</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tecla</th><th>O que faz</th></tr>
+<tr><td><kbd>q</kbd></td><td>Sai do top.</td></tr>
+<tr><td><kbd>P</kbd></td><td>Ordena por CPU (padrão).</td></tr>
+<tr><td><kbd>M</kbd></td><td>Ordena por memória.</td></tr>
+<tr><td><kbd>k</kbd></td><td>Encerra um processo: pede o PID e o sinal.</td></tr>
+<tr><td><kbd>u</kbd></td><td>Mostra só os processos de um usuário.</td></tr>
+<tr><td><kbd>o</kbd></td><td>Filtro. Ex.: digite <code>COMMAND=chrome</code>.</td></tr>
+<tr><td><kbd>1</kbd></td><td>Mostra cada núcleo do processador separado.</td></tr>
+<tr><td><kbd>c</kbd></td><td>Alterna entre o nome e o comando completo.</td></tr>
+</table>
+</div>
+
+<h3>htop: o top mais amigável</h3>
+<p>O <code>htop</code> tem cores, barras de uso e funciona com o mouse. Ele não vem instalado:</p>
+<pre class="term">$ htop
+Comando 'htop' não encontrado, mas poder ser instalado com:
+sudo snap install htop  # version 3.5.3, or
+sudo apt  install htop  # version 3.4.1-5build2
+Veja 'snap info htop' para versões adicionais.
+$ sudo apt install htop</pre>
+
+<p>A mensagem "mas poder ser instalado" tem um erro de digitação que vem da própria tradução do Ubuntu. Prefira instalar pelo <code>apt</code>.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tecla no htop</th><th>O que faz</th></tr>
+<tr><td><kbd>F3</kbd> ou <kbd>/</kbd></td><td>Busca um processo pelo nome (pula até ele).</td></tr>
+<tr><td><kbd>F4</kbd> ou <kbd>\</kbd></td><td>Filtra: mostra só os processos com aquele texto.</td></tr>
+<tr><td><kbd>F5</kbd></td><td>Mostra em árvore (quem é pai de quem).</td></tr>
+<tr><td><kbd>F6</kbd></td><td>Escolhe a coluna de ordenação.</td></tr>
+<tr><td><kbd>F9</kbd></td><td>Encerra o processo selecionado.</td></tr>
+<tr><td><kbd>F10</kbd> ou <kbd>q</kbd></td><td>Sai.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Memória e carga: <code>free</code> e <code>uptime</code></h2>
+<p>Quando o computador fica lento, estes dois comandos dão o panorama em uma linha:</p>
+
+<pre class="term">$ free -h
+               total       usada       livre    compart.  buff/cache   disponível
+Mem.:           15Gi       4,6Gi       3,7Gi       118Mi       7,2Gi         10Gi
+Swap:          4,0Gi          0B       4,0Gi
+$ uptime
+ 10:32:40 up  2:31,  1 user,  load average: 0,61, 0,71, 0,74</pre>
+
+<p>Em <code>free</code>, olhe a coluna <strong>disponível</strong>: é quanta memória os programas ainda podem usar. "livre" parece pouco porque o Linux usa a memória sobrando como cache, e devolve quando alguém precisa. O <code>-h</code> mostra os números em Gi e Mi.</p>
+
+<div class="try">
+<p class="try-task"><strong>Missão 2:</strong> descubra qual processo usa mais memória na máquina fictícia. Rode <code>ps aux</code> e compare a coluna <code>%MEM</code>. Depois confira a memória total com <code>free</code>.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>O pgrep não mostra nada</strong>
+<pre class="term">$ pgrep Spotify
+$ echo $?
+1</pre>
+<p><strong>O que aconteceu:</strong> nenhum processo tem "Spotify" no nome. Pode ser maiúscula errada, nome diferente do aplicativo ou o programa realmente fechado.</p>
+<p><strong>Como resolver:</strong> tente <code>pgrep -il spot</code> (sem maiúsculas e com só um pedaço do nome). Se ainda não achar, use <code>pgrep -af spot</code> para procurar no comando completo.</p>
+</div>
+
+<div class="cenario">
+<strong>O ps não mostra o programa que está aberto</strong>
+<pre class="term">$ ps
+    PID TTY          TIME CMD
+   3001 pts/0    00:00:00 bash
+   3140 pts/0    00:00:00 ps</pre>
+<p><strong>O que aconteceu:</strong> sem opções, o <code>ps</code> mostra só o terminal atual.</p>
+<p><strong>Como resolver:</strong> use <code>ps aux</code>, de preferência filtrado: <code>ps aux | grep -i nome</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O grep aparece no meio do resultado</strong>
+<p><strong>O que aconteceu:</strong> em <code>ps aux | grep firefox</code>, a única linha encontrada é a do próprio <code>grep firefox</code>. Isso indica que o Firefox <strong>não</strong> está rodando.</p>
+<p><strong>Como resolver:</strong> use <code>pgrep -af firefox</code>, que não lista a si mesmo, ou <code>grep '[f]irefox'</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O PID mudou</strong>
+<p><strong>O que aconteceu:</strong> você anotou o PID 2210 ontem e hoje ele é outro. Cada vez que um programa é aberto, recebe um PID novo.</p>
+<p><strong>Como resolver:</strong> procure de novo com <code>pgrep</code> antes de usar o número.</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<h3>pgrep</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-l</code></td><td>Mostra o nome junto do PID</td><td><code>pgrep -l chrome</code></td></tr>
+<tr><td><code>-a</code></td><td>Mostra a linha de comando completa</td><td><code>pgrep -a chrome</code></td></tr>
+<tr><td><code>-f</code></td><td>Procura no comando completo, não só no nome</td><td><code>pgrep -f chromium</code></td></tr>
+<tr><td><code>-i</code></td><td>Ignora maiúsculas e minúsculas</td><td><code>pgrep -i CHROME</code></td></tr>
+<tr><td><code>-x</code></td><td>Nome exato, não um pedaço</td><td><code>pgrep -x chrome</code></td></tr>
+<tr><td><code>-u</code></td><td>Só processos de um usuário</td><td><code>pgrep -u root -l</code></td></tr>
+<tr><td><code>-c</code></td><td>Mostra só a quantidade</td><td><code>pgrep -c chrome</code></td></tr>
+<tr><td><code>-n</code> / <code>-o</code></td><td>Só o mais novo / o mais antigo</td><td><code>pgrep -n chrome</code></td></tr>
+</table>
+</div>
+<h3>ps</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Descrição</th></tr>
+<tr><td><code>ps</code></td><td>Processos do terminal atual</td></tr>
+<tr><td><code>ps aux</code></td><td>Todos, com CPU, memória e dono</td></tr>
+<tr><td><code>ps -ef</code></td><td>Todos, com o PID do processo pai</td></tr>
+<tr><td><code>ps -C nome</code></td><td>Pelo nome exato</td></tr>
+<tr><td><code>ps -u usuário</code></td><td>De um usuário</td></tr>
+<tr><td><code>ps -p PID</code></td><td>Um processo específico</td></tr>
+<tr><td><code>--sort=-%cpu</code></td><td>Ordena (o <code>-</code> inverte)</td></tr>
+<tr><td><code>-o pid,comm,%mem</code></td><td>Escolhe as colunas</td></tr>
+<tr><td><code>--forest</code></td><td>Desenha a árvore de pais e filhos</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Ver todos os processos</h3>
+<p>Complete para listar os processos de todos os usuários, inclusive os que não têm terminal:</p>
+<div class="ex-code">ps <input data-answer="aux|axu|-ef|-e|-A" aria-label="opções"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Procurar no comando completo</h3>
+<p>O processo se chama <code>chrome</code>, mas você só lembra da palavra "chromium". Complete:</p>
+<div class="ex-code">pgrep <input data-answer="-af|-fa|-f|-fl|-lf" aria-label="opções"> chromium</div>
+</div>
+
+<div class="exercise">
+<h3>3. Ignorar maiúsculas</h3>
+<p>Complete para que <code>CHROME</code> encontre o processo <code>chrome</code>:</p>
+<div class="ex-code">pgrep <input data-answer="-i|-il|-li" aria-label="opção"> CHROME</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Você rodou <code>pgrep firefox</code> e nada apareceu. <code>echo $?</code> mostrou <code>1</code>. O que isso significa?</p>
+<label><input type="radio" name="q4"> O pgrep travou.</label>
+<label><input type="radio" name="q4"> Nenhum processo com "firefox" no nome foi encontrado.</label>
+<label><input type="radio" name="q4"> Você não tem permissão para ver os processos.</label>
+<label><input type="radio" name="q4"> O Firefox está aberto, mas em outro terminal.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. No <code>ps aux</code>, qual coluna mostra a memória que o processo realmente ocupa?</p>
+<label><input type="radio" name="q5"> <code>VSZ</code></label>
+<label><input type="radio" name="q5"> <code>TIME</code></label>
+<label><input type="radio" name="q5"> <code>STAT</code></label>
+<label><input type="radio" name="q5"> <code>RSS</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>ps</code> sozinho mostra só o terminal atual; <code>ps aux</code> mostra tudo.</li>
+  <li><code>pgrep nome</code> procura um pedaço do <strong>nome do processo</strong>, que pode ser diferente do nome do aplicativo (Chromium → <code>chrome</code>).</li>
+  <li><code>-f</code> procura no comando completo, <code>-i</code> ignora maiúsculas, <code>-a</code> mostra o comando, <code>-l</code> mostra o nome.</li>
+  <li>Sem resultado, o pgrep fica em silêncio e devolve o código <code>1</code>: confira com <code>echo $?</code>.</li>
+  <li><code>top</code> e <code>htop</code> mostram tudo ao vivo; <kbd>q</kbd> sai.</li>
+  <li>Próximo passo: encerrar processos com <a href="kill.html">kill</a>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

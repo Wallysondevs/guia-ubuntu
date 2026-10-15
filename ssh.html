@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu SSH — acesso remoto, chaves e ~/.ssh/config | Guia Ubuntu</title>
+<meta name="description" content="Aprenda SSH no Ubuntu do zero: instalar o servidor, primeira conexão e fingerprint, login por chave passo a passo, ~/.ssh/config, comandos remotos, túneis e os erros mais comuns explicados.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">SSH</span></h1>
+
+<p class="intro">O <strong>SSH</strong> (<em>Secure Shell</em>, "shell seguro") abre um terminal em <strong>outra máquina</strong>, pela rede, com tudo criptografado. É assim que se administra praticamente todo servidor Linux do mundo. Nesta aula, a Ana vai acessar a máquina <strong>servidor</strong> (<code>192.168.0.50</code>) a partir do <strong>notebook</strong>.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A diferença entre cliente e servidor SSH, e como instalar o servidor.</li>
+  <li>O que acontece na primeira conexão (a pergunta do <em>fingerprint</em>).</li>
+  <li>Criar uma chave e entrar sem senha, passo a passo.</li>
+  <li>Criar apelidos no <code>~/.ssh/config</code> para digitar só <code>ssh servidor</code>.</li>
+  <li>Resolver os erros mais comuns: <em>Permission denied</em>, <em>Connection refused</em>, <em>timed out</em> e o aviso de identificação alterada.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Cliente e servidor</h2>
+<p>Toda conexão SSH tem dois lados:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Lado</th><th>Programa</th><th>Onde roda</th><th>Já vem instalado?</th></tr>
+<tr><td><strong>Cliente</strong></td><td><code>ssh</code></td><td>Na máquina de onde você digita (o notebook)</td><td>Sim, no Desktop e no Server</td></tr>
+<tr><td><strong>Servidor</strong></td><td><code>sshd</code>, pacote <code>openssh-server</code></td><td>Na máquina que você quer acessar</td><td>Só se for escolhido na instalação do Server</td></tr>
+</table>
+</div>
+
+<p>Pense numa ligação telefônica: o cliente liga, o servidor atende. Se ninguém atende do outro lado (servidor não instalado ou desligado), a ligação não completa.</p>
+
+<h3>Instalar o servidor SSH</h3>
+<p>Na máquina que vai <strong>receber</strong> conexões (aqui, o servidor), instale o pacote e confira o serviço:</p>
+<pre class="term" data-host="servidor">$ sudo apt install openssh-server
+$ systemctl status ssh
+● ssh.service - OpenBSD Secure Shell server
+     Loaded: loaded (/usr/lib/systemd/system/ssh.service; disabled; preset: enabled)
+     Active: active (running) since Thu 2026-10-15 10:12:04 -03; 3s ago      « rodando
+TriggeredBy: ● ssh.socket                                                     « ligado pelo socket
+       Docs: man:sshd(8)
+             man:sshd_config(5)
+   Main PID: 1102 (sshd)</pre>
+
+<p>No Ubuntu atual, o SSH é ativado pelo <code>ssh.socket</code>: o serviço só "acorda" quando chega a primeira conexão. Por isso o <code>ssh.service</code> pode aparecer como <code>disabled</code> e mesmo assim funcionar. Se o firewall estiver ligado, libere a porta: <code>sudo ufw allow ssh</code> (veja <a href="ufw.html">Firewall (ufw)</a>).</p>
+
+<p>Descubra o IP do servidor com <code>hostname -I</code>, rodado nele:</p>
+<pre class="term" data-host="servidor">$ hostname -I
+192.168.0.50</pre>
+
+<hr>
+
+<h2>Primeira conexão</h2>
+
+<dl class="anatomy">
+  <dt>ssh</dt><dd>O cliente SSH.</dd>
+  <dt>ana</dt><dd>O usuário <strong>no servidor</strong>. Pode ser diferente do seu usuário local.</dd>
+  <dt>@</dt><dd>"em".</dd>
+  <dt>192.168.0.50</dt><dd>O endereço do servidor: IP ou nome.</dd>
+</dl>
+
+<pre class="term">$ ssh ana@192.168.0.50
+The authenticity of host '192.168.0.50 (192.168.0.50)' can't be established.     « "não conheço esta máquina"
+ED25519 key fingerprint is SHA256:Xk3v9Qm1d7Y2pLwZ0aTnR5cB8eHfJ4uVgK6sNoP1qEw.   « a "impressão digital" dela
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes        « digite yes por extenso
+Warning: Permanently added '192.168.0.50' (ED25519) to the list of known hosts.
+ana@192.168.0.50's password:                                                     « a senha da ana NO SERVIDOR
+Welcome to Ubuntu 26.04.1 LTS (GNU/Linux 7.0.0-38-generic x86_64)
+…
+Last login: Wed Oct 14 18:02:11 2026 from 192.168.0.15</pre>
+
+<p>Depois do login, o prompt muda para <code>ana@servidor:~$</code>. Tudo que você digitar agora roda <strong>no servidor</strong>:</p>
+<pre class="term" data-host="servidor">$ hostname
+servidor
+$ exit
+logout
+Connection to 192.168.0.50 closed.                « de volta ao notebook</pre>
+
+<h3>O que é o fingerprint?</h3>
+<p>Cada servidor SSH tem uma chave própria, e o <strong>fingerprint</strong> é um resumo dela, como uma impressão digital. Na primeira conexão, o cliente não tem como saber se está falando com o servidor certo, então pergunta. Ao responder <code>yes</code>, o fingerprint fica guardado em <code>~/.ssh/known_hosts</code>. Nas próximas vezes, o cliente compara: se mudar, ele bloqueia a conexão e avisa (veja "Quando não funciona").</p>
+
+<div class="tip">
+<strong>Como conferir de verdade</strong>
+<p>No próprio servidor, rode <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code> e compare com o que apareceu na pergunta. Em rede de casa isso é exagero; em servidores na internet é uma boa prática.</p>
+</div>
+
+<h3>O que o ssh devolve</h3>
+<p>O <code>ssh</code> devolve o código de saída do último comando que rodou no servidor, ou <code>255</code> se a própria conexão falhou. Isso permite usá-lo em scripts.</p>
+
+<hr>
+
+<h2>Login por chave, passo a passo</h2>
+<p>Digitar senha toda vez é chato e menos seguro: senhas podem ser adivinhadas. Com <strong>chaves</strong>, você gera um par de arquivos no notebook:</p>
+<ul>
+  <li><strong>Chave privada</strong> (<code>id_ed25519</code>): fica só com você, como a chave de casa. Nunca envie a ninguém.</li>
+  <li><strong>Chave pública</strong> (<code>id_ed25519.pub</code>): vai para os servidores, como uma fechadura que só a sua chave abre.</li>
+</ul>
+
+<ol class="passo">
+<li>
+<p><strong>Gere o par de chaves no notebook.</strong></p>
+<dl class="anatomy">
+  <dt>ssh-keygen</dt><dd>O gerador de chaves (<em>key generator</em>).</dd>
+  <dt>-t ed25519</dt><dd>O tipo de chave. <code>ed25519</code> é moderno, curto e seguro.</dd>
+  <dt>-C "ana@notebook"</dt><dd>Um comentário para você reconhecer a chave depois.</dd>
+</dl>
+<pre class="term">$ ssh-keygen -t ed25519 -C "ana@notebook"
+Generating public/private ed25519 key pair.
+Enter file in which to save the key (/home/ana/.ssh/id_ed25519):          « Enter: aceita o local padrão
+Enter passphrase for "/home/ana/.ssh/id_ed25519" (empty for no passphrase):   « uma senha para a própria chave
+Enter same passphrase again:
+Your identification has been saved in /home/ana/.ssh/id_ed25519
+Your public key has been saved in /home/ana/.ssh/id_ed25519.pub
+The key fingerprint is:
+SHA256:340Q2bS3q4f7lphkel3CsHIQWTSxonOlsBO63qO9i+U ana@notebook
+The key's randomart image is:
+…</pre>
+<p>A <strong>passphrase</strong> protege a chave privada caso alguém copie o arquivo. É opcional, mas recomendada. Com ela, o Ubuntu Desktop guarda a senha no chaveiro e só pergunta uma vez por sessão.</p>
+</li>
+<li>
+<p><strong>Confira os arquivos criados.</strong></p>
+<pre class="term">$ ls -l ~/.ssh
+total 12
+-rw------- 1 ana ana 411 Oct 15 10:20 id_ed25519          « privada: só a ana lê (600)
+-rw-r--r-- 1 ana ana  94 Oct 15 10:20 id_ed25519.pub      « pública: pode ser lida
+-rw-r--r-- 1 ana ana 142 Oct 15 10:05 known_hosts         « servidores conhecidos
+$ cat ~/.ssh/id_ed25519.pub
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICj2vrEjdlmZi0bfdTh/Kentfu4XhboCrcKe4h+fmwSu ana@notebook</pre>
+</li>
+<li>
+<p><strong>Copie a chave pública para o servidor</strong> com o <code>ssh-copy-id</code>. Ele pede a senha uma última vez e coloca a chave no arquivo <code>~/.ssh/authorized_keys</code> do servidor:</p>
+<pre class="term">$ ssh-copy-id ana@192.168.0.50
+/usr/bin/ssh-copy-id: INFO: Source of key(s) to be installed: "/home/ana/.ssh/id_ed25519.pub"
+/usr/bin/ssh-copy-id: INFO: attempting to log in with the new key(s), to filter out any that are already installed
+/usr/bin/ssh-copy-id: INFO: 1 key(s) remain to be installed -- if you are prompted now it is to install the new keys
+ana@192.168.0.50's password:
+
+Number of key(s) added: 1                                 « deu certo
+
+Now try logging into the machine, with: "ssh 'ana@192.168.0.50'"
+and check to make sure that only the key(s) you wanted were added.</pre>
+</li>
+<li>
+<p><strong>Teste.</strong> Agora o servidor não pede mais a senha do usuário (só a passphrase da chave, se você criou uma):</p>
+<pre class="term">$ ssh ana@192.168.0.50
+Welcome to Ubuntu 26.04.1 LTS (GNU/Linux 7.0.0-38-generic x86_64)
+…</pre>
+</li>
+</ol>
+
+<h3>Outra forma de copiar a chave</h3>
+<p>Se o <code>ssh-copy-id</code> não estiver disponível (por exemplo, vindo do Windows), dá para fazer o mesmo com um pipe: o conteúdo da chave vai pela conexão e é acrescentado ao <code>authorized_keys</code>:</p>
+<pre class="term">$ cat ~/.ssh/id_ed25519.pub | ssh ana@192.168.0.50 "mkdir -p ~/.ssh &amp;&amp; chmod 700 ~/.ssh &amp;&amp; cat &gt;&gt; ~/.ssh/authorized_keys &amp;&amp; chmod 600 ~/.ssh/authorized_keys"</pre>
+<p>Uma terceira opção é colar a linha do <code>.pub</code> no arquivo <code>~/.ssh/authorized_keys</code> do servidor com o nano. O <code>&gt;&gt;</code> (e não <code>&gt;</code>) é importante: ele acrescenta, sem apagar as chaves que já estavam lá.</p>
+
+<div class="warning">
+<strong>Permissões importam</strong>
+<p>O servidor SSH recusa as chaves se as pastas estiverem abertas demais. No servidor, <code>~/.ssh</code> deve ser <code>700</code> e <code>authorized_keys</code> deve ser <code>600</code>. No cliente, a chave privada deve ser <code>600</code>. Veja <a href="chmod.html">chmod</a>.</p>
+</div>
+
+<hr>
+
+<h2>Apelidos: ~/.ssh/config</h2>
+<p>Em vez de lembrar usuário, IP e porta, crie apelidos no arquivo <code>~/.ssh/config</code> do notebook:</p>
+
+<pre class="file" data-file="~/.ssh/config">Host servidor
+    HostName 192.168.0.50
+    User ana
+
+Host vps
+    HostName 203.0.113.10
+    User deploy
+    Port 2222
+    IdentityFile ~/.ssh/id_ed25519_vps</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Chave</th><th>Significado</th></tr>
+<tr><td><code>Host</code></td><td>O apelido que você vai digitar.</td></tr>
+<tr><td><code>HostName</code></td><td>O IP ou nome real.</td></tr>
+<tr><td><code>User</code></td><td>O usuário no servidor.</td></tr>
+<tr><td><code>Port</code></td><td>A porta, se não for a 22.</td></tr>
+<tr><td><code>IdentityFile</code></td><td>Qual chave usar, se você tiver mais de uma.</td></tr>
+</table>
+</div>
+
+<pre class="term">$ ssh servidor                  « o mesmo que ssh ana@192.168.0.50
+$ ssh vps                       « o mesmo que ssh -p 2222 -i ~/.ssh/id_ed25519_vps deploy@203.0.113.10</pre>
+
+<p>Os apelidos valem também para <code>scp</code> e <code>rsync</code> (veja <a href="scp-rsync.html">scp e rsync</a>).</p>
+
+<hr>
+
+<h2>Formas diferentes de usar o ssh</h2>
+
+<h3>Rodar um comando só, sem abrir sessão</h3>
+<p>Coloque o comando depois do endereço. O <code>ssh</code> conecta, roda, mostra o resultado e fecha:</p>
+<pre class="term">$ ssh servidor uptime
+ 10:35:12 up 3 days,  4:21,  1 user,  load average: 0,08, 0,05, 0,01
+$ ssh servidor "df -h /"
+Sist. Arq.      Tam. Usado Disp. Uso% Montado em
+/dev/sda2        98G   21G   72G  23% /</pre>
+<p>Use aspas quando o comando tiver espaços, pipes ou opções, para que eles sejam interpretados no servidor.</p>
+
+<h3>Opções do dia a dia</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Faz</th><th>Exemplo</th></tr>
+<tr><td><code>-p PORTA</code></td><td>Usa outra porta</td><td><code>ssh -p 2222 ana@servidor</code></td></tr>
+<tr><td><code>-i CHAVE</code></td><td>Usa uma chave específica</td><td><code>ssh -i ~/.ssh/id_vps deploy@vps</code></td></tr>
+<tr><td><code>-v</code></td><td>Mostra cada etapa da conexão; ótimo para depurar (<code>-vvv</code> mostra ainda mais)</td><td><code>ssh -v servidor</code></td></tr>
+<tr><td><code>-t</code></td><td>Força um terminal, para comandos interativos</td><td><code>ssh -t servidor htop</code></td></tr>
+<tr><td><code>-L</code></td><td>Túnel: traz uma porta do servidor para o seu computador</td><td><code>ssh -L 8080:localhost:80 servidor</code></td></tr>
+<tr><td><code>-J</code></td><td>Passa por uma máquina intermediária (<em>jump</em>)</td><td><code>ssh -J portaria ana@interno</code></td></tr>
+</table>
+</div>
+
+<h3>Túnel: acessar uma porta do servidor como se fosse local</h3>
+<p>Imagine um painel web que roda no servidor na porta 80, mas que só aceita conexões do próprio servidor. Com <code>-L</code>, você cria um túnel:</p>
+<dl class="anatomy">
+  <dt>ssh</dt><dd>O cliente.</dd>
+  <dt>-L</dt><dd>Cria um túnel local.</dd>
+  <dt>8080</dt><dd>A porta que vai abrir <strong>no seu notebook</strong>.</dd>
+  <dt>:localhost:80</dt><dd>Para onde levar, visto <strong>a partir do servidor</strong>: a porta 80 dele mesmo.</dd>
+  <dt>servidor</dt><dd>Por qual máquina o túnel passa.</dd>
+</dl>
+<p>Enquanto a sessão estiver aberta, abrir <code>http://localhost:8080</code> no navegador do notebook mostra o painel do servidor, tudo criptografado.</p>
+
+<h3>ssh-agent: digitar a passphrase uma vez só</h3>
+<p>No Ubuntu Desktop, o chaveiro do GNOME já faz isso sozinho. Num servidor ou num TTY, o <code>ssh-agent</code> guarda a chave destravada na memória:</p>
+<pre class="term">$ eval "$(ssh-agent -s)"
+Agent pid 4821
+$ ssh-add
+Enter passphrase for /home/ana/.ssh/id_ed25519:
+Identity added: /home/ana/.ssh/id_ed25519 (ana@notebook)</pre>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Connection refused</strong>
+<pre class="term">$ ssh ana@192.168.0.50
+ssh: connect to host 192.168.0.50 port 22: Connection refused</pre>
+<p><strong>O que aconteceu:</strong> a máquina existe e respondeu, mas <strong>ninguém está escutando</strong> na porta 22: o servidor SSH não está instalado, está parado ou usa outra porta.</p>
+<p><strong>Como confirmar:</strong> no servidor, rode <code>systemctl status ssh</code> e <code>sudo ss -tlpn | grep ssh</code>.</p>
+<p><strong>Como resolver:</strong> instale (<code>sudo apt install openssh-server</code>) ou informe a porta certa com <code>-p</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Connection timed out</strong>
+<pre class="term">$ ssh ana@192.168.0.50
+ssh: connect to host 192.168.0.50 port 22: Connection timed out</pre>
+<p><strong>O que aconteceu:</strong> nenhuma resposta chegou. A máquina está desligada, o IP está errado, ou um firewall está descartando os pacotes em silêncio.</p>
+<p><strong>Como confirmar:</strong> <code>ping -c 3 192.168.0.50</code> e <code>nc -zv 192.168.0.50 22</code>. No servidor, <code>sudo ufw status</code> mostra se a porta 22 está liberada.</p>
+</div>
+
+<div class="cenario">
+<strong>Could not resolve hostname</strong>
+<pre class="term">$ ssh ana@servidro
+ssh: Could not resolve hostname servidro: Name or service not known</pre>
+<p><strong>O que aconteceu:</strong> o nome não existe no DNS, no <code>/etc/hosts</code> nem no <code>~/.ssh/config</code>. Aqui foi erro de digitação. O <code>ssh</code> mostra essa mensagem em inglês.</p>
+</div>
+
+<div class="cenario">
+<strong>Permission denied (publickey)</strong>
+<pre class="term">$ ssh ana@192.168.0.50
+ana@192.168.0.50: Permission denied (publickey).</pre>
+<p><strong>O que aconteceu:</strong> o servidor só aceita chaves (a senha foi desligada), e nenhuma das suas chaves está no <code>authorized_keys</code> dele. Também acontece com o usuário errado: <code>root</code> em vez de <code>ana</code>, por exemplo.</p>
+<p><strong>Como confirmar:</strong> rode <code>ssh -v ana@192.168.0.50</code> e procure as linhas <code>Offering public key</code>, que mostram quais chaves foram tentadas. No servidor, confira as permissões: <code>ls -ld ~/.ssh</code> (700) e <code>ls -l ~/.ssh/authorized_keys</code> (600).</p>
+<p><strong>Como resolver:</strong> use a chave certa (<code>-i</code>), confira o usuário, ou peça a quem tem acesso para colocar a sua chave pública no servidor.</p>
+</div>
+
+<div class="cenario">
+<strong>REMOTE HOST IDENTIFICATION HAS CHANGED</strong>
+<pre class="term">$ ssh ana@192.168.0.50
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
+Someone could be eavesdropping on you right now (man-in-the-middle attack)!
+It is also possible that a host key has just been changed.
+…
+Offending ED25519 key in /home/ana/.ssh/known_hosts:3            « a linha 3 guarda o fingerprint antigo
+Host key verification failed.</pre>
+<p><strong>O que aconteceu:</strong> o fingerprint guardado não bate com o atual. Na maioria das vezes é inofensivo: você reinstalou o servidor, ou o IP passou a ser de outra máquina. Mas pode ser alguém se passando pelo servidor.</p>
+<p><strong>Como resolver:</strong> se você <strong>sabe</strong> por que mudou, apague o registro antigo e conecte de novo, respondendo <code>yes</code>:</p>
+<pre class="term">$ ssh-keygen -R 192.168.0.50
+# Host 192.168.0.50 found: line 3
+/home/ana/.ssh/known_hosts updated.
+Original contents retained as /home/ana/.ssh/known_hosts.old</pre>
+<p>Se você <strong>não</strong> sabe por que mudou, não conecte e confira com quem administra o servidor.</p>
+</div>
+
+<div class="cenario">
+<strong>Ele ainda pede senha depois do ssh-copy-id</strong>
+<p><strong>O que aconteceu:</strong> quase sempre são permissões no servidor (a home, o <code>~/.ssh</code> ou o <code>authorized_keys</code> com escrita para outros), ou a chave foi copiada para outro usuário.</p>
+<p><strong>Como resolver:</strong> no servidor, rode <code>chmod 700 ~/.ssh &amp;&amp; chmod 600 ~/.ssh/authorized_keys</code> e veja o motivo no log: <code>sudo journalctl -u ssh -n 20</code> (veja <a href="journalctl.html">Logs (journalctl)</a>).</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Faz</th></tr>
+<tr><td><code>ssh usuario@host</code></td><td>Abre uma sessão remota</td></tr>
+<tr><td><code>ssh host comando</code></td><td>Roda um comando e volta</td></tr>
+<tr><td><code>ssh-keygen -t ed25519 -C "texto"</code></td><td>Gera um par de chaves</td></tr>
+<tr><td><code>ssh-copy-id usuario@host</code></td><td>Instala a chave pública no servidor</td></tr>
+<tr><td><code>ssh-keygen -R host</code></td><td>Apaga um servidor do <code>known_hosts</code></td></tr>
+<tr><td><code>ssh-keygen -lf arquivo.pub</code></td><td>Mostra o fingerprint de uma chave</td></tr>
+<tr><td><code>ssh-add</code></td><td>Carrega a chave no agente</td></tr>
+<tr><td><code>sudo apt install openssh-server</code></td><td>Instala o servidor</td></tr>
+<tr><td><code>systemctl status ssh</code></td><td>Estado do servidor SSH</td></tr>
+</table>
+</div>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Arquivo</th><th>Onde</th><th>Para quê</th></tr>
+<tr><td><code>~/.ssh/id_ed25519</code></td><td>Cliente</td><td>Chave privada (600, nunca compartilhe)</td></tr>
+<tr><td><code>~/.ssh/id_ed25519.pub</code></td><td>Cliente</td><td>Chave pública</td></tr>
+<tr><td><code>~/.ssh/known_hosts</code></td><td>Cliente</td><td>Fingerprints dos servidores conhecidos</td></tr>
+<tr><td><code>~/.ssh/config</code></td><td>Cliente</td><td>Apelidos e opções</td></tr>
+<tr><td><code>~/.ssh/authorized_keys</code></td><td>Servidor</td><td>Chaves públicas autorizadas a entrar (600)</td></tr>
+<tr><td><code>/etc/ssh/sshd_config.d/*.conf</code></td><td>Servidor</td><td>Configuração do servidor (veja <a href="seguranca.html">Segurança do Servidor</a>)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Conectar em outra porta</h3>
+<p>Complete para conectar como <code>ana</code> no <code>192.168.0.50</code>, que usa a porta 2222:</p>
+<div class="ex-code">ssh <input data-answer="-p 2222|-p2222" aria-label="opção"> ana@192.168.0.50</div>
+</div>
+
+<div class="exercise">
+<h3>2. Gerar a chave</h3>
+<p>Complete para gerar uma chave do tipo ed25519:</p>
+<div class="ex-code">ssh-keygen -t <input data-answer="ed25519" aria-label="tipo"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Instalar a chave no servidor</h3>
+<p>Complete com o comando que copia a sua chave pública para o servidor:</p>
+<div class="ex-code"><input data-answer="ssh-copy-id" aria-label="comando"> ana@192.168.0.50</div>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">4. <code>ssh: connect to host … port 22: Connection refused</code> significa que…</p>
+<label><input type="radio" name="q4"> A máquina respondeu, mas nenhum servidor SSH está escutando na porta 22.</label>
+<label><input type="radio" name="q4"> A senha está errada.</label>
+<label><input type="radio" name="q4"> O nome não existe no DNS.</label>
+<label><input type="radio" name="q4"> A chave privada está com permissão errada.</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Qual arquivo você <strong>nunca</strong> deve enviar a ninguém?</p>
+<label><input type="radio" name="q5"> <code>~/.ssh/id_ed25519.pub</code></label>
+<label><input type="radio" name="q5"> <code>~/.ssh/known_hosts</code></label>
+<label><input type="radio" name="q5"> <code>~/.ssh/id_ed25519</code></label>
+<label><input type="radio" name="q5"> <code>~/.ssh/config</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Cliente <code>ssh</code> já vem instalado; o servidor é o pacote <code>openssh-server</code>.</li>
+  <li>Na primeira conexão, o fingerprint é guardado no <code>known_hosts</code>; se mudar, o SSH bloqueia e avisa.</li>
+  <li>Chaves: <code>ssh-keygen -t ed25519</code> → <code>ssh-copy-id usuario@host</code> → entrar sem senha.</li>
+  <li><code>~/.ssh/config</code> cria apelidos; <code>ssh host comando</code> roda um comando remoto.</li>
+  <li><em>Refused</em> = nada escutando; <em>timed out</em> = sem resposta ou firewall; <em>Permission denied (publickey)</em> = chave ou usuário errados.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

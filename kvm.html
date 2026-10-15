@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu KVM e virt-manager — máquinas virtuais | Guia Ubuntu</title>
+<meta name="description" content="Máquinas virtuais no Ubuntu com KVM: verificar suporte, instalar libvirt e virt-manager, grupos, virsh, virt-install e o atalho Multipass.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">KVM e virt-manager</span></h1>
+
+<p class="intro">O <strong>KVM</strong> (<em>Kernel-based Virtual Machine</em>) transforma o próprio kernel Linux num hipervisor: o programa que roda máquinas virtuais. Com ele você roda outro Ubuntu, outra distribuição ou até o Windows dentro do seu computador, quase na velocidade do hardware real.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Quem é quem: KVM, QEMU, libvirt, virsh e virt-manager.</li>
+  <li>Como confirmar que o seu processador suporta virtualização.</li>
+  <li>Instalar tudo e usar sem <code>sudo</code>.</li>
+  <li>Criar uma VM pela interface gráfica, pelo <code>virt-install</code> e pelo atalho Multipass.</li>
+  <li>Ligar, desligar e listar VMs com o <code>virsh</code>, e por que às vezes ele "não mostra nada".</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Conceito: as peças</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Peça</th><th>Papel</th><th>Analogia</th></tr>
+<tr><td><strong>KVM</strong></td><td>Módulo do kernel que usa a virtualização do processador</td><td>O motor</td></tr>
+<tr><td><strong>QEMU</strong></td><td>Programa que simula o computador da VM (disco, rede, tela)</td><td>A carroceria</td></tr>
+<tr><td><strong>libvirt</strong></td><td>Serviço que gerencia as VMs (<code>libvirtd</code>)</td><td>O painel</td></tr>
+<tr><td><strong>virsh</strong></td><td>Comando de terminal para falar com a libvirt</td><td>O volante no terminal</td></tr>
+<tr><td><strong>virt-manager</strong></td><td>Interface gráfica para a libvirt</td><td>O volante com tela</td></tr>
+<tr><td><strong>Multipass</strong></td><td>Atalho da Canonical: VM Ubuntu com um comando</td><td>O táxi</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Passo 1: o processador suporta?</h2>
+<p>Processadores Intel chamam a função de <strong>VT-x</strong> (sigla <code>vmx</code>) e AMD de <strong>AMD-V</strong> (sigla <code>svm</code>). Conte quantas vezes ela aparece na lista de recursos da CPU:</p>
+
+<dl class="anatomy">
+  <dt>grep</dt><dd>Procura texto (veja <a href="grep.html">grep</a>).</dd>
+  <dt>-E</dt><dd>Expressão regular estendida: permite o <code>|</code> ("ou").</dd>
+  <dt>-c</dt><dd>Em vez das linhas, mostra quantas linhas bateram.</dd>
+  <dt>'vmx|svm'</dt><dd>O padrão: "vmx" ou "svm".</dd>
+  <dt>/proc/cpuinfo</dt><dd>Arquivo virtual com uma seção por núcleo do processador.</dd>
+</dl>
+
+<pre class="term">$ grep -Ec 'vmx|svm' /proc/cpuinfo
+16                                 « maior que 0: suporta (um por núcleo lógico)
+$ ls -l /dev/kvm
+crw-rw----+ 1 root kvm 10, 232 Oct 15 08:00 /dev/kvm    « o kernel já ativou o KVM</pre>
+
+<p>Se der <code>0</code>, a função pode estar desligada no <strong>BIOS/UEFI</strong> (procure "Intel Virtualization Technology", "SVM Mode" ou "AMD-V") ou você já está dentro de uma VM.</p>
+
+<h3>Forma 2: <code>kvm-ok</code></h3>
+<pre class="term">$ sudo apt install cpu-checker
+$ kvm-ok
+INFO: /dev/kvm exists
+KVM acceleration can be used</pre>
+
+<hr>
+
+<h2>Passo 2: instalar</h2>
+<dl class="anatomy">
+  <dt>qemu-system-x86</dt><dd>O QEMU para PCs (antigamente chamado <code>qemu-kvm</code>).</dd>
+  <dt>libvirt-daemon-system</dt><dd>O serviço libvirt, com a rede padrão.</dd>
+  <dt>libvirt-clients</dt><dd>O comando <code>virsh</code>.</dd>
+  <dt>virtinst</dt><dd>O comando <code>virt-install</code>.</dd>
+  <dt>virt-manager</dt><dd>A interface gráfica.</dd>
+</dl>
+<pre class="term">$ sudo apt install qemu-system-x86 libvirt-daemon-system libvirt-clients virtinst virt-manager
+$ systemctl is-active libvirtd
+active</pre>
+
+<h3>Usar sem sudo: grupos <code>libvirt</code> e <code>kvm</code></h3>
+<pre class="term">$ sudo usermod -aG libvirt,kvm $USER
+$ groups
+ana adm cdrom sudo dip plugdev users lpadmin    « ainda não: saia e entre na sessão</pre>
+<p>Depois de sair e entrar, <code>groups</code> mostra <code>libvirt</code> e <code>kvm</code>. Assim como o grupo <code>docker</code>, o grupo <code>libvirt</code> dá muito poder sobre a máquina: só para quem já teria <code>sudo</code>.</p>
+
+<hr>
+
+<h2>Criar uma VM: três formas</h2>
+
+<h3>Forma 1: virt-manager (gráfico)</h3>
+<ol class="passo">
+  <li>Abra <strong>Gerenciador de Máquinas Virtuais</strong> (ou rode <code>virt-manager</code>).</li>
+  <li>Clique no ícone de nova VM e escolha <strong>Mídia de instalação local (ISO)</strong>.</li>
+  <li>Selecione a ISO (ex.: <code>~/Downloads/ubuntu-26.04-desktop-amd64.iso</code>). Se o sistema não for detectado, desmarque a detecção e digite "Ubuntu".</li>
+  <li>Escolha memória (2048 MB ou mais) e CPUs (2).</li>
+  <li>Crie um disco de 25 GB ou mais.</li>
+  <li>Dê um nome e clique em <strong>Concluir</strong>: a janela da VM abre com o instalador.</li>
+</ol>
+
+<h3>Forma 2: <code>virt-install</code> (terminal)</h3>
+<dl class="anatomy">
+  <dt>virt-install</dt><dd>Cria e inicia uma VM pela libvirt.</dd>
+  <dt>--name srv1</dt><dd>Nome da VM.</dd>
+  <dt>--memory 2048</dt><dd>Memória em MB.</dd>
+  <dt>--vcpus 2</dt><dd>Número de processadores virtuais.</dd>
+  <dt>--disk size=20</dt><dd>Cria um disco novo de 20 GB.</dd>
+  <dt>--cdrom …iso</dt><dd>De onde dar o boot para instalar.</dd>
+  <dt>--osinfo detect=on,require=off</dt><dd>Tenta descobrir o sistema pela ISO, sem falhar se não achar.</dd>
+</dl>
+<pre class="term">$ virt-install --connect qemu:///system --name srv1 --memory 2048 --vcpus 2 --disk size=20 --cdrom ~/Downloads/ubuntu-26.04-live-server-amd64.iso --osinfo detect=on,require=off
+Iniciando a instalação…
+Alocando "srv1.qcow2"                       |  20 GB  00:00:00
+Criando domínio…                            |         00:00:00
+Executando o visualizador gráfico de console para o convidado.</pre>
+<p>É um comando só, numa linha longa (role para o lado para ver tudo). Na libvirt, uma VM é chamada de <strong>domínio</strong> (<em>domain</em>). As mensagens desta página são ilustrativas: dependendo da versão e das traduções instaladas, parte delas aparece em inglês (<code>Name</code>, <code>State</code>, <code>running</code>, <code>shut off</code>).</p>
+
+<h3>Forma 3: Multipass (o atalho)</h3>
+<p>Para "quero um Ubuntu limpo para testar, agora", o Multipass cria a VM já instalada, sem ISO e sem perguntas:</p>
+<pre class="term">$ sudo snap install multipass
+$ multipass launch 26.04 --name lab --cpus 2 --memory 2G --disk 10G
+Launched: lab
+$ multipass list
+Name                    State             IPv4             Image
+lab                     Running           10.73.164.12     Ubuntu 26.04 LTS
+$ multipass shell lab</pre>
+<pre class="term" data-user="ubuntu" data-host="lab">$ lsb_release -ds
+Ubuntu 26.04.1 LTS
+$ exit</pre>
+<pre class="term">$ multipass stop lab
+$ multipass delete lab &amp;&amp; multipass purge     « delete marca, purge apaga de vez</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Melhor quando…</th></tr>
+<tr><td>virt-manager</td><td>Você quer instalar qualquer sistema (inclusive Windows) com interface gráfica.</td></tr>
+<tr><td>virt-install</td><td>Servidor sem tela, ou criar VMs por script.</td></tr>
+<tr><td>Multipass</td><td>Você só quer um Ubuntu de teste em 1 minuto (combina com <a href="cloud-init.html">cloud-init</a>).</td></tr>
+<tr><td><a href="lxd.html">LXD --vm</a></td><td>Você já usa LXD e quer VMs com os mesmos comandos.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Gerenciar com <code>virsh</code></h2>
+<pre class="term">$ virsh -c qemu:///system list --all
+ Id   Nome    Estado
+-----------------------------
+ 1    srv1    executando
+ -    win11   desligado</pre>
+
+<dl class="anatomy">
+  <dt>virsh</dt><dd>O cliente de terminal da libvirt.</dd>
+  <dt>-c qemu:///system</dt><dd>A "conexão": as VMs do sistema (as que o virt-manager cria por padrão).</dd>
+  <dt>list --all</dt><dd>Lista as VMs, inclusive desligadas (sem <code>--all</code>, só as ligadas).</dd>
+</dl>
+
+<p>Para não digitar o <code>-c</code> toda vez, coloque no seu <code>~/.bashrc</code> (veja <a href="bashrc.html">.bashrc</a>):</p>
+<pre class="file" data-file="~/.bashrc (final)">export LIBVIRT_DEFAULT_URI=qemu:///system</pre>
+
+<pre class="term">$ virsh start win11
+Domínio 'win11' iniciado
+$ virsh shutdown srv1                « pede para desligar (como apertar o botão uma vez)
+Domínio 'srv1' está sendo desligado
+$ virsh destroy srv1                 « desliga à força (como tirar da tomada)
+$ virsh autostart srv1               « liga junto com o computador
+$ virsh dominfo srv1 | head -6
+Id:             -
+Nome:           srv1
+UUID:           7c3f0a52-2d61-4f3e-9a51-0b1e2c3d4e5f
+Tipo de SO:     hvm
+Estado:         desligado
+CPU(s):         2</pre>
+
+<div class="warning">
+<strong>Atenção: <code>destroy</code> não apaga, mas é brusco</strong>
+<p><code>virsh destroy</code> só desliga à força, e a VM pode perder o que não foi salvo. Para apagar de verdade, use <code>virsh undefine srv1 --remove-all-storage</code>, que apaga também o disco, sem lixeira.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong><code>virsh list</code> não mostra nada (mas a VM existe)</strong>
+<pre class="term">$ virsh list --all
+ Id   Nome   Estado
+--------------------
+                                     « vazio!</pre>
+<p><strong>O que aconteceu:</strong> sem o <code>-c</code>, um usuário comum conecta em <code>qemu:///session</code>, as VMs <em>do usuário</em>. As do virt-manager ficam em <code>qemu:///system</code>.</p>
+<p><strong>Como resolver:</strong> <code>virsh -c qemu:///system list --all</code>, ou defina <code>LIBVIRT_DEFAULT_URI</code> como acima.</p>
+</div>
+
+<div class="cenario">
+<strong>"KVM acceleration can NOT be used"</strong>
+<pre class="term">$ kvm-ok
+INFO: Your CPU does not support KVM extensions
+KVM acceleration can NOT be used</pre>
+<p><strong>O que aconteceu:</strong> a virtualização está desligada no BIOS/UEFI, ou você está dentro de uma VM sem virtualização aninhada. <strong>Como resolver:</strong> ative "Intel VT-x"/"SVM" no BIOS e reinicie.</p>
+</div>
+
+<div class="cenario">
+<strong>"Failed to connect socket … Permission denied"</strong>
+<pre class="term">$ virsh -c qemu:///system list
+erro: falha ao conectar-se ao hipervisor
+erro: Failed to connect socket to '/var/run/libvirt/libvirt-sock': Permission denied</pre>
+<p><strong>O que aconteceu:</strong> seu usuário não está no grupo <code>libvirt</code> nesta sessão. <strong>Como resolver:</strong> <code>sudo usermod -aG libvirt $USER</code> e saia/entre na sessão.</p>
+</div>
+
+<div class="cenario">
+<strong>VirtualBox e KVM ao mesmo tempo</strong>
+<p>Os dois disputam a virtualização do processador. Se o VirtualBox reclamar ao iniciar uma VM com o KVM em uso, desligue as VMs da libvirt antes, ou use só um dos dois.</p>
+</div>
+
+<hr>
+
+<h2>Referência do <code>virsh</code></h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>virsh list --all</code></td><td>Lista VMs</td></tr>
+<tr><td><code>virsh start NOME</code></td><td>Liga</td></tr>
+<tr><td><code>virsh shutdown NOME</code></td><td>Desliga com educação</td></tr>
+<tr><td><code>virsh reboot NOME</code></td><td>Reinicia</td></tr>
+<tr><td><code>virsh destroy NOME</code></td><td>Desliga à força</td></tr>
+<tr><td><code>virsh autostart [--disable] NOME</code></td><td>Liga junto com o host</td></tr>
+<tr><td><code>virsh dominfo NOME</code></td><td>Informações da VM</td></tr>
+<tr><td><code>virsh console NOME</code></td><td>Console de texto (sair: <kbd>Ctrl</kbd>+<kbd>]</kbd>)</td></tr>
+<tr><td><code>virsh snapshot-create-as NOME SNAP</code></td><td>Cria snapshot</td></tr>
+<tr><td><code>virsh net-list --all</code></td><td>Redes virtuais (a <code>default</code> é a NAT 192.168.122.0/24)</td></tr>
+<tr><td><code>virsh undefine NOME --remove-all-storage</code></td><td>Apaga a VM e o disco</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Suporte do processador</h3>
+<p>Complete para contar as linhas com <code>vmx</code> ou <code>svm</code>:</p>
+<div class="ex-code">grep -Ec 'vmx|svm' <input data-answer="/proc/cpuinfo" aria-label="arquivo"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Listar todas as VMs do sistema</h3>
+<div class="ex-code">virsh -c <input data-answer="qemu:///system" aria-label="conexão"> list --all</div>
+</div>
+
+<div class="exercise">
+<h3>3. Desligar com educação</h3>
+<div class="ex-code">virsh <input data-answer="shutdown" aria-label="subcomando"> srv1</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Você quer só um Ubuntu Server limpo para testar um script, em 1 minuto. O que é mais prático?</p>
+<label><input type="radio" name="q4"> Baixar a ISO e instalar no virt-manager.</label>
+<label><input type="radio" name="q4"> Comprar outro computador.</label>
+<label><input type="radio" name="q4"> <code>multipass launch 26.04</code></label>
+<label><input type="radio" name="q4"> <code>virsh destroy</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>KVM é o motor no kernel; QEMU simula o hardware; libvirt gerencia; <code>virsh</code> e virt-manager são os controles.</li>
+  <li>Confirme o suporte com <code>grep -Ec 'vmx|svm' /proc/cpuinfo</code> ou <code>kvm-ok</code>.</li>
+  <li>Instale os pacotes e entre nos grupos <code>libvirt</code> e <code>kvm</code>.</li>
+  <li>Use <code>qemu:///system</code> no <code>virsh</code> para ver as VMs do virt-manager.</li>
+  <li>Para testes rápidos, o Multipass cria uma VM Ubuntu com um comando.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

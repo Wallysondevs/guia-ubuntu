@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Pipes e xargs — juntar comandos com | | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a usar pipes (|), tee e xargs no Ubuntu: monte comandos passo a passo, entenda o que cada etapa devolve, veja erros reais e pratique no terminal simulado.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Pipes e xargs</span></h1>
+
+<p class="intro">O <strong>pipe</strong> (<code>|</code>, "cano" em inglês) liga a saída de um comando à entrada do próximo. Com ele, comandos pequenos viram uma linha de montagem: um lista, outro filtra, outro conta. É uma das ideias mais poderosas do Linux.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Como o <code>|</code> conecta dois comandos, e a diferença entre <code>|</code> e <code>&gt;</code>.</li>
+  <li>A montar um pipe de várias etapas <strong>uma etapa por vez</strong>, conferindo cada resultado.</li>
+  <li>A ver e gravar ao mesmo tempo com <code>tee</code>.</li>
+  <li>A transformar linhas em argumentos com <code>xargs</code>, para comandos que não leem a entrada.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>A ideia: saída de um vira entrada do outro</h2>
+<p>Na aula de <a href="redirecionamento.html">Redirecionamento</a> você viu que todo comando tem uma entrada (canal 0) e uma saída (canal 1). O pipe encaixa os dois:</p>
+
+<pre class="syntax">  comando1  ── saída ──►  |  ── entrada ──►  comando2  ──►  tela</pre>
+
+<p>O <code>comando1</code> não mostra nada na tela. Tudo o que ele produziria vai direto para o <code>comando2</code>, que trabalha em cima disso.</p>
+
+<h3>Seu primeiro pipe</h3>
+<p>Quantos arquivos há na pasta Downloads? O <code>ls</code> lista, e o <code>wc -l</code> conta linhas.</p>
+
+<dl class="anatomy">
+  <dt>ls Downloads</dt><dd>Lista os arquivos, um por linha (quando a saída não é a tela).</dd>
+  <dt>|</dt><dd>O pipe: entrega essa lista ao próximo comando.</dd>
+  <dt>wc -l</dt><dd>Conta as linhas que recebeu (<em>word count</em>, opção <code>-l</code> de <em>lines</em>).</dd>
+</dl>
+
+<pre class="term">$ ls Downloads
+foto.jpg  fotos-viagem.zip  manual.pdf  musica.mp3  ubuntu-26.04-desktop-amd64.iso
+$ ls Downloads | wc -l
+5                                « 5 linhas = 5 arquivos</pre>
+
+<p>O símbolo <code>|</code> fica, na maioria dos teclados brasileiros, na tecla ao lado do <kbd>Z</kbd> ou do <kbd>Backspace</kbd>, junto com a barra invertida: aperte <kbd>Shift</kbd> + essa tecla.</p>
+
+<hr>
+
+<h2>Montando um pipe passo a passo</h2>
+<p>Ninguém escreve um pipe longo de uma vez. O jeito profissional é <strong>acrescentar uma etapa, rodar, olhar o resultado</strong>, e só então acrescentar a próxima. Vamos responder: <em>qual fruta aparece mais vezes em <code>frutas.txt</code>?</em></p>
+
+<ol class="passo">
+<li>
+<p><strong>Veja os dados brutos.</strong></p>
+<pre class="term">$ cat frutas.txt
+banana
+maçã
+laranja
+banana
+uva
+maçã
+banana</pre>
+</li>
+<li>
+<p><strong>Ordene</strong>, para que as frutas iguais fiquem juntas.</p>
+<pre class="term">$ sort frutas.txt
+banana
+banana
+banana
+laranja
+maçã
+maçã
+uva</pre>
+</li>
+<li>
+<p><strong>Conte as repetições.</strong> O <code>uniq -c</code> junta linhas iguais <em>vizinhas</em> e escreve quantas eram. Por isso o <code>sort</code> veio antes.</p>
+<pre class="term">$ sort frutas.txt | uniq -c
+      3 banana
+      1 laranja
+      2 maçã
+      1 uva</pre>
+</li>
+<li>
+<p><strong>Ordene pela contagem</strong>, do maior para o menor: <code>-n</code> compara como número, <code>-r</code> inverte.</p>
+<pre class="term">$ sort frutas.txt | uniq -c | sort -nr
+      3 banana
+      2 maçã
+      1 uva
+      1 laranja</pre>
+</li>
+<li>
+<p><strong>Fique só com a primeira linha.</strong></p>
+<pre class="term">$ sort frutas.txt | uniq -c | sort -nr | head -n 1
+      3 banana                   « a resposta</pre>
+</li>
+</ol>
+
+<dl class="anatomy">
+  <dt>sort frutas.txt</dt><dd>Ordena, juntando as linhas iguais.</dd>
+  <dt>| uniq -c</dt><dd>Conta cada grupo de linhas iguais.</dd>
+  <dt>| sort -nr</dt><dd>Ordena pelo número, do maior para o menor.</dd>
+  <dt>| head -n 1</dt><dd>Mostra só a primeira linha.</dd>
+</dl>
+
+<p>Esse mesmo "molde" responde muitas perguntas do dia a dia: quais IPs mais acessaram um site, quais comandos você mais usa, quais extensões de arquivo dominam uma pasta.</p>
+
+<div class="try" data-goal="contains:~/ranking.txt=3 banana">
+<p class="try-task"><strong>Missão:</strong> monte o pipe acima <strong>etapa por etapa</strong>, rodando cada versão. No fim, grave o ranking completo (sem o <code>head</code>) no arquivo <code>ranking.txt</code>. Dica: use as setas <kbd>↑</kbd> para trazer o comando anterior e só acrescentar a próxima etapa.</p>
+</div>
+
+<h3>Outro exemplo: quem mais acessou o site?</h3>
+<p>O arquivo <code>Documentos/acesso.log</code> tem uma linha por acesso, e o primeiro "campo" é o IP do visitante:</p>
+
+<pre class="term">$ head -n 2 Documentos/acesso.log
+192.168.0.10 - - [15/Oct/2026:09:01:12] "GET / HTTP/1.1" 200
+192.168.0.23 - - [15/Oct/2026:09:01:40] "GET /contato HTTP/1.1" 200
+$ cut -d " " -f 1 Documentos/acesso.log | sort | uniq -c | sort -nr
+      3 192.168.0.10
+      2 192.168.0.23
+      1 192.168.0.57</pre>
+
+<p>O <code>cut -d " " -f 1</code> corta cada linha nos espaços (<code>-d</code>, de <em>delimiter</em>) e fica com o campo 1 (<code>-f</code>, de <em>field</em>). O resto é o mesmo molde. Veja mais sobre <code>cut</code> em <a href="texto.html">sort, uniq, cut, wc, tr</a>.</p>
+
+<div class="try" data-goal="ran:grep.*404">
+<p class="try-task"><strong>Missão:</strong> (1) descubra qual IP mais acessou, montando o pipe aos poucos. (2) Use <code>grep</code> para mostrar só as linhas do log com o código <code>404</code> (página não encontrada).</p>
+</div>
+
+<hr>
+
+<h2>Filtrar a saída de qualquer comando</h2>
+<p>O <code>grep</code> é o parceiro mais comum do pipe: ele deixa passar só as linhas que contêm um texto.</p>
+
+<pre class="term">$ ls -l Documentos | grep txt
+-rw-rw-r-- 1 ana ana   71 Oct 14 17:40 notas.txt
+$ history | grep mkdir
+   12  mkdir jan fev mar
+   15  mkdir -p loja/{src,docs}</pre>
+
+<h3>Cuidado: o grep encontra a si mesmo</h3>
+<p>Um uso clássico é procurar um programa na lista de processos. Repare na última linha:</p>
+
+<pre class="term">$ ps aux | grep chrome
+ana         2210  5.4  6.8 1100800 1093000 ?     Sl   08:00   0:16 /snap/chromium/3554/usr/lib/chromium-browser/chrome --password-store
+ana         2251  2.0  3.9 636000 629000 ?       Sl   08:00   0:06 /snap/chromium/3554/usr/lib/chromium-browser/chrome --type=renderer
+ana         3150  0.0  0.0   9144  2304 pts/0    S+   10:30   0:00 grep --color=auto chrome    « o próprio grep</pre>
+
+<p>O <code>grep chrome</code> também é um processo, e a linha de comando dele contém "chrome". Duas soluções:</p>
+<ul>
+  <li><code>pgrep -a chrome</code>, que foi feito para isso (veja <a href="processos.html">ps, pgrep, top</a>);</li>
+  <li><code>ps aux | grep "[c]hrome"</code>. O padrão <code>[c]hrome</code> casa com "chrome", mas o texto do próprio grep agora é "[c]hrome", que não casa.</li>
+</ul>
+
+<hr>
+
+<h2>Ver e gravar ao mesmo tempo: <code>tee</code></h2>
+<p>Com <code>&gt;</code>, a saída vai para o arquivo e some da tela. O <code>tee</code> (nome de uma conexão hidráulica em forma de "T") divide o fluxo em dois: grava num arquivo <strong>e</strong> passa adiante.</p>
+
+<pre class="syntax">  comando  ──►  tee arquivo.txt  ──►  tela (ou próximo comando)
+                     │
+                     ▼
+                arquivo.txt</pre>
+
+<dl class="anatomy">
+  <dt>ls Documentos</dt><dd>O comando.</dd>
+  <dt>| tee lista.txt</dt><dd>Grava em <code>lista.txt</code> e repete na tela.</dd>
+</dl>
+
+<pre class="term">$ ls Documentos | tee lista.txt
+acesso.log
+notas.txt
+projetos
+relatorio.odt
+$ cat lista.txt
+acesso.log
+notas.txt
+projetos
+relatorio.odt</pre>
+
+<p>Com <code>-a</code> (de <em>append</em>), o <code>tee</code> acrescenta em vez de substituir, como o <code>&gt;&gt;</code>.</p>
+
+<h3>O uso mais importante: escrever em arquivos do sistema</h3>
+<p>Como você viu em <a href="redirecionamento.html">Redirecionamento</a>, <code>sudo echo … &gt; /etc/arquivo</code> falha. Com <code>tee</code>, quem abre o arquivo é o próprio <code>tee</code>, e ele pode rodar com sudo:</p>
+
+<pre class="term">$ echo "vm.swappiness=10" | sudo tee /etc/sysctl.d/99-swap.conf
+[sudo: authenticate] Senha:
+vm.swappiness=10
+$ echo "vm.swappiness=10" | tee /etc/sysctl.d/99-swap.conf
+/etc/sysctl.d/99-swap.conf: Permission denied (os error 13)        « sem sudo: negado</pre>
+
+<p>Se você não quer o eco na tela, descarte-o: <code>… | sudo tee arquivo &gt; /dev/null</code>.</p>
+
+<hr>
+
+<h2>xargs: transformar linhas em argumentos</h2>
+<p>Alguns comandos leem a entrada (<code>sort</code>, <code>grep</code>, <code>wc</code>). Outros <strong>não</strong>: <code>mkdir</code>, <code>rm</code>, <code>cp</code> e <code>touch</code> só aceitam nomes como argumentos. Mandar algo para eles por pipe não funciona:</p>
+
+<pre class="term">$ cat pastas.txt
+fotos
+videos
+musicas
+$ cat pastas.txt | mkdir
+erro: os seguintes argumentos obrigatórios não foram fornecidos:
+  &lt;dirs&gt;...                                « faltou o nome das pastas
+
+Usage: mkdir [OPÇÃO]... DIRETÓRIO...
+
+Para obter mais informações, use '--help'.</pre>
+
+<p>O <code>mkdir</code> recebeu a lista pela entrada, mas não lê a entrada. Para ele, foi como digitar só <code>mkdir</code>, sem nome nenhum.</p>
+
+<p>O <code>xargs</code> resolve isso: ele lê as linhas e as coloca no fim do comando, como se você tivesse digitado.</p>
+
+<dl class="anatomy">
+  <dt>cat pastas.txt</dt><dd>Produz os nomes, um por linha.</dd>
+  <dt>| xargs</dt><dd>Lê esses nomes da entrada…</dd>
+  <dt>mkdir</dt><dd>…e roda <code>mkdir fotos videos musicas</code>.</dd>
+</dl>
+
+<pre class="term">$ cat pastas.txt | xargs mkdir
+$ ls -d fotos videos musicas
+fotos  musicas  videos</pre>
+
+<h3>Ver o comando que o xargs montou: <code>-t</code></h3>
+<p>A opção <code>-t</code> mostra o comando antes de rodar. É ótima para aprender e para conferir:</p>
+
+<pre class="term">$ cat pastas.txt | xargs -t mkdir -p
+mkdir -p fotos videos musicas</pre>
+
+<h3>Um item por vez: <code>-n 1</code> e <code>-I {}</code></h3>
+<p>Por padrão, o xargs coloca todos os itens num comando só. Com <code>-n 1</code>, roda uma vez para cada item. Com <code>-I {}</code>, você escolhe <strong>onde</strong> o item entra no comando:</p>
+
+<pre class="term">$ cat pastas.txt | xargs -n 1 echo "criando:"
+criando: fotos
+criando: videos
+criando: musicas
+$ cat pastas.txt | xargs -I {} mkdir {}-2026
+$ ls -d *-2026
+fotos-2026  musicas-2026  videos-2026</pre>
+
+<h3>Nomes com espaço: <code>-d '\n'</code> e <code>-0</code></h3>
+<p>O xargs separa os itens por espaços. Um nome como "Meus Projetos" vira dois:</p>
+
+<pre class="term">$ echo "Meus Projetos" | xargs mkdir
+$ ls
+Meus  Projetos                   « duas pastas, não uma</pre>
+
+<p>Use <code>xargs -d '\n'</code> para separar só por linha. Com o <code>find</code>, o par mais seguro é <code>find … -print0 | xargs -0</code>, que usa um separador invisível que nunca aparece em nomes:</p>
+
+<pre class="term">$ find . -name "*.tmp" -print0 | xargs -0 rm -v
+removido './cache 1.tmp'
+removido './cache 2.tmp'</pre>
+
+<div class="warning">
+<strong>Teste antes de apagar</strong>
+<p>Antes de qualquer <code>| xargs rm</code>, rode o pipe sem o <code>rm</code> (ou com <code>xargs -t echo rm</code>) e confira a lista. Um padrão errado no <code>find</code> apaga arquivos que você não queria.</p>
+</div>
+
+<div class="try" data-setup="printf &quot;fotos\nvideos\nmusicas\n&quot; &gt; pastas.txt" data-goal="dir:~/fotos,dir:~/videos,dir:~/musicas">
+<p class="try-task"><strong>Missão:</strong> o arquivo <code>pastas.txt</code> já tem três nomes. Veja o conteúdo com <code>cat</code> e crie as três pastas usando <code>xargs</code>. Experimente também o <code>-t</code> para ver o comando montado.</p>
+</div>
+
+<hr>
+
+<h2>O que um pipe devolve</h2>
+<p>O código de saída (<code>$?</code>) de um pipe é o do <strong>último</strong> comando. Os erros das etapas anteriores ficam escondidos:</p>
+
+<pre class="term">$ cat nada.txt | wc -l
+cat: nada.txt: No such file or directory
+0
+$ echo $?
+0                                « o wc deu certo, então o pipe "deu certo"</pre>
+
+<p>Em scripts, ligue <code>set -o pipefail</code>: assim, se qualquer etapa falhar, o pipe inteiro devolve erro.</p>
+
+<pre class="term">$ set -o pipefail
+$ cat nada.txt | wc -l
+cat: nada.txt: No such file or directory
+0
+$ echo $?
+1</pre>
+
+<p>Repare também que a mensagem do <code>cat</code> apareceu na tela, e não foi para o <code>wc</code>. O pipe só leva o canal 1 (saída). Para levar os erros junto, use <code>2&gt;&amp;1 |</code> ou o atalho <code>|&amp;</code>.</p>
+
+<hr>
+
+<h2>Formas diferentes de contar linhas</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Observação</th></tr>
+<tr><td>Arquivo como argumento</td><td><code>wc -l frutas.txt</code></td><td>Mostra o número e o nome.</td></tr>
+<tr><td>Redirecionamento</td><td><code>wc -l &lt; frutas.txt</code></td><td>Só o número; ótimo em scripts.</td></tr>
+<tr><td>Pipe com cat</td><td><code>cat frutas.txt | wc -l</code></td><td>Funciona, mas o <code>cat</code> é desnecessário.</td></tr>
+<tr><td>Saída de outro comando</td><td><code>ls Downloads | wc -l</code></td><td>Aqui o pipe é necessário: os dados vêm de um comando.</td></tr>
+<tr><td>grep</td><td><code>grep -c banana frutas.txt</code></td><td>Conta só as linhas que casam.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Apareceu um arquivo chamado "wc"</strong>
+<pre class="term">$ ls &gt; wc
+$ ls
+Documentos  Downloads  …  wc</pre>
+<p><strong>O que aconteceu:</strong> foi usado <code>&gt;</code> no lugar de <code>|</code>. O <code>&gt;</code> manda a saída para um <strong>arquivo</strong>; o <code>|</code> manda para um <strong>comando</strong>.</p>
+<p><strong>Como resolver:</strong> apague o arquivo (<code>rm wc</code>) e use <code>ls | wc -l</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"falta operando" depois do pipe</strong>
+<pre class="term">$ find . -name "*.tmp" | rm
+rm: falta operando
+Tente "rm --help" para mais informações.</pre>
+<p><strong>O que aconteceu:</strong> o <code>rm</code> não lê a entrada; ele espera nomes como argumentos.</p>
+<p><strong>Como resolver:</strong> coloque o <code>xargs</code> no meio, <code>find . -name "*.tmp" -print0 | xargs -0 rm</code>, ou use o próprio <code>find . -name "*.tmp" -delete</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O pipe não mostrou nada</strong>
+<pre class="term">$ ps aux | grep firefox
+ana         3170  0.0  0.0   9144  2304 pts/0    S+   10:31   0:00 grep --color=auto firefox</pre>
+<p><strong>O que aconteceu:</strong> a única linha é o próprio grep. O Firefox não está aberto, ou o processo tem outro nome. No caso do Chromium instalado pelo Snap, o processo se chama <code>chrome</code>.</p>
+<p><strong>Como resolver:</strong> rode cada etapa sozinha. Primeiro <code>ps aux</code>, depois procure com outro termo, como <code>ps aux | grep -i chrom</code>. Veja o caso completo em <a href="processos.html">ps, pgrep, top</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>Nome com espaço virou dois itens</strong>
+<p>Se o <code>xargs</code> criou "Meus" e "Projetos" separados, use <code>xargs -d '\n'</code> ou, com o find, <code>-print0 | xargs -0</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Recurso</th><th>O que faz</th><th>Exemplo</th></tr>
+<tr><td><code>a | b</code></td><td>Saída de <code>a</code> vira entrada de <code>b</code></td><td><code>ls | wc -l</code></td></tr>
+<tr><td><code>a |&amp; b</code></td><td>Saída <strong>e erros</strong> de <code>a</code> para <code>b</code></td><td><code>make |&amp; less</code></td></tr>
+<tr><td><code>tee arq</code></td><td>Grava e repassa</td><td><code>ls | tee lista.txt</code></td></tr>
+<tr><td><code>tee -a arq</code></td><td>Acrescenta e repassa</td><td><code>date | tee -a log.txt</code></td></tr>
+<tr><td><code>| sudo tee arq</code></td><td>Grava em arquivo do root</td><td><code>echo x | sudo tee /etc/a.conf</code></td></tr>
+<tr><td><code>xargs cmd</code></td><td>Linhas da entrada viram argumentos</td><td><code>cat lista | xargs mkdir</code></td></tr>
+<tr><td><code>xargs -t</code></td><td>Mostra o comando antes de rodar</td><td><code>xargs -t rm</code></td></tr>
+<tr><td><code>xargs -n 1</code></td><td>Um item por execução</td><td><code>xargs -n 1 echo</code></td></tr>
+<tr><td><code>xargs -I {}</code></td><td>Escolhe onde o item entra</td><td><code>xargs -I {} cp {} {}.bak</code></td></tr>
+<tr><td><code>xargs -0</code></td><td>Itens separados pelo caractere nulo</td><td><code>find -print0 | xargs -0</code></td></tr>
+<tr><td><code>xargs -d '\n'</code></td><td>Itens separados por linha</td><td><code>xargs -d '\n' mkdir</code></td></tr>
+<tr><td><code>set -o pipefail</code></td><td>Pipe falha se qualquer etapa falhar</td><td>Use em scripts</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Contar arquivos</h3>
+<p>Complete para contar quantos itens há na pasta <code>Imagens</code>:</p>
+<div class="ex-code">ls Imagens | <input data-answer="wc -l|wc --lines" aria-label="comando que conta linhas"></div>
+</div>
+
+<div class="exercise">
+<h3>2. O molde da contagem</h3>
+<p>Complete o pipe que conta quantas vezes cada linha aparece:</p>
+<div class="ex-code">sort frutas.txt | <input data-answer="uniq -c" aria-label="comando"> | sort -nr</div>
+</div>
+
+<div class="exercise">
+<h3>3. Gravar como root</h3>
+<p>Complete para gravar a linha no arquivo do sistema:</p>
+<div class="ex-code">echo "nameserver 1.1.1.1" | <input data-answer="sudo tee" aria-label="comando"> /etc/resolv-teste.conf</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Por que <code>cat pastas.txt | mkdir</code> não funciona?</p>
+<label><input type="radio" name="q4"> Porque o <code>cat</code> não pode ser usado em pipes.</label>
+<label><input type="radio" name="q4"> Porque falta o <code>sudo</code>.</label>
+<label><input type="radio" name="q4"> Porque o <code>mkdir</code> não lê a entrada; ele precisa dos nomes como argumentos, e o <code>xargs</code> faz essa ponte.</label>
+<label><input type="radio" name="q4"> Porque o arquivo precisa ter extensão .sh.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. Em <code>sort frutas.txt | uniq -c</code>, por que o <code>sort</code> vem antes?</p>
+<label><input type="radio" name="q5"> Porque o <code>uniq</code> só junta linhas iguais que estejam uma ao lado da outra.</label>
+<label><input type="radio" name="q5"> Porque o <code>uniq</code> só funciona com arquivos ordenados por tamanho.</label>
+<label><input type="radio" name="q5"> Porque o pipe sempre precisa começar com <code>sort</code>.</label>
+<label><input type="radio" name="q5"> Não precisa: a ordem não muda o resultado.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>|</code> liga a saída de um comando à entrada do próximo; <code>&gt;</code> liga a um arquivo.</li>
+  <li>Monte pipes longos uma etapa por vez, olhando o resultado de cada uma.</li>
+  <li><code>tee</code> grava e mostra ao mesmo tempo; <code>| sudo tee</code> escreve em arquivos do sistema.</li>
+  <li><code>xargs</code> transforma linhas em argumentos para comandos como <code>mkdir</code> e <code>rm</code>.</li>
+  <li>O pipe só leva a saída (canal 1), e o código de saída é o do último comando.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

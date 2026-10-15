@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu cloud-init — configurar a máquina no primeiro boot | Guia Ubuntu</title>
+<meta name="description" content="cloud-init no Ubuntu: o que é, user-data comentado (usuário, chave SSH, pacotes, runcmd), validar com cloud-init schema, usar com Multipass e LXD, status e logs.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">cloud-init</span></h1>
+
+<p class="intro">Quando você cria um servidor Ubuntu na nuvem (AWS, Azure, DigitalOcean…) ou numa VM do Multipass, ele já nasce com seu usuário, sua chave SSH e seus pacotes. Quem faz isso é o <strong>cloud-init</strong>: um programa que roda no <strong>primeiro boot</strong> e segue as instruções de um arquivo chamado <em>user-data</em>.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Quando o cloud-init roda e de onde ele tira as instruções.</li>
+  <li>Escrever um <code>user-data</code> com usuário, chave SSH, pacotes e comandos.</li>
+  <li>Validar o arquivo antes de usar, com <code>cloud-init schema</code>.</li>
+  <li>Criar uma VM já configurada com Multipass ou LXD.</li>
+  <li>Conferir se deu certo com <code>cloud-init status</code> e os logs.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Conceito: configuração no primeiro boot</h2>
+<ol class="passo">
+  <li>Você cria a máquina e entrega um arquivo <strong>user-data</strong> (no painel da nuvem, no Multipass, no LXD).</li>
+  <li>A máquina liga pela primeira vez. O cloud-init descobre de onde vieram os dados (a <em>datasource</em>: nuvem, Multipass, LXD…).</li>
+  <li>Ele cria usuários, instala pacotes, grava arquivos e roda comandos, nessa ordem.</li>
+  <li>Nos próximos boots, ele não repete a configuração inicial: ela é só da primeira vez.</li>
+</ol>
+
+<p>O cloud-init já vem instalado no Ubuntu Server e nas imagens de nuvem. No Ubuntu Desktop ele existe, mas fica desligado depois da instalação. Veja nesta máquina real:</p>
+
+<pre class="term">$ cloud-init --version
+/usr/bin/cloud-init 26.1-0ubuntu3~26.04.1
+$ cloud-init status --long
+status: disabled
+extended_status: disabled
+boot_status_code: disabled-by-marker-file
+detail: Cloud-init disabled by /etc/cloud/cloud-init.disabled     « desligado de propósito no desktop
+errors: []
+recoverable_errors: {}</pre>
+
+<p>Sem <code>sudo</code>, o comando também pode mostrar avisos <code>WARNING … insufficient permissions</code> sobre arquivos que ele não conseguiu ler. Eles não atrapalham o resultado.</p>
+
+<hr>
+
+<h2>O arquivo <code>user-data</code></h2>
+<p>O formato mais comum é o <strong>cloud-config</strong>: um YAML cuja <strong>primeira linha é obrigatoriamente</strong> <code>#cloud-config</code>.</p>
+
+<pre class="file" data-file="user-data.yaml">#cloud-config
+# ↑ esta primeira linha é obrigatória
+
+hostname: web1
+timezone: America/Sao_Paulo
+
+# Usuários (substitui o usuário padrão "ubuntu", a não ser que você liste "default")
+users:
+  - default
+  - name: ana
+    gecos: Ana Souza
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"        # sudo sem senha (comum em nuvem)
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK3p… ana@notebook
+
+# Pacotes
+package_update: true                     # apt update
+package_upgrade: true                    # apt upgrade
+packages:
+  - nginx
+  - htop
+
+# Arquivos a criar
+write_files:
+  - path: /var/www/html/index.html
+    content: |
+      &lt;h1&gt;Criado pelo cloud-init&lt;/h1&gt;
+    permissions: "0644"
+
+# Comandos rodados no fim, uma vez, como root
+runcmd:
+  - ufw allow OpenSSH
+  - ufw allow "Nginx Full"
+  - ufw --force enable</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Chave</th><th>O que faz</th><th>Equivale a…</th></tr>
+<tr><td><code>hostname</code></td><td>Nome da máquina</td><td><code>hostnamectl set-hostname</code></td></tr>
+<tr><td><code>users</code></td><td>Cria usuários, grupos, sudo e chaves SSH</td><td><code>adduser</code> + <code>usermod</code> + <code>authorized_keys</code></td></tr>
+<tr><td><code>package_update</code> / <code>package_upgrade</code></td><td>Atualiza o sistema</td><td><code>apt update</code> / <code>apt upgrade</code></td></tr>
+<tr><td><code>packages</code></td><td>Instala pacotes</td><td><code>apt install</code></td></tr>
+<tr><td><code>write_files</code></td><td>Cria arquivos com conteúdo e permissões</td><td><code>echo … &gt; arquivo</code> + <code>chmod</code></td></tr>
+<tr><td><code>runcmd</code></td><td>Comandos livres, como root, no fim</td><td>um script</td></tr>
+<tr><td><code>timezone</code></td><td>Fuso horário</td><td><code>timedatectl set-timezone</code></td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Por que listar <code>default</code> em <code>users</code>?</strong>
+<p>Sem ele, o usuário padrão da imagem (<code>ubuntu</code>) não é criado. Ferramentas como <code>multipass shell</code> entram com esse usuário: se ele não existir, você só entra pelo seu usuário via SSH.</p>
+</div>
+
+<hr>
+
+<h2>Validar antes de usar: <code>cloud-init schema</code></h2>
+<p>Um erro no user-data só aparece quando a máquina já subiu errada. Valide antes, no seu próprio computador:</p>
+
+<dl class="anatomy">
+  <dt>cloud-init schema</dt><dd>Confere se o arquivo segue as regras do cloud-config.</dd>
+  <dt>-c user-data.yaml</dt><dd><em>config-file</em>: o arquivo a validar.</dd>
+</dl>
+
+<pre class="term">$ cloud-init schema -c user-data.yaml
+Valid schema user-data.yaml
+$ echo $?
+0</pre>
+
+<p>Exemplos reais de erro, gerados nesta máquina:</p>
+<pre class="term">$ cloud-init schema -c ruim.yaml
+Error: Cloud config schema errors: format-l2.c1: File ruim.yaml is not valid YAML. while parsing a block mapping
+  in "&lt;unicode string&gt;", line 2, column 1:
+    packages:
+    ^
+expected &lt;block end&gt;, but found '&lt;block mapping start&gt;'
+  in "&lt;unicode string&gt;", line 4, column 2:          « linha 4: indentação errada
+     runcmd:
+     ^
+
+Error: Invalid schema: user-data
+
+Invalid user-data ruim.yaml
+$ cloud-init schema -c semcabecalho.yaml
+Error: Cloud config schema errors: format-l1.c1: Unrecognized user-data header in semcabecalho.yaml: "hostname: lab".
+Expected first line to be one of: #!, ## template: jinja, #cloud-boothook, #cloud-config, #cloud-config-archive, #cloud-config-jsonp, #include, #include-once, #part-handler
+…                                                  « esqueceu o "#cloud-config"</pre>
+
+<hr>
+
+<h2>Usar: três formas</h2>
+
+<h3>Forma 1: Multipass</h3>
+<dl class="anatomy">
+  <dt>multipass launch 26.04</dt><dd>Cria uma VM Ubuntu 26.04 (veja <a href="kvm.html">KVM</a>).</dd>
+  <dt>--name web1</dt><dd>Nome da VM.</dd>
+  <dt>--cloud-init user-data.yaml</dt><dd>Entrega o arquivo ao cloud-init da VM.</dd>
+</dl>
+<pre class="term">$ multipass launch 26.04 --name web1 --cloud-init user-data.yaml
+Launched: web1
+$ multipass exec web1 -- cloud-init status --wait
+.....................
+status: done                                 « terminou sem erros
+$ multipass list
+Name                    State             IPv4             Image
+web1                    Running           10.73.164.25     Ubuntu 26.04 LTS
+$ curl -s 10.73.164.25
+&lt;h1&gt;Criado pelo cloud-init&lt;/h1&gt;
+$ ssh ana@10.73.164.25                       « sua chave já funciona</pre>
+
+<h3>Forma 2: LXD</h3>
+<pre class="term">$ lxc launch ubuntu:26.04 web2 --config=user.user-data="$(cat user-data.yaml)"
+$ lxc exec web2 -- cloud-init status --wait
+status: done</pre>
+<p>O <code>$(cat user-data.yaml)</code> coloca o conteúdo do arquivo dentro do comando (veja <a href="lxd.html">LXD</a>).</p>
+
+<h3>Forma 3: provedor de nuvem</h3>
+<p>No painel de criação da máquina, procure o campo <strong>User data</strong> (às vezes em "Opções avançadas") e cole o conteúdo do arquivo. Pela linha de comando dos provedores, costuma haver uma opção como <code>--user-data file://user-data.yaml</code>.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Melhor quando…</th></tr>
+<tr><td>Multipass</td><td>Testar o user-data no seu computador antes de usar na nuvem.</td></tr>
+<tr><td>LXD</td><td>Você já usa LXD e quer instâncias leves pré-configuradas.</td></tr>
+<tr><td>Nuvem</td><td>Servidores de produção.</td></tr>
+<tr><td><a href="ansible.html">Ansible</a></td><td>Configurar máquinas que <strong>já existem</strong>, de novo e de novo.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Conferir o que aconteceu</h2>
+<pre class="term" data-user="ana" data-host="web1">$ cloud-init status --long
+status: done
+extended_status: done
+boot_status_code: enabled-by-generator
+last_update: Thu, 15 Oct 2026 13:58:02 +0000
+detail: DataSourceNoCloud [seed=/dev/sr0]
+errors: []
+recoverable_errors: {}
+$ sudo tail -n 3 /var/log/cloud-init-output.log
+Setting up nginx (1.28.0-3ubuntu1) ...
+Rule added
+Cloud-init v. 26.1-0ubuntu3~26.04.1 finished at Thu, 15 Oct 2026 13:58:02 +0000. Datasource DataSourceNoCloud [seed=/dev/sr0].  Up 61.42 seconds</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Arquivo / comando</th><th>O que mostra</th></tr>
+<tr><td><code>cloud-init status --wait</code></td><td>Espera terminar e mostra o resultado</td></tr>
+<tr><td><code>/var/log/cloud-init-output.log</code></td><td>A saída dos comandos (apt, runcmd): o primeiro lugar para olhar</td></tr>
+<tr><td><code>/var/log/cloud-init.log</code></td><td>O log detalhado do próprio cloud-init</td></tr>
+<tr><td><code>sudo cloud-init query userdata</code></td><td>O user-data que a máquina recebeu</td></tr>
+<tr><td><code>cloud-init analyze show</code></td><td>Quanto tempo cada etapa levou</td></tr>
+</table>
+</div>
+
+<h3>Rodar de novo (para testes)</h3>
+<pre class="term" data-user="ana" data-host="web1">$ sudo cloud-init clean --logs --reboot</pre>
+<div class="warning">
+<strong>Atenção</strong>
+<p><code>cloud-init clean</code> faz a máquina agir como se fosse o primeiro boot: o user-data é aplicado de novo, o que pode recriar chaves SSH do servidor e sobrescrever arquivos. Use só em máquinas de teste.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Nada do user-data foi aplicado</strong>
+<p><strong>O que aconteceu:</strong> quase sempre falta a primeira linha <code>#cloud-config</code>; sem ela, o arquivo é ignorado. <strong>Como confirmar:</strong> <code>cloud-init schema -c user-data.yaml</code> mostra "Unrecognized user-data header".</p>
+</div>
+
+<div class="cenario">
+<strong><code>status: error</code></strong>
+<pre class="term" data-user="ubuntu" data-host="web1">$ cloud-init status
+status: error</pre>
+<p><strong>Como resolver:</strong> rode <code>cloud-init status --long</code> para ver a lista de erros e procure "Error" ou "Traceback" em <code>/var/log/cloud-init.log</code>. Um <code>runcmd</code> que falhou aparece em <code>/var/log/cloud-init-output.log</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Não consigo entrar por SSH</strong>
+<p><strong>O que aconteceu:</strong> a chave em <code>ssh_authorized_keys</code> está incompleta (copiada cortada) ou é a chave <strong>privada</strong>. Cole a linha inteira do arquivo <code>~/.ssh/id_ed25519.pub</code>, que começa com <code>ssh-ed25519</code>.</p>
+</div>
+
+<div class="cenario">
+<strong><code>multipass shell</code> falha depois do cloud-init</strong>
+<p><strong>O que aconteceu:</strong> o <code>users:</code> não incluiu <code>- default</code>, então o usuário <code>ubuntu</code> não existe. Inclua <code>- default</code> ou entre com <code>ssh ana@IP</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>cloud-init schema -c ARQ</code></td><td>Valida um user-data</td></tr>
+<tr><td><code>cloud-init status [--long] [--wait]</code></td><td>Estado da execução</td></tr>
+<tr><td><code>cloud-init query userdata</code></td><td>Mostra o user-data recebido (com sudo)</td></tr>
+<tr><td><code>cloud-init analyze show</code></td><td>Tempo de cada etapa</td></tr>
+<tr><td><code>cloud-init collect-logs</code></td><td>Junta todos os logs num arquivo .tar.gz</td></tr>
+<tr><td><code>cloud-init clean [--logs] [--reboot]</code></td><td>Prepara para rodar de novo</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Primeira linha</h3>
+<p>Complete a primeira linha obrigatória de um user-data no formato cloud-config:</p>
+<div class="ex-code"><input data-answer="#cloud-config" aria-label="cabeçalho">
+packages:
+  - nginx</div>
+</div>
+
+<div class="exercise">
+<h3>2. Validar</h3>
+<div class="ex-code">cloud-init <input data-answer="schema -c|schema --config-file" aria-label="subcomando"> user-data.yaml</div>
+</div>
+
+<div class="exercise">
+<h3>3. Multipass com user-data</h3>
+<div class="ex-code">multipass launch 26.04 --name lab <input data-answer="--cloud-init" aria-label="opção"> user-data.yaml</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Em que momento o cloud-init aplica o user-data?</p>
+<label><input type="radio" name="q4"> Em todo boot.</label>
+<label><input type="radio" name="q4"> No primeiro boot da máquina.</label>
+<label><input type="radio" name="q4"> Só quando você roda <code>apt upgrade</code>.</label>
+<label><input type="radio" name="q4"> A cada hora, pelo cron.</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Onde ver a saída dos comandos de <code>runcmd</code> e dos pacotes instalados?</p>
+<label><input type="radio" name="q5"> <code>~/.bashrc</code></label>
+<label><input type="radio" name="q5"> <code>/etc/hostname</code></label>
+<label><input type="radio" name="q5"> <code>/var/log/cloud-init-output.log</code></label>
+<label><input type="radio" name="q5"> <code>/etc/cloud/cloud-init.disabled</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>O cloud-init configura a máquina no primeiro boot a partir do <em>user-data</em>.</li>
+  <li>A primeira linha precisa ser <code>#cloud-config</code>; o resto é YAML (usuários, pacotes, arquivos, comandos).</li>
+  <li>Valide sempre com <code>cloud-init schema -c</code> antes de usar.</li>
+  <li>Teste localmente com <code>multipass launch --cloud-init</code> e depois use na nuvem.</li>
+  <li>Confira com <code>cloud-init status --long</code> e <code>/var/log/cloud-init-output.log</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

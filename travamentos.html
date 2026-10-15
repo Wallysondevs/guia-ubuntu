@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu travou? TTY (Ctrl+Alt+F3), REISUB e outras saídas | Guia Ubuntu</title>
+<meta name="description" content="O que fazer quando o Ubuntu trava: Forçar saída, terminal TTY com Ctrl+Alt+F3, reiniciar só a interface, SSH, as teclas mágicas SysRq REISUB (e por que no Ubuntu só S, U e B funcionam) e o botão de energia como último recurso.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Quando o Sistema Trava</span></h1>
+
+<p class="intro">A tela congelou, o mouse não responde, nada abre. Antes de apertar o botão de energia, existem várias saídas mais seguras. A principal é um terminal "escondido" que roda fora da interface gráfica e que você abre com <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>. Esta aula mostra o que fazer, na ordem certa.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A ordem do que tentar, do mais leve ao mais pesado.</li>
+  <li>O que é o <strong>TTY</strong> e como usá-lo para salvar uma sessão travada.</li>
+  <li>Como reiniciar só a interface gráfica, sem desligar a máquina.</li>
+  <li>As "teclas mágicas" <strong>SysRq</strong> (REISUB) e por que, no Ubuntu, só algumas funcionam.</li>
+  <li>O que fazer depois que o computador voltar.</li>
+</ul>
+</div>
+
+<div class="tip">
+<strong>Treine antes de precisar</strong>
+<p>Leia esta página com calma e teste os atalhos com o computador funcionando. Na hora do aperto, você vai saber o que fazer.</p>
+</div>
+
+<hr>
+
+<h2>O que fazer, na ordem</h2>
+<ol class="passo">
+  <li><strong>Espere 30 segundos.</strong> Às vezes é só o disco ou a memória sobrecarregados. Se a luz do disco pisca ou o ventilador acelera, o computador está trabalhando.</li>
+  <li><strong>Feche o app travado.</strong> Se só um programa parou, use "Forçar saída" ou <a href="kill.html">kill</a>.</li>
+  <li><strong>Abra um TTY</strong> com <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>. De lá, encerre o culpado ou reinicie a interface.</li>
+  <li><strong>Acesse por SSH</strong> de outro computador, se a máquina tiver o SSH ligado.</li>
+  <li><strong>Use as teclas SysRq</strong> (<kbd>Alt</kbd>+<kbd>SysRq</kbd>+<kbd>S</kbd>, <kbd>U</kbd>, <kbd>B</kbd>) para reiniciar com os discos em segurança.</li>
+  <li><strong>Último recurso:</strong> segure o botão de energia por 5 a 10 segundos.</li>
+</ol>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>O que faz</th><th>Quando usar</th></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd> … <kbd>F6</kbd></td><td>Abre um terminal de texto (TTY) fora da interface</td><td>A interface gráfica travou</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F2</kbd></td><td>Volta para a sua sessão gráfica (às vezes é <kbd>F1</kbd>)</td><td>Depois de resolver no TTY</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd></td><td>Abre o terminal normal</td><td>Só um app travou</td></tr>
+<tr><td><kbd>Alt</kbd>+<kbd>SysRq</kbd>+<kbd>S</kbd> <kbd>U</kbd> <kbd>B</kbd></td><td>Grava os discos, protege e reinicia</td><td>Nem o TTY responde</td></tr>
+<tr><td>Botão de energia (5–10 s)</td><td>Desliga na marra</td><td>Nada mais funciona</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Passo 1 e 2: um app travado</h2>
+<p>Se o mouse ainda se mexe e só uma janela parou, depois de alguns segundos o GNOME mostra o aviso <strong>"… não está respondendo"</strong>, com os botões <strong>Esperar</strong> e <strong>Forçar saída</strong>. Forçar saída fecha o app e perde o que não foi salvo.</p>
+<p>Também dá para resolver pelo terminal comum (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd>):</p>
+
+<pre class="term">$ pgrep -l chrome
+2210 chrome
+2251 chrome
+$ pkill chrome</pre>
+
+<p>Detalhes em <a href="processos.html">ps, pgrep, top</a> e <a href="kill.html">Encerrar Programas</a>.</p>
+
+<hr>
+
+<h2>Passo 3: o TTY, o terminal fora da interface</h2>
+<p>O Linux tem vários <strong>consoles virtuais</strong>, chamados de <strong>TTY</strong> (de <em>teletypewriter</em>, os antigos terminais de teletipo). A interface gráfica ocupa um deles; os outros ficam disponíveis em modo texto. Como esses consoles não dependem do GNOME, eles continuam funcionando quando a interface gráfica trava.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Console</th><th>Atalho</th><th>No Ubuntu 26.04</th></tr>
+<tr><td>TTY1</td><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F1</kbd></td><td>Tela de login gráfica (GDM)</td></tr>
+<tr><td>TTY2</td><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F2</kbd></td><td>A sua sessão gráfica, depois do login</td></tr>
+<tr><td>TTY3 a TTY6</td><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd> a <kbd>F6</kbd></td><td>Terminais de texto livres</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Em notebooks</strong>
+<p>Se as teclas F mudam o volume ou o brilho, segure também a tecla <kbd>Fn</kbd>: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Fn</kbd>+<kbd>F3</kbd>.</p>
+</div>
+
+<h3>Entrando no TTY</h3>
+<p>Pressione <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>. A tela fica preta, com um pedido de login em texto. Digite seu usuário, <kbd>Enter</kbd>, e sua senha, <kbd>Enter</kbd>:</p>
+
+<pre class="term" data-title="tty3">Ubuntu 26.04.1 LTS notebook tty3
+
+notebook login: ana                          « digite seu usuário
+Senha:                                       « nada aparece enquanto você digita
+Welcome to Ubuntu 26.04.1 LTS (GNU/Linux 7.0.0-38-generic x86_64)
+
+$ whoami
+ana</pre>
+
+<p>O texto exato da tela de login pode variar. O importante: enquanto você digita a senha, <strong>nada aparece</strong>, nem asteriscos. Isso é normal. Digite e aperte <kbd>Enter</kbd>.</p>
+
+<div class="warning">
+<strong>Teclado no TTY</strong>
+<p>O TTY usa o layout de teclado configurado no sistema. Se a senha tiver acentos ou símbolos e não entrar, confira se o layout é o mesmo do seu teclado (ABNT2, por exemplo).</p>
+</div>
+
+<h3>Descobrindo o culpado</h3>
+<p>No TTY, os mesmos comandos de sempre funcionam. Comece listando quem mais usa processador e memória:</p>
+
+<pre class="term" data-title="tty3">$ ps aux --sort=-%cpu | head -5
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+ana         2210 98.7 41.2 55665664 6512340 ?    Rl   08:05  31:02 /snap/chromium/3554/usr/lib/chromium-browser/chrome --password-store
+ana         1534 22.1  4.2 5012344 662140 ?      Rl   08:01   2:15 /usr/bin/gnome-shell
+root         812  0.3  0.2 342104 21480 ?        Ssl  08:00   0:01 /usr/sbin/NetworkManager --no-daemon
+ana         3301  0.0  0.0  13900  4420 tty3     R+   10:40   0:00 ps aux --sort=-%cpu
+$ free -h
+               total       usada       livre    compart.  buff/cache   disponível
+Mem.:           15Gi        14Gi       210Mi       120Mi       690Mi       310Mi      « quase sem memória</pre>
+
+<p>O Chromium está usando 98,7% de um núcleo e 41% da memória, e sobram só 310 MiB disponíveis. É ele que está travando tudo. Também dá para usar o <code>top</code> (saia com <kbd>q</kbd>).</p>
+
+<h3>Encerrando o culpado</h3>
+<pre class="term" data-title="tty3">$ kill 2210
+$ pgrep -l chrome
+2210 chrome                                  « ainda vivo depois de 5 segundos
+$ kill -9 2210
+$ pgrep -l chrome
+$</pre>
+
+<p>Agora volte para a interface com <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F2</kbd> e veja se ela respondeu. Antes de voltar, saia do TTY com <code>exit</code>.</p>
+
+<h3>Se a interface continuar travada: reinicie só ela</h3>
+<p>Quando nenhum programa parece culpado, o problema pode ser a própria interface (o <code>gnome-shell</code>). Você pode reiniciá-la sem desligar o computador:</p>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Executa como administrador (o comando mexe num serviço do sistema).</dd>
+  <dt>systemctl</dt><dd>O controlador de serviços do Ubuntu.</dd>
+  <dt>restart</dt><dd>Para e inicia de novo.</dd>
+  <dt>gdm</dt><dd>O gerenciador de login gráfico, que comanda a interface.</dd>
+</dl>
+
+<pre class="term" data-title="tty3">$ sudo systemctl restart gdm
+[sudo: authenticate] Senha:</pre>
+
+<div class="warning">
+<strong>Atenção: você perde o que não salvou</strong>
+<p>Reiniciar o <code>gdm</code> fecha a sessão gráfica e <strong>todos</strong> os programas abertos nela. A tela de login volta em alguns segundos. É bem melhor que desligar na marra, porque os discos ficam em segurança.</p>
+</div>
+
+<p>Uma alternativa é encerrar só a sua sessão, sem mexer no login de outros usuários:</p>
+<pre class="term" data-title="tty3">$ loginctl terminate-user ana</pre>
+
+<h3>Ou reinicie a máquina com segurança</h3>
+<pre class="term" data-title="tty3">$ sudo reboot</pre>
+<p>Diferente do botão de energia, o <code>reboot</code> fecha os programas, grava o que está pendente nos discos e só então reinicia.</p>
+
+<hr>
+
+<h2>Passo 4: por SSH, de outro computador</h2>
+<p>Se o teclado também não responde, mas a máquina ainda está na rede e tem o servidor SSH instalado, você pode entrar por outro computador ou pelo celular (com um app de SSH) e fazer o mesmo que no TTY:</p>
+
+<pre class="term" data-host="outro-pc">$ ssh ana@192.168.0.15
+ana@192.168.0.15's password:</pre>
+
+<p>Para deixar isso pronto antes de precisar, veja <a href="ssh.html">SSH</a>.</p>
+
+<hr>
+
+<h2>Passo 5: as teclas mágicas SysRq (REISUB)</h2>
+<p>Quando nem o TTY abre, ainda resta falar <strong>direto com o kernel</strong> (o núcleo do sistema). A tecla <strong>SysRq</strong> (de <em>System Request</em>, "pedido ao sistema") fica junto com <kbd>PrtSc</kbd> / <kbd>Print Screen</kbd>. Segurando <kbd>Alt</kbd>+<kbd>SysRq</kbd> e apertando uma letra, você dá uma ordem ao kernel, mesmo com todo o resto travado.</p>
+
+<h3>As seis letras: R E I S U B</h3>
+<p>A sequência clássica é <strong>R E I S U B</strong>. Para lembrar: "<em>Reboot Even If System Utterly Broken</em>" ("reinicie mesmo que o sistema esteja totalmente quebrado").</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Letra</th><th>O que faz</th><th>Funciona no Ubuntu por padrão?</th></tr>
+<tr><td><kbd>R</kbd></td><td>Tira o controle do teclado da interface gráfica (<em>raw</em>).</td><td>Não</td></tr>
+<tr><td><kbd>E</kbd></td><td>Envia SIGTERM a todos os processos: "terminem".</td><td>Não</td></tr>
+<tr><td><kbd>I</kbd></td><td>Envia SIGKILL a todos: "parem agora".</td><td>Não</td></tr>
+<tr><td><kbd>S</kbd></td><td>Grava nos discos tudo o que está pendente (<em>sync</em>).</td><td><strong>Sim</strong></td></tr>
+<tr><td><kbd>U</kbd></td><td>Remonta os discos como só-leitura (<em>unmount</em>), para não corromper.</td><td><strong>Sim</strong></td></tr>
+<tr><td><kbd>B</kbd></td><td>Reinicia na hora (<em>boot</em>).</td><td><strong>Sim</strong></td></tr>
+</table>
+</div>
+
+<h3>Como apertar</h3>
+<ol class="passo">
+  <li>Segure <kbd>Alt</kbd> e <kbd>SysRq</kbd> (<kbd>PrtSc</kbd>) juntos. Em notebook, talvez seja <kbd>Alt</kbd>+<kbd>Fn</kbd>+<kbd>PrtSc</kbd>.</li>
+  <li>Sem soltar, aperte as letras <strong>uma por vez, devagar</strong>, com 1 a 2 segundos entre elas: <kbd>R</kbd> … <kbd>E</kbd> … <kbd>I</kbd> … <kbd>S</kbd> … <kbd>U</kbd> … <kbd>B</kbd>.</li>
+  <li>Depois de <kbd>E</kbd> e de <kbd>I</kbd>, espere uns 5 segundos para os programas fecharem.</li>
+  <li>No <kbd>B</kbd>, o computador reinicia.</li>
+</ol>
+
+<h3>Por que no Ubuntu só S, U e B funcionam</h3>
+<p>Como essas teclas são poderosas, o Ubuntu libera só parte delas. Quem decide é o valor <code>kernel.sysrq</code>:</p>
+
+<pre class="term">$ cat /proc/sys/kernel/sysrq
+176</pre>
+
+<p>Esse número é uma soma de permissões. Cada parte libera um grupo de letras:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Valor</th><th>Libera</th><th>Incluído em 176?</th></tr>
+<tr><td>4</td><td>Controle do teclado (<kbd>R</kbd>)</td><td>Não</td></tr>
+<tr><td>16</td><td>Gravar discos (<kbd>S</kbd>)</td><td>Sim</td></tr>
+<tr><td>32</td><td>Remontar só-leitura (<kbd>U</kbd>)</td><td>Sim</td></tr>
+<tr><td>64</td><td>Sinais para processos (<kbd>E</kbd>, <kbd>I</kbd>, <kbd>F</kbd>)</td><td>Não</td></tr>
+<tr><td>128</td><td>Reiniciar e desligar (<kbd>B</kbd>, <kbd>O</kbd>)</td><td>Sim</td></tr>
+</table>
+</div>
+
+<p>16 + 32 + 128 = 176. Por isso, no Ubuntu padrão, a versão que funciona é <strong>S, U, B</strong>: grava os discos, protege e reinicia. Ela já evita a maior parte da corrupção de arquivos causada pelo botão de energia. O valor vem do arquivo <code>/usr/lib/sysctl.d/55-magic-sysrq.conf</code>.</p>
+
+<h3>Liberar todas as letras</h3>
+<p>Se você quiser o REISUB completo, mude o valor para <code>1</code> (tudo liberado). Primeiro de forma temporária, até o próximo reinício:</p>
+
+<dl class="anatomy">
+  <dt>echo 1</dt><dd>Escreve o número 1.</dd>
+  <dt>|</dt><dd>Passa esse texto para o próximo comando.</dd>
+  <dt>sudo tee</dt><dd>Grava o texto num arquivo como administrador.</dd>
+  <dt>/proc/sys/kernel/sysrq</dt><dd>O "arquivo" que controla o SysRq no kernel em execução.</dd>
+</dl>
+
+<pre class="term">$ echo 1 | sudo tee /proc/sys/kernel/sysrq
+[sudo: authenticate] Senha:
+1
+$ cat /proc/sys/kernel/sysrq
+1</pre>
+
+<p>Para deixar permanente, crie um arquivo de configuração com número maior que 55, para ser lido depois do padrão:</p>
+
+<pre class="file" data-file="/etc/sysctl.d/90-sysrq.conf">kernel.sysrq = 1</pre>
+
+<pre class="term">$ echo "kernel.sysrq = 1" | sudo tee /etc/sysctl.d/90-sysrq.conf
+kernel.sysrq = 1
+$ sudo sysctl --system</pre>
+
+<div class="warning">
+<strong>Atenção: segurança</strong>
+<p>Com tudo liberado, qualquer pessoa com acesso ao teclado pode encerrar todos os programas ou reiniciar a máquina. Em computadores compartilhados ou servidores em local público, mantenha o padrão.</p>
+</div>
+
+<h3>Memória lotada: <kbd>Alt</kbd>+<kbd>SysRq</kbd>+<kbd>F</kbd></h3>
+<p>A letra <kbd>F</kbd> chama o "OOM killer", que encerra o processo que mais gasta memória. Ela também precisa do valor 64 (bloqueado por padrão). Na maioria das vezes, você nem precisa dela: o Ubuntu tem o serviço <strong>systemd-oomd</strong>, que encerra sozinho o processo culpado quando a memória acaba. Se a tela travou por falta de memória, esperar um ou dois minutos costuma resolver.</p>
+
+<div class="note">
+<strong>Em máquina virtual</strong>
+<p>Numa VM, o sistema de fora (o <em>host</em>) costuma capturar esses atalhos. No VirtualBox, use a tecla Host (normalmente <kbd>Ctrl</kbd> direito) + <kbd>F3</kbd> para o TTY, ou o menu <strong>Entrada → Teclado</strong> para enviar combinações especiais.</p>
+</div>
+
+<hr>
+
+<h2>Passo 6: o botão de energia</h2>
+<p>Se nada respondeu, segure o botão de energia por 5 a 10 segundos até a máquina desligar. É o equivalente a tirar da tomada: o que estava sendo gravado pode se perder ou ficar corrompido. Use só quando todo o resto falhar.</p>
+
+<hr>
+
+<h2>Depois que voltar: descubra a causa</h2>
+<p>O <code>journalctl</code> guarda o registro de eventos do sistema. A opção <code>-b -1</code> mostra o <strong>boot anterior</strong>, aquele que travou:</p>
+
+<dl class="anatomy">
+  <dt>journalctl</dt><dd>Lê os registros (logs) do sistema.</dd>
+  <dt>-b -1</dt><dd>Do boot anterior (<code>-b</code> = <em>boot</em>; <code>-1</code> = um antes do atual).</dd>
+  <dt>-p err</dt><dd>Só mensagens de prioridade "erro" ou mais graves.</dd>
+</dl>
+
+<pre class="term">$ journalctl -b -1 -p err
+out 15 10:38:52 notebook systemd-oomd[702]: Killed /user.slice/user-1000.slice/user@1000.service/app.slice/snap.chromium.chromium-1234.scope due to memory pressure
+out 15 10:39:10 notebook gnome-shell[1534]: JS ERROR: …</pre>
+
+<p>Essa saída é ilustrativa. Nela, o <code>systemd-oomd</code> registrou que encerrou o Chromium por falta de memória. Se a causa se repetir, considere fechar abas, aumentar a memória ou a swap (veja <a href="desempenho.html">Desempenho e Monitoramento</a>). Mais sobre logs em <a href="journalctl.html">Logs (journalctl)</a>.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Ctrl+Alt+F3 não faz nada</strong>
+<p><strong>O que pode ser:</strong> em notebook, falta o <kbd>Fn</kbd>; numa VM, o host capturou o atalho; ou o travamento é tão grave que nem o kernel responde ao teclado.</p>
+<p><strong>Como resolver:</strong> tente <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Fn</kbd>+<kbd>F3</kbd>, espere 30 segundos e tente de novo, e então passe para o SysRq.</p>
+</div>
+
+<div class="cenario">
+<strong>"Login incorreto" no TTY</strong>
+<p><strong>O que aconteceu:</strong> usuário ou senha errados, ou o layout do teclado do TTY é diferente do seu.</p>
+<p><strong>Como resolver:</strong> o usuário é o nome curto, em minúsculas (o mesmo que aparece no prompt, como <code>ana</code>), e não o nome completo da tela de login. Digite a senha devagar.</p>
+</div>
+
+<div class="cenario">
+<strong>Voltei com Ctrl+Alt+F2 e a tela ficou preta</strong>
+<p><strong>O que aconteceu:</strong> a sua sessão gráfica pode estar em outro console.</p>
+<p><strong>Como resolver:</strong> tente <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F1</kbd>. No TTY, <code>loginctl list-sessions</code> mostra na coluna <code>TTY</code> em qual console está cada sessão.</p>
+</div>
+
+<div class="cenario">
+<strong>Alt+SysRq+B não reiniciou</strong>
+<p><strong>O que aconteceu:</strong> o atalho não chegou (notebook sem <kbd>Fn</kbd>, teclado sem a tecla SysRq, VM) ou o SysRq foi desativado (<code>kernel.sysrq = 0</code>).</p>
+<p><strong>Como resolver:</strong> com a máquina funcionando, confira <code>cat /proc/sys/kernel/sysrq</code> e teste o atalho. Num travamento real, resta o botão de energia.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">1. A interface gráfica congelou, mas o computador parece ligado. Qual é o primeiro atalho para tentar resolver pelo terminal?</p>
+<label><input type="radio" name="q1"> <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Del</kbd></label>
+<label><input type="radio" name="q1"> <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd></label>
+<label><input type="radio" name="q1"> <kbd>Alt</kbd>+<kbd>F4</kbd></label>
+<label><input type="radio" name="q1"> <kbd>Ctrl</kbd>+<kbd>C</kbd></label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">2. No Ubuntu com o valor padrão <code>kernel.sysrq = 176</code>, quais letras do REISUB funcionam?</p>
+<label><input type="radio" name="q2"> Todas</label>
+<label><input type="radio" name="q2"> R, E e I</label>
+<label><input type="radio" name="q2"> Só a B</label>
+<label><input type="radio" name="q2"> S, U e B</label>
+</div>
+
+<div class="exercise">
+<h3>3. Os maiores consumidores</h3>
+<p>No TTY, complete para listar primeiro os processos que mais usam processador:</p>
+<div class="ex-code">ps aux --sort=<input data-answer="-%cpu|-pcpu" aria-label="ordem"> | head</div>
+</div>
+
+<div class="exercise">
+<h3>4. Ver os erros do boot que travou</h3>
+<p>Complete para ver os erros do boot anterior:</p>
+<div class="ex-code">journalctl -b <input data-answer="-1" aria-label="qual boot"> -p err</div>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. Por que <code>sudo reboot</code> no TTY é melhor que segurar o botão de energia?</p>
+<label><input type="radio" name="q5"> Ele fecha os programas e grava os dados pendentes antes de reiniciar.</label>
+<label><input type="radio" name="q5"> Ele reinicia mais rápido.</label>
+<label><input type="radio" name="q5"> Ele não precisa de senha.</label>
+<label><input type="radio" name="q5"> Ele salva automaticamente os documentos abertos.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Ordem: esperar → Forçar saída / <code>kill</code> → TTY → SSH → SysRq → botão de energia.</li>
+  <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd> abre um terminal de texto que não depende da interface; <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F2</kbd> volta.</li>
+  <li>No TTY: <code>ps aux --sort=-%cpu | head</code>, <code>kill</code>, <code>sudo systemctl restart gdm</code> ou <code>sudo reboot</code>.</li>
+  <li><kbd>Alt</kbd>+<kbd>SysRq</kbd>+<kbd>S</kbd>, <kbd>U</kbd>, <kbd>B</kbd> reinicia com os discos protegidos; o REISUB completo precisa de <code>kernel.sysrq = 1</code>.</li>
+  <li>Depois, investigue com <code>journalctl -b -1 -p err</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

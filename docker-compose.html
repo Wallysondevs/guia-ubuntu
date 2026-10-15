@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Docker Compose — vários containers com um arquivo | Guia Ubuntu</title>
+<meta name="description" content="Docker Compose no Ubuntu: compose.yaml comentado com nginx, app e PostgreSQL, docker compose up/ps/logs/down, variáveis .env e erros comuns.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Docker Compose</span></h1>
+
+<p class="intro">Um app de verdade raramente é um container só: tem o site, o programa e o banco de dados. O <strong>Docker Compose</strong> descreve todos eles num único arquivo, <code>compose.yaml</code>, e sobe tudo com <code>docker compose up</code>. Em vez de três <code>docker run</code> enormes, um arquivo legível que você guarda junto com o projeto.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Como ler e escrever um <code>compose.yaml</code>, linha por linha.</li>
+  <li>Os comandos <code>up</code>, <code>ps</code>, <code>logs</code>, <code>exec</code>, <code>down</code>.</li>
+  <li>Como os containers se encontram pelo nome do serviço.</li>
+  <li>Como tirar senhas do arquivo com <code>.env</code>.</li>
+  <li>O que fazer quando um serviço não sobe.</li>
+</ul>
+</div>
+
+<p>Pré-requisito: <a href="docker.html">Docker</a>. As saídas são da máquina fictícia <strong>notebook</strong> e ilustrativas (IDs e versões variam).</p>
+
+<hr>
+
+<h2>Conceito: de comandos para um arquivo</h2>
+<p>Sem o Compose, subir um site com banco exige lembrar de vários comandos longos, na ordem certa:</p>
+<pre class="term">$ docker network create loja
+$ docker run -d --name db --network loja -e POSTGRES_PASSWORD=segredo -v dados:/var/lib/postgresql/data postgres:17
+$ docker run -d --name web --network loja -p 8080:80 -v ./site:/usr/share/nginx/html:ro nginx:1.29</pre>
+<p>Com o Compose, a mesma coisa vira um arquivo que descreve <strong>o estado desejado</strong>. Você diz <em>o que quer</em>, e o Compose descobre <em>o que fazer</em>.</p>
+
+<h3>Instalar</h3>
+<p>No Ubuntu, o Compose é um plugin do comando <code>docker</code>. Repare: é <code>docker compose</code> (com espaço). O antigo <code>docker-compose</code> (com hífen) é a versão 1, que não é mais mantida.</p>
+<pre class="term">$ sudo apt install docker-compose-v2
+$ docker compose version
+Docker Compose version 2.37.1+ds1-0ubuntu1          « número ilustrativo</pre>
+<p>Se você instalou o Docker pelo repositório oficial (<code>docker-ce</code>), o equivalente é o pacote <code>docker-compose-plugin</code>.</p>
+
+<hr>
+
+<h2>O arquivo <code>compose.yaml</code></h2>
+<p>Vamos montar uma loja simples com três <strong>serviços</strong>: <code>web</code> (nginx, a porta de entrada), <code>app</code> (o programa) e <code>db</code> (PostgreSQL). Estrutura do projeto:</p>
+
+<pre class="term" data-cwd="~/loja">$ tree -a
+.
+├── .env
+├── app
+│   └── Dockerfile
+├── compose.yaml
+└── nginx
+    └── default.conf
+
+2 directories, 4 files</pre>
+
+<pre class="file" data-file="compose.yaml"># Cada item de "services" vira um container
+services:
+
+  web:                          # nome do serviço (também é o nome na rede)
+    image: nginx:1.29           # imagem pronta, com versão fixa
+    ports:
+      - "8080:80"               # porta do Ubuntu : porta do container
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app                     # sobe o "app" antes do "web"
+    restart: unless-stopped     # volta sozinho depois de um reboot
+
+  app:
+    build: ./app                # constrói a imagem a partir de app/Dockerfile
+    environment:
+      DATABASE_URL: postgres://loja:${DB_SENHA}@db:5432/loja
+    depends_on:
+      db:
+        condition: service_healthy   # espera o banco estar pronto de verdade
+    restart: unless-stopped
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: loja
+      POSTGRES_PASSWORD: ${DB_SENHA}  # vem do arquivo .env
+      POSTGRES_DB: loja
+    volumes:
+      - dados-db:/var/lib/postgresql/data   # os dados sobrevivem ao "down"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loja"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+# Volumes nomeados usados acima
+volumes:
+  dados-db:</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Chave</th><th>O que faz</th><th>Equivale no <code>docker run</code></th></tr>
+<tr><td><code>image</code></td><td>Imagem a usar</td><td>o último argumento</td></tr>
+<tr><td><code>build</code></td><td>Constrói a imagem de um Dockerfile</td><td><code>docker build</code></td></tr>
+<tr><td><code>ports</code></td><td>Publica portas</td><td><code>-p</code></td></tr>
+<tr><td><code>volumes</code></td><td>Liga pastas ou volumes</td><td><code>-v</code></td></tr>
+<tr><td><code>environment</code></td><td>Variáveis de ambiente</td><td><code>-e</code></td></tr>
+<tr><td><code>depends_on</code></td><td>Ordem de subida</td><td>(não existe)</td></tr>
+<tr><td><code>healthcheck</code></td><td>Como saber se o serviço está saudável</td><td><code>--health-cmd</code></td></tr>
+<tr><td><code>restart</code></td><td>Política de reinício</td><td><code>--restart</code></td></tr>
+</table>
+</div>
+
+<div class="warning">
+<strong>Atenção: YAML é sensível a espaços</strong>
+<p>A hierarquia é feita por <strong>indentação com espaços</strong> (nunca tab). Um espaço a mais ou a menos muda o sentido ou quebra o arquivo. Use sempre 2 espaços por nível.</p>
+</div>
+
+<h3>Os containers se encontram pelo nome</h3>
+<p>O Compose cria uma rede só para o projeto. Dentro dela, cada serviço é encontrado pelo <strong>nome</strong>. Por isso o <code>app</code> fala com o banco em <code>db:5432</code>, e não num IP. E por isso o banco <strong>não</strong> precisa de <code>ports</code>: ele só é acessível de dentro da rede, o que é mais seguro.</p>
+
+<pre class="file" data-file="nginx/default.conf">server {
+    listen 80;
+    location / {
+        proxy_pass http://app:3000;   # "app" é o nome do serviço
+    }
+}</pre>
+
+<h3>Senhas fora do arquivo: <code>.env</code></h3>
+<p>O <code>${DB_SENHA}</code> é lido de um arquivo <code>.env</code>, na mesma pasta. Assim você pode publicar o <code>compose.yaml</code> no Git sem expor a senha.</p>
+<pre class="file" data-file=".env">DB_SENHA=troque-esta-senha</pre>
+<pre class="term" data-cwd="~/loja">$ chmod 600 .env
+$ echo ".env" &gt;&gt; .gitignore           « nunca envie o .env para o Git</pre>
+
+<hr>
+
+<h2>Subir tudo: <code>docker compose up</code></h2>
+<dl class="anatomy">
+  <dt>docker compose</dt><dd>O plugin Compose. Ele procura o <code>compose.yaml</code> na pasta atual.</dd>
+  <dt>up</dt><dd>Cria (ou atualiza) e inicia todos os serviços.</dd>
+  <dt>-d</dt><dd>Em segundo plano, devolvendo o terminal.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/loja">$ docker compose up -d
+[+] Building 12.4s (9/9) FINISHED                        « constrói a imagem do "app"
+[+] Running 5/5
+ ✔ Network loja_default    Created                         « a rede do projeto
+ ✔ Volume "loja_dados-db"  Created
+ ✔ Container loja-db-1     Healthy                         « esperou o healthcheck
+ ✔ Container loja-app-1    Started
+ ✔ Container loja-web-1    Started</pre>
+
+<p>Os nomes seguem o padrão <code>projeto-serviço-número</code>. O nome do projeto é o nome da pasta (<code>loja</code>).</p>
+
+<h3>Ver o estado: <code>ps</code></h3>
+<pre class="term" data-cwd="~/loja">$ docker compose ps
+NAME         IMAGE         COMMAND                  SERVICE   CREATED         STATUS                   PORTS
+loja-app-1   loja-app      "docker-entrypoint.s…"   app       2 minutes ago   Up 2 minutes             3000/tcp
+loja-db-1    postgres:17   "docker-entrypoint.s…"   db        2 minutes ago   Up 2 minutes (healthy)   5432/tcp
+loja-web-1   nginx:1.29    "/docker-entrypoint.…"   web       2 minutes ago   Up 2 minutes             0.0.0.0:8080->80/tcp</pre>
+<p>Só o <code>web</code> tem <code>0.0.0.0:8080-&gt;</code>: é o único publicado no Ubuntu. <code>3000/tcp</code> e <code>5432/tcp</code> existem só dentro da rede do projeto.</p>
+
+<h3>Logs e comandos dentro dos serviços</h3>
+<pre class="term" data-cwd="~/loja">$ docker compose logs --tail 3 app
+app-1  | Servidor ouvindo na porta 3000
+app-1  | Conectado ao banco "loja"
+app-1  | GET / 200 12ms
+$ docker compose exec db psql -U loja -c "select version();"
+                          version
+-----------------------------------------------------------
+ PostgreSQL 17.6 (Debian 17.6-1.pgdg13+1) on x86_64-pc-linux-gnu, …
+(1 row)</pre>
+<p>Repare que no Compose você usa o <strong>nome do serviço</strong> (<code>db</code>), e não o do container (<code>loja-db-1</code>). <code>docker compose logs -f</code> acompanha os logs de todos ao vivo; saia com <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
+
+<h3>Mudou o arquivo? Rode <code>up</code> de novo</h3>
+<pre class="term" data-cwd="~/loja">$ docker compose up -d
+[+] Running 3/3
+ ✔ Container loja-db-1   Running                          « nada mudou: não mexe
+ ✔ Container loja-app-1  Running
+ ✔ Container loja-web-1  Recreated                        « só o que você alterou é recriado</pre>
+<p>Mudou o código do <code>app</code>? Use <code>docker compose up -d --build</code> para reconstruir a imagem.</p>
+
+<hr>
+
+<h2>Parar e apagar: <code>stop</code> x <code>down</code></h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Containers</th><th>Rede</th><th>Volumes (dados)</th></tr>
+<tr><td><code>docker compose stop</code></td><td>Parados (continuam existindo)</td><td>Fica</td><td>Ficam</td></tr>
+<tr><td><code>docker compose down</code></td><td>Apagados</td><td>Apagada</td><td>Ficam</td></tr>
+<tr><td><code>docker compose down -v</code></td><td>Apagados</td><td>Apagada</td><td><strong>Apagados</strong></td></tr>
+</table>
+</div>
+
+<pre class="term" data-cwd="~/loja">$ docker compose down
+[+] Running 4/4
+ ✔ Container loja-web-1  Removed
+ ✔ Container loja-app-1  Removed
+ ✔ Container loja-db-1   Removed
+ ✔ Network loja_default  Removed                 « o volume loja_dados-db continua</pre>
+
+<div class="warning">
+<strong>Atenção: <code>down -v</code> apaga o banco de dados</strong>
+<p>O <code>-v</code> remove os volumes nomeados, e com eles todos os dados do PostgreSQL. Faça backup antes (veja <a href="banco-dados.html">Bancos de Dados</a>).</p>
+</div>
+
+<hr>
+
+<h2>Formas de rodar o mesmo projeto</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Comando</th><th>Melhor quando…</th></tr>
+<tr><td>Segundo plano</td><td><code>docker compose up -d</code></td><td>Servidor ou uso normal.</td></tr>
+<tr><td>Primeiro plano</td><td><code>docker compose up</code></td><td>Desenvolvimento: os logs aparecem na tela; <kbd>Ctrl</kbd>+<kbd>C</kbd> para tudo.</td></tr>
+<tr><td>Um serviço só</td><td><code>docker compose up -d db</code></td><td>Você só precisa do banco agora.</td></tr>
+<tr><td>Outro arquivo</td><td><code>docker compose -f producao.yaml up -d</code></td><td>Configurações diferentes para teste e produção.</td></tr>
+<tr><td>Comando avulso</td><td><code>docker compose run --rm app npm test</code></td><td>Rodar uma tarefa uma vez, num container descartável.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"no configuration file provided: not found"</strong>
+<pre class="term">$ docker compose up -d
+no configuration file provided: not found</pre>
+<p><strong>O que aconteceu:</strong> você não está na pasta do projeto. O Compose procura <code>compose.yaml</code> (ou <code>docker-compose.yml</code>) na pasta atual.</p>
+<p><strong>Como resolver:</strong> <code>cd ~/loja</code>, ou aponte o arquivo com <code>-f</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Erro de YAML</strong>
+<pre class="term" data-cwd="~/loja">$ docker compose up -d
+yaml: line 9: did not find expected key</pre>
+<p><strong>O que aconteceu:</strong> indentação errada (ou um tab) perto da linha indicada.</p>
+<p><strong>Como confirmar:</strong> <code>docker compose config</code> valida e mostra o arquivo como o Compose entendeu.</p>
+</div>
+
+<div class="cenario">
+<strong>Variável vazia</strong>
+<pre class="term" data-cwd="~/loja">$ docker compose up -d
+WARN[0000] The "DB_SENHA" variable is not set. Defaulting to a blank string.</pre>
+<p><strong>O que aconteceu:</strong> o <code>.env</code> não está na pasta, ou a variável tem outro nome. O banco pode até subir, mas sem senha (ou recusar subir).</p>
+</div>
+
+<div class="cenario">
+<strong>Um serviço fica reiniciando</strong>
+<pre class="term" data-cwd="~/loja">$ docker compose ps
+NAME         …   STATUS
+loja-app-1   …   Restarting (1) 4 seconds ago
+$ docker compose logs --tail 5 app
+app-1  | Error: connect ECONNREFUSED 172.18.0.2:5432</pre>
+<p><strong>O que aconteceu:</strong> o <code>app</code> tentou falar com o banco antes de ele estar pronto, ou com a senha errada. <code>depends_on</code> sozinho só espera o container <em>iniciar</em>; use <code>condition: service_healthy</code> com um <code>healthcheck</code>, como no exemplo.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>docker compose up -d</code></td><td>Cria/atualiza e sobe tudo</td></tr>
+<tr><td><code>docker compose up -d --build</code></td><td>Reconstrói as imagens antes</td></tr>
+<tr><td><code>docker compose ps</code></td><td>Estado dos serviços</td></tr>
+<tr><td><code>docker compose logs [-f] [SERVIÇO]</code></td><td>Logs</td></tr>
+<tr><td><code>docker compose exec SERVIÇO CMD</code></td><td>Roda comando num serviço rodando</td></tr>
+<tr><td><code>docker compose run --rm SERVIÇO CMD</code></td><td>Roda num container novo e descartável</td></tr>
+<tr><td><code>docker compose restart [SERVIÇO]</code></td><td>Reinicia</td></tr>
+<tr><td><code>docker compose stop</code></td><td>Para sem apagar</td></tr>
+<tr><td><code>docker compose down [-v]</code></td><td>Apaga containers e rede (<code>-v</code>: volumes também)</td></tr>
+<tr><td><code>docker compose pull</code></td><td>Baixa versões novas das imagens</td></tr>
+<tr><td><code>docker compose config</code></td><td>Valida e mostra o arquivo final</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Subir em segundo plano</h3>
+<div class="ex-code">docker compose <input data-answer="up -d|up --detach" aria-label="subcomando"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Logs de um serviço</h3>
+<p>Complete para acompanhar ao vivo os logs só do serviço <code>app</code>:</p>
+<div class="ex-code">docker compose logs <input data-answer="-f|--follow" aria-label="opção"> app</div>
+</div>
+
+<div class="exercise">
+<h3>3. Endereço do banco</h3>
+<p>No <code>compose.yaml</code>, o serviço do PostgreSQL se chama <code>db</code>. Complete a URL que o app usa:</p>
+<div class="ex-code">postgres://loja:senha@<input data-answer="db" aria-label="host">:5432/loja</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Qual comando apaga os containers mas <strong>mantém</strong> os dados do banco?</p>
+<label><input type="radio" name="q4"> <code>docker compose down -v</code></label>
+<label><input type="radio" name="q4"> <code>docker compose down</code></label>
+<label><input type="radio" name="q4"> <code>docker system prune -a --volumes</code></label>
+<label><input type="radio" name="q4"> <code>docker volume rm loja_dados-db</code></label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. Por que o serviço <code>db</code> do exemplo não tem <code>ports</code>?</p>
+<label><input type="radio" name="q5"> Porque o PostgreSQL não usa portas.</label>
+<label><input type="radio" name="q5"> Por esquecimento: o app não vai conseguir conectar.</label>
+<label><input type="radio" name="q5"> Porque <code>ports</code> só funciona no nginx.</label>
+<label><input type="radio" name="q5"> Porque só os outros containers da rede precisam dele, e assim ele fica fechado para fora.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>compose.yaml</code> descreve todos os serviços; <code>docker compose up -d</code> faz o resto.</li>
+  <li>Serviços se encontram pelo nome (<code>db</code>, <code>app</code>) numa rede própria do projeto.</li>
+  <li>Publique só o necessário em <code>ports</code>; guarde dados em volumes; senhas no <code>.env</code>.</li>
+  <li><code>down</code> apaga containers e mantém volumes; <code>down -v</code> apaga os dados também.</li>
+  <li><code>docker compose config</code> e <code>logs</code> são os primeiros passos quando algo falha.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu HTTPS com Let's Encrypt — certbot e nginx | Guia Ubuntu</title>
+<meta name="description" content="Coloque HTTPS no seu site com Let's Encrypt e certbot no Ubuntu: pré-requisitos, certbot --nginx explicado, renovação automática, redirecionamento e certificado autoassinado para laboratório.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">HTTPS (Let's Encrypt)</span></h1>
+
+<p class="intro"><strong>HTTPS</strong> é o HTTP com criptografia: é o que coloca o cadeado na barra do navegador. Para isso, o servidor precisa de um <strong>certificado</strong>, um documento digital que prova que ele é mesmo o dono do domínio. O <strong>Let's Encrypt</strong> emite certificados de graça, e o programa <strong>certbot</strong> pede, instala e renova tudo sozinho.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que é um certificado e por que o navegador confia nele.</li>
+  <li>O que precisa estar pronto antes de pedir um certificado.</li>
+  <li>Instalar o certbot e ativar HTTPS no nginx com um comando.</li>
+  <li>Conferir e testar a renovação automática.</li>
+  <li>Criar um certificado autoassinado para um laboratório sem domínio.</li>
+</ul>
+</div>
+
+<p>Esta aula continua <a href="nginx.html">Servidor Web (nginx)</a>. Os exemplos usam a máquina fictícia <strong>servidor</strong> e o domínio fictício <code>meusite.com.br</code>.</p>
+
+<hr>
+
+<h2>Conceito: o cartório da internet</h2>
+<ol class="passo">
+  <li>O servidor gera um par de <strong>chaves</strong>: a privada, que nunca sai do servidor, e a pública, que vai no certificado.</li>
+  <li>Uma <strong>autoridade certificadora</strong> (CA), como o Let's Encrypt, confere que você controla o domínio e assina o certificado. É como um cartório reconhecendo firma.</li>
+  <li>O navegador já vem com a lista das autoridades confiáveis. Quando recebe o certificado, confere a assinatura e mostra o cadeado.</li>
+</ol>
+
+<p>Como o Let's Encrypt confere que o domínio é seu? No método mais comum (<strong>HTTP-01</strong>), ele pede para o certbot colocar um arquivo secreto no seu site e tenta baixá-lo pela internet, em <code>http://meusite.com.br/.well-known/acme-challenge/…</code>. Se conseguir, o domínio é seu.</p>
+
+<p>Os certificados do Let's Encrypt valem <strong>90 dias</strong>. Isso não é problema: o certbot renova sozinho.</p>
+
+<hr>
+
+<h2>Antes de começar: a lista de conferência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Requisito</th><th>Como conferir</th></tr>
+<tr><td>Um domínio seu apontando para o IP público do servidor</td><td><code>dig +short meusite.com.br</code> mostra o IP do servidor</td></tr>
+<tr><td>Porta <strong>80</strong> aberta para a internet (é por ela que o Let's Encrypt confere)</td><td><code>sudo ufw status</code> e o redirecionamento de portas do roteador</td></tr>
+<tr><td>Porta <strong>443</strong> aberta (é por ela que o HTTPS funciona)</td><td><code>sudo ufw allow 'Nginx Full'</code></td></tr>
+<tr><td>O site respondendo em HTTP com o <code>server_name</code> certo</td><td><code>curl -I http://meusite.com.br</code> de outra rede</td></tr>
+</table>
+</div>
+
+<pre class="term" data-host="servidor">$ dig +short meusite.com.br
+203.0.113.10                                    « o IP público do servidor
+$ curl -I http://meusite.com.br
+HTTP/1.1 200 OK
+Server: nginx/1.28.3 (Ubuntu)</pre>
+
+<div class="note">
+<strong>Servidor em casa, sem domínio?</strong>
+<p>O Let's Encrypt não emite certificado para IPs internos (<code>192.168.x.x</code>) nem para nomes como <code>meusite.local</code>. Para laboratório, use o certificado autoassinado no fim desta aula.</p>
+</div>
+
+<hr>
+
+<h2>Instalar o certbot</h2>
+<p>A forma recomendada pelos autores do certbot é o <a href="snap.html">snap</a>, que recebe atualizações mais rápido que o pacote do apt.</p>
+
+<dl class="anatomy">
+  <dt>sudo snap install</dt><dd>Instala um pacote snap.</dd>
+  <dt>--classic</dt><dd>Dá ao snap acesso normal ao sistema. O certbot precisa disso para editar a configuração do nginx.</dd>
+  <dt>certbot</dt><dd>O pacote.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo snap install --classic certbot
+certbot 5.1.0 from Certbot Project (certbot-eff✓) installed
+$ sudo ln -s /snap/bin/certbot /usr/bin/certbot
+$ certbot --version
+certbot 5.1.0</pre>
+
+<p>O link em <code>/usr/bin</code> garante que o comando seja encontrado mesmo por scripts com <code>PATH</code> reduzido. A versão no seu servidor pode ser outra.</p>
+
+<div class="tip">
+<strong>Também dá pelo apt</strong>
+<p><code>sudo apt install certbot python3-certbot-nginx</code> funciona igual. Use um jeito só: ter os dois instalados causa confusão sobre qual está renovando.</p>
+</div>
+
+<hr>
+
+<h2>Pedir o certificado e ativar o HTTPS</h2>
+
+<dl class="anatomy">
+  <dt>sudo certbot</dt><dd>O programa, como administrador (ele grava em <code>/etc</code>).</dd>
+  <dt>--nginx</dt><dd>Usa o <strong>plugin do nginx</strong>: faz a verificação e já edita o server block para usar o certificado.</dd>
+  <dt>-d meusite.com.br</dt><dd>Domínio do certificado (<code>-d</code> de <em>domain</em>).</dd>
+  <dt>-d www.meusite.com.br</dt><dd>Outro nome no mesmo certificado. Repita <code>-d</code> para cada um.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo certbot --nginx -d meusite.com.br -d www.meusite.com.br
+Saving debug log to /var/log/letsencrypt/letsencrypt.log
+Enter email address or hit Enter to skip.
+ (Enter 'c' to cancel): ana@meusite.com.br
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Please read the Terms of Service at:
+https://letsencrypt.org/documents/LE-SA-v1.5-February-24-2025.pdf
+You must agree in order to register with the ACME server. Do you agree?
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+(Y)es/(N)o: Y
+Account registered.
+Requesting a certificate for meusite.com.br and www.meusite.com.br
+
+Successfully received certificate.
+Certificate is saved at: /etc/letsencrypt/live/meusite.com.br/fullchain.pem      « o certificado
+Key is saved at:         /etc/letsencrypt/live/meusite.com.br/privkey.pem        « a chave privada
+This certificate expires on 2027-01-13.
+These files will be updated when the certificate renews.
+Certbot has set up a scheduled task to automatically renew this certificate in the background.
+
+Deploying certificate
+Successfully deployed certificate for meusite.com.br to /etc/nginx/sites-enabled/meusite
+Successfully deployed certificate for www.meusite.com.br to /etc/nginx/sites-enabled/meusite
+Congratulations! You have successfully enabled HTTPS on https://meusite.com.br and https://www.meusite.com.br</pre>
+
+<p>O certbot é em inglês. O que ele fez, em português:</p>
+<ol>
+  <li>Registrou uma conta no Let's Encrypt com seu e-mail (é opcional).</li>
+  <li>Provou que o domínio é seu, pela porta 80.</li>
+  <li>Salvou o certificado em <code>/etc/letsencrypt/live/meusite.com.br/</code>.</li>
+  <li>Editou o server block do nginx para escutar na porta 443 e redirecionar HTTP para HTTPS.</li>
+  <li>Recarregou o nginx e deixou a renovação agendada.</li>
+</ol>
+
+<p>Veja o que mudou no seu server block. As linhas novas terminam com <code># managed by Certbot</code>:</p>
+<pre class="file" data-file="/etc/nginx/sites-available/meusite (trecho)">server {
+    server_name meusite.com.br www.meusite.com.br;
+    root /var/www/meusite;
+    …
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/meusite.com.br/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/meusite.com.br/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+server {
+    if ($host = meusite.com.br) {
+        return 301 https://$host$request_uri;      # quem chega por HTTP vai para HTTPS
+    } # managed by Certbot
+    listen 80;
+    server_name meusite.com.br www.meusite.com.br;
+    return 404; # managed by Certbot
+}</pre>
+
+<h3>Conferir</h3>
+<pre class="term" data-host="servidor">$ curl -I http://meusite.com.br
+HTTP/1.1 301 Moved Permanently                       « HTTP agora redireciona
+Location: https://meusite.com.br/
+$ curl -I https://meusite.com.br
+HTTP/1.1 200 OK                                      « e o HTTPS responde
+Server: nginx/1.28.3 (Ubuntu)</pre>
+
+<h3>Formas diferentes de pedir o certificado</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Comando</th><th>Quando usar</th></tr>
+<tr><td>Plugin do nginx</td><td><code>sudo certbot --nginx -d DOMINIO</code></td><td>Site no nginx: o mais simples</td></tr>
+<tr><td>Só o certificado</td><td><code>sudo certbot certonly --nginx -d DOMINIO</code></td><td>Você quer editar a configuração do nginx à mão</td></tr>
+<tr><td>Webroot</td><td><code>sudo certbot certonly --webroot -w /var/www/meusite -d DOMINIO</code></td><td>Outro servidor web, ou o certbot não deve mexer na configuração</td></tr>
+<tr><td>Standalone</td><td><code>sudo certbot certonly --standalone -d DOMINIO</code></td><td>Não há servidor web; o certbot sobe um temporário na porta 80</td></tr>
+<tr><td>Sem perguntas</td><td><code>sudo certbot --nginx --non-interactive --agree-tos -m EMAIL -d DOMINIO</code></td><td>Scripts e automação</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Renovação automática</h2>
+<p>O snap do certbot instala um <strong>timer</strong> do systemd que tenta renovar duas vezes por dia. Só renova de fato quando faltam menos de 30 dias para vencer.</p>
+
+<pre class="term" data-host="servidor">$ systemctl list-timers | grep certbot
+Thu 2026-10-15 21:42:00 -03 7h left  Thu 2026-10-15 09:12:31 -03 5h ago snap.certbot.renew.timer snap.certbot.renew.service</pre>
+
+<p>Teste a renovação sem gastar nada (o <code>--dry-run</code> usa um servidor de testes do Let's Encrypt):</p>
+<pre class="term" data-host="servidor">$ sudo certbot renew --dry-run
+Saving debug log to /var/log/letsencrypt/letsencrypt.log
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Processing /etc/letsencrypt/renewal/meusite.com.br.conf
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Simulating renewal of an existing certificate for meusite.com.br and www.meusite.com.br
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Congratulations, all simulated renewals succeeded:
+  /etc/letsencrypt/live/meusite.com.br/fullchain.pem (success)
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</pre>
+
+<p>Se o teste passa, a renovação real vai funcionar. Veja seus certificados e as datas de validade:</p>
+<pre class="term" data-host="servidor">$ sudo certbot certificates
+Found the following certs:
+  Certificate Name: meusite.com.br
+    Domains: meusite.com.br www.meusite.com.br
+    Expiry Date: 2027-01-13 12:31:07+00:00 (VALID: 89 days)
+    Certificate Path: /etc/letsencrypt/live/meusite.com.br/fullchain.pem
+    Private Key Path: /etc/letsencrypt/live/meusite.com.br/privkey.pem</pre>
+
+<div class="note">
+<strong>Não espere e-mail de aviso</strong>
+<p>O Let's Encrypt parou de enviar e-mails avisando que o certificado vai vencer. Por isso, confira de vez em quando com <code>sudo certbot certificates</code> e mantenha o <code>--dry-run</code> passando.</p>
+</div>
+
+<hr>
+
+<h2>Laboratório sem domínio: certificado autoassinado</h2>
+<p>Num laboratório (<code>meusite.local</code>, IP interno), você mesmo assina o certificado. A criptografia funciona igual, mas o navegador mostra um aviso, porque ninguém de confiança assinou.</p>
+
+<dl class="anatomy">
+  <dt>sudo openssl req</dt><dd>Cria um pedido de certificado (<em>request</em>).</dd>
+  <dt>-x509</dt><dd>Em vez de pedido, gera direto um certificado assinado por você mesmo.</dd>
+  <dt>-nodes</dt><dd>"<em>no DES</em>": não protege a chave com senha (senão o nginx pediria senha ao iniciar).</dd>
+  <dt>-days 365</dt><dd>Validade: um ano.</dd>
+  <dt>-newkey rsa:2048</dt><dd>Gera uma chave nova, RSA de 2048 bits.</dd>
+  <dt>-keyout … -out …</dt><dd>Onde salvar a chave privada e o certificado.</dd>
+  <dt>-subj "/CN=meusite.local"</dt><dd>O nome do certificado (<em>Common Name</em>), sem fazer perguntas.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/meusite.key -out /etc/ssl/certs/meusite.crt -subj "/CN=meusite.local"
+....+..+...+++++++++++++++++++++++++++++++++++++++*.+.....+....+......+++++++
+-----
+$ sudo openssl x509 -in /etc/ssl/certs/meusite.crt -noout -subject -dates
+subject=CN=meusite.local
+notBefore=Oct 15 13:20:11 2026 GMT
+notAfter=Oct 15 13:20:11 2027 GMT</pre>
+
+<p>Os <code>+</code> e <code>.</code> são só o progresso da geração da chave. Agora acrescente um bloco HTTPS ao site:</p>
+<pre class="file" data-file="/etc/nginx/sites-available/meusite (bloco novo)">server {
+    listen 443 ssl;
+    server_name meusite.local;
+    root /var/www/meusite;
+    index index.html;
+
+    ssl_certificate     /etc/ssl/certs/meusite.crt;     # o certificado
+    ssl_certificate_key /etc/ssl/private/meusite.key;   # a chave privada
+}</pre>
+
+<pre class="term" data-host="servidor">$ sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+$ curl -I https://localhost -H "Host: meusite.local"
+curl: (60) SSL certificate problem: self-signed certificate        « o curl não confia
+$ curl -k -I https://localhost -H "Host: meusite.local"
+HTTP/1.1 200 OK                                                    « com -k (ignorar), funciona</pre>
+
+<div class="tip">
+<strong>Mais rápido ainda: o "snakeoil"</strong>
+<p>O Ubuntu já traz um certificado de teste gerado na instalação (pacote <code>ssl-cert</code>). No server block, troque as duas linhas <code>ssl_certificate</code> por <code>include snippets/snakeoil.conf;</code>.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Timeout during connect (likely firewall problem)"</strong>
+<pre class="term" data-host="servidor">$ sudo certbot --nginx -d meusite.com.br
+…
+Certbot failed to authenticate some domains (authenticator: nginx). The Certificate Authority reported these problems:
+  Domain: meusite.com.br
+  Type:   connection
+  Detail: 203.0.113.10: Fetching http://meusite.com.br/.well-known/acme-challenge/kM3…: Timeout during connect (likely firewall problem)</pre>
+<p><strong>O que aconteceu:</strong> o Let's Encrypt não conseguiu chegar ao seu servidor pela porta 80.</p>
+<p><strong>Como confirmar:</strong> de outra rede (o 4G do celular), abra <code>http://meusite.com.br</code>.</p>
+<p><strong>Como resolver:</strong> libere a porta 80 no <code>ufw</code>, no firewall do provedor de nuvem e no redirecionamento de portas do roteador. Alguns provedores de internet residencial bloqueiam a porta 80.</p>
+</div>
+
+<div class="cenario">
+<strong>"DNS problem: NXDOMAIN"</strong>
+<pre class="term" data-host="servidor">  Domain: meusite.com.br
+  Type:   dns
+  Detail: DNS problem: NXDOMAIN looking up A for meusite.com.br - check that a DNS record exists for this domain</pre>
+<p><strong>O que aconteceu:</strong> o domínio não aponta para lugar nenhum (o registro A não existe, ou ainda não se propagou).</p>
+<p><strong>Como resolver:</strong> crie o registro A no painel do seu domínio, espere alguns minutos e confira com <code>dig +short meusite.com.br</code> antes de tentar de novo.</p>
+</div>
+
+<div class="cenario">
+<strong>"too many failed authorizations recently"</strong>
+<p><strong>O que aconteceu:</strong> você tentou muitas vezes com erro e bateu no limite de tentativas do Let's Encrypt.</p>
+<p><strong>Como resolver:</strong> espere (cerca de uma hora) e, enquanto ajusta, teste com <code>--dry-run</code> ou <code>--staging</code>, que usam o servidor de testes e não contam no limite.</p>
+</div>
+
+<div class="cenario">
+<strong>O certificado venceu</strong>
+<p><strong>O que aconteceu:</strong> a renovação automática falhou em silêncio (porta 80 fechada depois, configuração mudada…).</p>
+<p><strong>Como confirmar:</strong> <code>sudo certbot renew --dry-run</code> mostra o motivo. O log completo está em <code>/var/log/letsencrypt/letsencrypt.log</code>.</p>
+<p><strong>Como resolver:</strong> corrija o motivo e rode <code>sudo certbot renew</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência rápida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>sudo snap install --classic certbot</code></td><td>Instala o certbot</td></tr>
+<tr><td><code>sudo certbot --nginx -d DOMINIO</code></td><td>Pede o certificado e configura o nginx</td></tr>
+<tr><td><code>sudo certbot certonly --webroot -w PASTA -d DOMINIO</code></td><td>Só pede o certificado</td></tr>
+<tr><td><code>sudo certbot certificates</code></td><td>Lista certificados e validade</td></tr>
+<tr><td><code>sudo certbot renew --dry-run</code></td><td>Testa a renovação</td></tr>
+<tr><td><code>sudo certbot renew</code></td><td>Renova o que estiver perto de vencer</td></tr>
+<tr><td><code>sudo certbot delete --cert-name DOMINIO</code></td><td>Apaga um certificado</td></tr>
+<tr><td><code>openssl x509 -in CERT -noout -dates</code></td><td>Mostra a validade de um certificado</td></tr>
+<tr><td><code>openssl s_client -connect DOMINIO:443 -servername DOMINIO</code></td><td>Mostra o certificado que o servidor entrega</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Pedir o certificado</h3>
+<p>Complete para pedir um certificado para <code>loja.com.br</code> e já configurar o nginx:</p>
+<div class="ex-code">sudo certbot <input data-answer="--nginx" aria-label="plugin"> -d loja.com.br</div>
+</div>
+
+<div class="exercise">
+<h3>2. Testar a renovação</h3>
+<p>Complete para simular a renovação sem pedir certificados de verdade:</p>
+<div class="ex-code">sudo certbot renew <input data-answer="--dry-run" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Ignorar o certificado no teste</h3>
+<p>Complete para o <code>curl</code> aceitar um certificado autoassinado:</p>
+<div class="ex-code">curl <input data-answer="-k|--insecure" aria-label="opção"> https://localhost</div>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">4. Qual porta precisa estar aberta para o Let's Encrypt confirmar o domínio pelo método mais comum?</p>
+<label><input type="radio" name="q4"> 80</label>
+<label><input type="radio" name="q4"> 22</label>
+<label><input type="radio" name="q4"> 3000</label>
+<label><input type="radio" name="q4"> 3306</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Você quer HTTPS num servidor de laboratório acessado como <code>meusite.local</code>. O que funciona?</p>
+<label><input type="radio" name="q5"> <code>certbot --nginx -d meusite.local</code></label>
+<label><input type="radio" name="q5"> Pedir ao Let's Encrypt um certificado para o IP 192.168.0.50.</label>
+<label><input type="radio" name="q5"> Um certificado autoassinado com <code>openssl req -x509</code>.</label>
+<label><input type="radio" name="q5"> HTTPS não funciona em rede local.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Antes: domínio apontando para o servidor, portas 80 e 443 abertas, site respondendo em HTTP.</li>
+  <li><code>sudo certbot --nginx -d DOMINIO</code> pede, instala e configura o redirecionamento.</li>
+  <li>Certificados valem 90 dias; o timer renova sozinho. Teste com <code>certbot renew --dry-run</code>.</li>
+  <li>Sem domínio público, use certificado autoassinado (<code>openssl req -x509</code>) e aceite o aviso do navegador.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

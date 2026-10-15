@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu atualizações — rotina, automáticas e nova versão | Guia Ubuntu</title>
+<meta name="description" content="Como manter o Ubuntu atualizado: rotina com apt, snap e flatpak, faseamento, atualizações automáticas de segurança (unattended-upgrades), reinício necessário, Ubuntu Pro e do-release-upgrade.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Atualizações</span></h1>
+
+<p class="intro">Manter o sistema atualizado é a medida de segurança mais importante que existe, e no Ubuntu ela leva um minuto. Nesta aula você vai montar uma rotina de atualização, entender o que o Ubuntu já faz sozinho, saber quando é preciso reiniciar e como passar para uma versão nova do Ubuntu.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Os três tipos de atualização e com que frequência fazer cada um.</li>
+  <li>A rotina completa: apt, snap e flatpak.</li>
+  <li>O que é o "faseamento" e por que alguns pacotes ficam para depois.</li>
+  <li>Como funcionam as atualizações automáticas de segurança.</li>
+  <li>Como saber se precisa reiniciar, e como atualizar para a próxima versão do Ubuntu.</li>
+</ul>
+</div>
+
+<p>Antes, leia <a href="apt.html">apt</a> e <a href="snap.html">Snap</a>.</p>
+
+<hr>
+
+<h2>Três tipos de atualização</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tipo</th><th>O que muda</th><th>Frequência</th><th>Como</th></tr>
+<tr><td>Segurança</td><td>Corrige falhas exploráveis</td><td>Diária (automática)</td><td><code>unattended-upgrades</code></td></tr>
+<tr><td>Correções e melhorias</td><td>Versões novas dos programas da mesma versão do Ubuntu</td><td>Semanal</td><td><code>apt upgrade</code>, <code>snap refresh</code></td></tr>
+<tr><td>Nova versão do Ubuntu</td><td>O sistema inteiro (ex.: 24.04 → 26.04)</td><td>A cada 2 anos (LTS)</td><td><code>do-release-upgrade</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>A rotina semanal</h2>
+<p>Quatro comandos cobrem tudo o que está instalado:</p>
+
+<pre class="term">$ sudo apt update
+$ sudo apt upgrade
+$ sudo snap refresh
+$ flatpak update</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>sudo apt update</code></td><td>Baixa a lista atualizada dos pacotes.</td></tr>
+<tr><td><code>sudo apt upgrade</code></td><td>Instala as versões novas dos pacotes do apt.</td></tr>
+<tr><td><code>sudo snap refresh</code></td><td>Atualiza os snaps (eles também se atualizam sozinhos).</td></tr>
+<tr><td><code>flatpak update</code></td><td>Atualiza os flatpaks, se você usar (veja <a href="flatpak.html">Flatpak</a>).</td></tr>
+</table>
+</div>
+
+<h3>Tudo numa linha</h3>
+<dl class="anatomy">
+  <dt>sudo apt update</dt><dd>Atualiza a lista…</dd>
+  <dt>&amp;&amp;</dt><dd>…e, <strong>só se deu certo</strong>, segue para o próximo.</dd>
+  <dt>sudo apt upgrade -y</dt><dd>Atualiza os pacotes, respondendo "sim" sozinho.</dd>
+  <dt>&amp;&amp; sudo snap refresh</dt><dd>Por fim, os snaps.</dd>
+</dl>
+
+<pre class="term">$ sudo apt update &amp;&amp; sudo apt upgrade -y &amp;&amp; sudo snap refresh</pre>
+
+<p>Para não digitar isso toda vez, você pode criar um atalho (<em>alias</em>) chamado <code>atualizar</code> no seu <code>~/.bashrc</code>. Veja <a href="bashrc.html">.bashrc, alias, PATH</a>.</p>
+
+<h3>Pela interface gráfica</h3>
+<p>O app <strong>Atualizador de Programas</strong> faz o mesmo que o <code>apt update</code> + <code>apt upgrade</code>, com botões. O Ubuntu o abre sozinho quando há atualizações. Os snaps se atualizam em segundo plano e, quando um app está aberto, aparece uma notificação pedindo para fechá-lo.</p>
+
+<hr>
+
+<h2>Faseamento: "Ainda não atualizando"</h2>
+<p>Às vezes, o <code>apt upgrade</code> deixa pacotes de fora:</p>
+
+<pre class="term">$ sudo apt upgrade
+Ainda não atualizando devido ao faseamento:
+  mesa-opencl-icd  mesa-vulkan-drivers
+
+Resumo:
+  Atualizando: 0, Instalando: 0, Removendo: 0, Não atualizando: 2</pre>
+
+<p>Isso é normal. O Ubuntu libera algumas atualizações aos poucos, primeiro para uma parte dos computadores (o <strong>faseamento</strong>, em inglês <em>phased updates</em>). Se aparecer algum problema, a atualização é suspensa antes de chegar a todo mundo. Em alguns dias ela chega à sua máquina.</p>
+
+<div class="tip">
+<strong>Não force</strong>
+<p>Não tente instalar esses pacotes "na marra" com <code>apt install</code>. Esperar é exatamente o que protege você de uma atualização com defeito.</p>
+</div>
+
+<hr>
+
+<h2>Atualizações automáticas de segurança</h2>
+<p>O Ubuntu vem com o <code>unattended-upgrades</code> ("atualizações não assistidas") ligado. Uma vez por dia, ele baixa a lista de pacotes e instala sozinho as atualizações de <strong>segurança</strong>. As outras ficam para você.</p>
+
+<p>A configuração fica num arquivo pequeno:</p>
+<pre class="term">$ cat /etc/apt/apt.conf.d/20auto-upgrades
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Download-Upgradeable-Packages "0";
+APT::Periodic::AutocleanInterval "0";
+APT::Periodic::Unattended-Upgrade "1";</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Linha</th><th>Significado</th></tr>
+<tr><td><code>Update-Package-Lists "1"</code></td><td>Faz o equivalente a <code>apt update</code> a cada 1 dia.</td></tr>
+<tr><td><code>Download-Upgradeable-Packages "0"</code></td><td>Não baixa antecipadamente as outras atualizações.</td></tr>
+<tr><td><code>AutocleanInterval "0"</code></td><td>Não limpa o cache de pacotes automaticamente.</td></tr>
+<tr><td><code>Unattended-Upgrade "1"</code></td><td>Instala as atualizações de segurança a cada 1 dia.</td></tr>
+</table>
+</div>
+
+<p>Para ligar ou desligar com uma pergunta simples (sim/não):</p>
+<pre class="term">$ sudo dpkg-reconfigure unattended-upgrades</pre>
+
+<h3>O que ele fez?</h3>
+<p>O registro fica em <code>/var/log/unattended-upgrades/</code>:</p>
+<pre class="term">$ tail -3 /var/log/unattended-upgrades/unattended-upgrades.log
+2026-10-15 08:14:17,844 INFO Lista de permissões inicial (not strict):
+2026-10-15 08:14:20,072 INFO Sem pacotes encontrados que podem ser atualizados sozinhos e sem dependendo de auto-remoções
+2026-10-15 08:14:20,194 INFO Package mesa-opencl-icd is kept back because a related package is kept back or due to local apt_preferences(5).</pre>
+
+<p>A segunda linha diz que, nesse dia, não havia nenhuma atualização de segurança pendente. A tradução tem erros e mistura inglês, mas é a saída real.</p>
+
+<div class="note">
+<strong>Por que o apt às vezes está "travado" de manhã</strong>
+<p>Enquanto o <code>unattended-upgrades</code> trabalha, ele segura a trava do apt. Se você tentar instalar algo nesse momento, recebe "Ela está sendo mantida pelo processo … (unattended-upgr)". Espere alguns minutos. Veja <a href="apt.html">apt</a>.</p>
+</div>
+
+<hr>
+
+<h2>Precisa reiniciar?</h2>
+<p>A maioria das atualizações vale assim que termina. Algumas, como as do <strong>kernel</strong> (o núcleo do sistema) e de bibliotecas básicas, só passam a valer depois de reiniciar. Quando isso acontece, o Ubuntu cria um arquivo-aviso:</p>
+
+<pre class="term">$ cat /var/run/reboot-required
+*** System restart required ***
+$ cat /var/run/reboot-required.pkgs
+linux-image-7.0.0-40-generic
+linux-base</pre>
+
+<p>O primeiro arquivo diz "é preciso reiniciar"; o segundo diz por causa de quais pacotes. Se o arquivo não existe, não precisa:</p>
+<pre class="term">$ cat /var/run/reboot-required
+cat: /var/run/reboot-required: No such file or directory</pre>
+
+<p>No desktop, o Atualizador de Programas mostra um aviso com o botão <strong>Reiniciar agora</strong>.</p>
+
+<h3>Qual kernel está rodando?</h3>
+<pre class="term">$ uname -r
+7.0.0-38-generic                             « o kernel em uso agora</pre>
+<p>Se você acabou de instalar o <code>7.0.0-40</code> e o <code>uname -r</code> ainda mostra <code>38</code>, falta reiniciar.</p>
+
+<hr>
+
+<h2>Atualizar para uma nova versão do Ubuntu</h2>
+<p>As versões <strong>LTS</strong> saem a cada dois anos, em abril dos anos pares (24.04, 26.04…). Por padrão, o Ubuntu oferece passar de uma LTS para a próxima LTS, a partir da primeira atualização pontual (por exemplo, 26.04.1).</p>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Mexe no sistema inteiro.</dd>
+  <dt>do-release-upgrade</dt><dd>"Faça a atualização de versão": procura uma versão nova e conduz a troca.</dd>
+</dl>
+
+<pre class="term">$ sudo do-release-upgrade
+Checking for a new Ubuntu release
+No new release found.</pre>
+
+<p>"No new release found" (nenhuma versão nova encontrada) significa que você já está na mais recente para a sua política. Que versões são oferecidas fica em <code>/etc/update-manager/release-upgrades</code>, na linha <code>Prompt=lts</code>.</p>
+
+<div class="warning">
+<strong>Antes de atualizar a versão</strong>
+<ul>
+  <li>Faça <a href="backup.html">backup</a> dos seus arquivos.</li>
+  <li>Rode antes <code>sudo apt update &amp;&amp; sudo apt full-upgrade</code> e reinicie.</li>
+  <li>Use uma conexão estável e deixe o notebook na tomada. A troca leva de 30 minutos a algumas horas.</li>
+  <li>PPAs e repositórios de terceiros são desativados durante a troca. Reative depois, se houver versão para o Ubuntu novo.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Ubuntu Pro e Livepatch</h2>
+<p>O <strong>Ubuntu Pro</strong> estende as atualizações de segurança de uma LTS para até 10 anos, inclusive para os pacotes do repositório <code>universe</code>. Para uso pessoal, é gratuito em até 5 máquinas: basta uma conta Ubuntu One e o token do site <code>ubuntu.com/pro</code>.</p>
+
+<pre class="term">$ sudo pro attach SEU_TOKEN
+$ pro status
+SERVICE          ENTITLED  STATUS       DESCRIPTION
+esm-apps         yes       enabled      Expanded Security Maintenance for Applications
+esm-infra        yes       enabled      Expanded Security Maintenance for Infrastructure
+livepatch        yes       enabled      Canonical Livepatch service</pre>
+
+<p>A saída é ilustrativa. O <strong>Livepatch</strong>, incluído no Pro, aplica correções de segurança no kernel sem reiniciar.</p>
+
+<p>Os comandos desta página não rodam no terminal simulado. Pratique numa máquina virtual.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Os pacotes a seguir serão mantidos em suas versões atuais"</strong>
+<p><strong>O que aconteceu:</strong> o <code>upgrade</code> não instala atualizações que exigem <strong>remover</strong> ou <strong>adicionar</strong> pacotes, como uma troca de kernel ou de driver.</p>
+<p><strong>Como resolver:</strong> se não for faseamento, rode <code>sudo apt full-upgrade</code> e leia a lista antes de confirmar.</p>
+</div>
+
+<div class="cenario">
+<strong>"Não há espaço disponível no dispositivo" durante a atualização</strong>
+<p><strong>O que aconteceu:</strong> o disco, ou a partição <code>/boot</code>, encheu. Kernels antigos acumulados costumam ser a causa.</p>
+<p><strong>Como resolver:</strong> veja o espaço com <code>df -h</code>, rode <code>sudo apt autoremove</code> (que remove kernels antigos) e <code>sudo apt clean</code>. Depois, <code>sudo apt --fix-broken install</code>. Veja <a href="discos.html">lsblk, df, du</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>A atualização foi interrompida</strong>
+<pre class="term">$ sudo apt upgrade
+Erro: dpkg foi interrompido, você deve executar manualmente 'sudo dpkg --configure -a' para corrigir o problema.</pre>
+<p><strong>O que aconteceu:</strong> a energia caiu, ou você fechou o terminal no meio de uma instalação.</p>
+<p><strong>Como resolver:</strong> rode exatamente o sugerido, <code>sudo dpkg --configure -a</code>, e depois <code>sudo apt --fix-broken install</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Uma atualização quebrou um programa</strong>
+<p><strong>Como resolver:</strong> se for snap, <code>sudo snap revert nome</code> volta na hora. Se for do apt, veja as versões disponíveis com <code>apt policy nome</code>. Se o problema for o kernel, escolha o kernel anterior no menu do GRUB, que aparece segurando <kbd>Shift</kbd> (ou apertando <kbd>Esc</kbd>) ao ligar. Veja <a href="boot-grub.html">Boot, GRUB e Kernel</a>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando / arquivo</th><th>Para quê</th></tr>
+<tr><td><code>sudo apt update &amp;&amp; sudo apt upgrade</code></td><td>Rotina do apt</td></tr>
+<tr><td><code>sudo apt full-upgrade</code></td><td>Inclui atualizações que removem ou adicionam pacotes</td></tr>
+<tr><td><code>sudo snap refresh</code></td><td>Atualiza os snaps</td></tr>
+<tr><td><code>flatpak update</code></td><td>Atualiza os flatpaks</td></tr>
+<tr><td><code>sudo dpkg-reconfigure unattended-upgrades</code></td><td>Liga/desliga as atualizações automáticas</td></tr>
+<tr><td><code>/var/log/unattended-upgrades/</code></td><td>Registro das atualizações automáticas</td></tr>
+<tr><td><code>/var/run/reboot-required</code></td><td>Existe quando é preciso reiniciar</td></tr>
+<tr><td><code>uname -r</code></td><td>Kernel em uso</td></tr>
+<tr><td><code>sudo do-release-upgrade</code></td><td>Atualiza para a próxima versão do Ubuntu</td></tr>
+<tr><td><code>pro status</code></td><td>Situação do Ubuntu Pro</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Rotina em uma linha</h3>
+<p>Complete para atualizar a lista e, só se der certo, os pacotes:</p>
+<div class="ex-code">sudo apt update <input data-answer="&amp;&amp;" aria-label="operador"> sudo apt upgrade</div>
+</div>
+
+<div class="exercise">
+<h3>2. Precisa reiniciar?</h3>
+<p>Complete o caminho do arquivo que avisa que é preciso reiniciar:</p>
+<div class="ex-code">cat /var/run/<input data-answer="reboot-required" aria-label="arquivo"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Nova versão do Ubuntu</h3>
+<p>Complete o comando que atualiza o Ubuntu para a próxima versão:</p>
+<div class="ex-code">sudo <input data-answer="do-release-upgrade" aria-label="comando"></div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. O <code>apt upgrade</code> mostrou "Ainda não atualizando devido ao faseamento". O que fazer?</p>
+<label><input type="radio" name="q4"> Instalar os pacotes manualmente com <code>apt install</code>.</label>
+<label><input type="radio" name="q4"> Apagar o cache do apt.</label>
+<label><input type="radio" name="q4"> Nada: a atualização chega sozinha em alguns dias.</label>
+<label><input type="radio" name="q4"> Reinstalar o Ubuntu.</label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. O que o <code>unattended-upgrades</code> instala sozinho, por padrão?</p>
+<label><input type="radio" name="q5"> Todas as atualizações, inclusive versões novas do Ubuntu.</label>
+<label><input type="radio" name="q5"> Só as atualizações de segurança.</label>
+<label><input type="radio" name="q5"> Só os snaps.</label>
+<label><input type="radio" name="q5"> Nada; ele vem desligado.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Segurança: automática todo dia. Correções: <code>apt update &amp;&amp; apt upgrade</code> + <code>snap refresh</code> toda semana. Versão nova: <code>do-release-upgrade</code> a cada LTS.</li>
+  <li>Pacotes "não atualizando devido ao faseamento" chegam sozinhos: não force.</li>
+  <li><code>/var/run/reboot-required</code> existe quando é preciso reiniciar.</li>
+  <li>Antes de trocar de versão: backup, <code>full-upgrade</code> e tomada.</li>
+  <li>Ubuntu Pro (grátis para uso pessoal) estende a segurança e traz o Livepatch.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

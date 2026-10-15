@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Obtendo Ajuda — man, --help, tldr, apropos, type, which e help | Guia Ubuntu</title>
+<meta name="description" content="Como encontrar ajuda no próprio terminal do Ubuntu: --help, páginas de manual (man) e suas seções, como ler a SINOPSE, tldr, apropos, whatis, type, which, help e info.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Obtendo Ajuda</span></h1>
+
+<p class="intro">Ninguém decora todas as opções de todos os comandos. O que os profissionais sabem é <strong>onde procurar</strong>. O próprio terminal traz a documentação de quase tudo o que está instalado. Nesta aula você aprende a usar essa documentação e a ler o formato estranho em que ela é escrita.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Ver um resumo rápido de opções com <code>--help</code>.</li>
+  <li>Ler o manual completo com <code>man</code>: navegar, buscar e escolher a seção certa.</li>
+  <li>Entender a SINOPSE: o que significam <code>[ ]</code>, <code>...</code> e <code>|</code>.</li>
+  <li>Descobrir o nome de um comando com <code>apropos</code>, e o que ele é com <code>type</code> e <code>which</code>.</li>
+  <li>Ver exemplos prontos com <code>tldr</code>.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Qual ferramenta usar?</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Você quer…</th><th>Use</th><th>Exemplo</th></tr>
+<tr><td>Lembrar rapidinho uma opção</td><td><code>--help</code></td><td><code>cp --help</code></td></tr>
+<tr><td>Ler a documentação completa</td><td><code>man</code></td><td><code>man cp</code></td></tr>
+<tr><td>Ver exemplos prontos</td><td><code>tldr</code></td><td><code>tldr tar</code></td></tr>
+<tr><td>Descobrir qual comando faz algo</td><td><code>apropos</code></td><td><code>apropos "copy files"</code></td></tr>
+<tr><td>Saber o que um comando faz, em uma linha</td><td><code>whatis</code></td><td><code>whatis passwd</code></td></tr>
+<tr><td>Saber se é programa, comando interno ou apelido</td><td><code>type</code></td><td><code>type cd</code></td></tr>
+<tr><td>Saber onde o programa está instalado</td><td><code>which</code></td><td><code>which python3</code></td></tr>
+<tr><td>Ajuda de comandos internos do Bash</td><td><code>help</code></td><td><code>help cd</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>O resumo rápido: <code>--help</code></h2>
+<p>Quase todo programa aceita a opção <code>--help</code>. Ela mostra um resumo das opções, direto no terminal.</p>
+
+<dl class="anatomy">
+  <dt>cp</dt><dd>O comando sobre o qual você quer ajuda.</dd>
+  <dt>--help</dt><dd>A opção que pede o resumo de uso.</dd>
+</dl>
+
+<pre class="term">$ cp --help
+Uso: cp [OPÇÃO]... [-T] ORIGEM DESTINO
+ ou: cp [OPÇÃO]... ORIGEM... DIRETÓRIO
+ ou: cp [OPÇÃO]... -t DIRETÓRIO ORIGEM...
+Copia ORIGEM para DESTINO, ou múltiplas ORIGENs para DIRETÓRIO.
+...</pre>
+
+<p>A primeira linha, <code>Uso:</code>, é a mais importante: ela mostra a forma do comando. Você aprende a lê-la mais abaixo, em <a href="#sinopse">Como ler a SINOPSE</a>.</p>
+
+<h3>Quando a ajuda é longa demais</h3>
+<p>Se a ajuda passar da tela, mande-a para o <code>less</code>, que deixa você rolar com as setas e sair com <kbd>q</kbd>. Ou filtre só o que interessa com o <code>grep</code>:</p>
+
+<pre class="term">$ ls --help | less
+$ ls --help | grep -A1 -- --human
+  -h, --human-readable
+          Print human readable file sizes (e.g. 1K 234M 56G).</pre>
+
+<p>O <code>|</code> (pipe) passa a saída de um comando para o próximo. Você aprende em <a href="pipes.html">Pipes e xargs</a>.</p>
+
+<div class="note">
+<strong>Ajuda em dois idiomas</strong>
+<p>No Ubuntu 26.04, a ajuda de comandos como <code>ls</code> e <code>mkdir</code> vem do projeto em Rust e aparece parte em português e parte em inglês (por exemplo, o título <code>Options:</code>). É normal.</p>
+</div>
+
+<hr>
+
+<h2>O manual completo: <code>man</code></h2>
+<p><code>man</code> vem de <em>manual</em>. Cada programa instalado traz a sua <strong>página de manual</strong>, com descrição, todas as opções e, às vezes, exemplos.</p>
+
+<dl class="anatomy">
+  <dt>man</dt><dd>O leitor de manuais.</dd>
+  <dt>cp</dt><dd>A página que você quer ler.</dd>
+</dl>
+
+<pre class="term" data-title="man cp">CP(1)                            User Commands                            CP(1)
+
+NAME
+       cp - copy files and directories
+
+SYNOPSIS
+       cp [OPTION]... [-T] SOURCE DEST
+       cp [OPTION]... SOURCE... DIRECTORY
+       cp [OPTION]... -t DIRECTORY SOURCE...
+
+DESCRIPTION
+       Copy SOURCE to DEST, or multiple SOURCE(s) to DIRECTORY.
+...</pre>
+
+<p>O manual ocupa a tela inteira. Ele está em inglês na maioria dos casos; algumas páginas têm tradução. As partes principais são sempre as mesmas:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Seção da página</th><th>O que tem</th></tr>
+<tr><td><code>NAME</code> (NOME)</td><td>O nome e uma frase sobre o que faz</td></tr>
+<tr><td><code>SYNOPSIS</code> (SINOPSE)</td><td>A forma de escrever o comando</td></tr>
+<tr><td><code>DESCRIPTION</code> (DESCRIÇÃO)</td><td>Explicação e lista de opções</td></tr>
+<tr><td><code>EXAMPLES</code> (EXEMPLOS)</td><td>Exemplos de uso, quando existem</td></tr>
+<tr><td><code>SEE ALSO</code> (VEJA TAMBÉM)</td><td>Comandos relacionados</td></tr>
+</table>
+</div>
+
+<h3>Navegando dentro do man</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tecla</th><th>O que faz</th></tr>
+<tr><td><kbd>↑</kbd> <kbd>↓</kbd> ou <kbd>j</kbd> <kbd>k</kbd></td><td>Sobe ou desce uma linha</td></tr>
+<tr><td><kbd>Espaço</kbd> / <kbd>b</kbd></td><td>Desce / sobe uma página</td></tr>
+<tr><td><kbd>g</kbd> / <kbd>G</kbd></td><td>Vai para o começo / para o fim</td></tr>
+<tr><td><kbd>/</kbd> + palavra + <kbd>Enter</kbd></td><td>Procura a palavra para baixo</td></tr>
+<tr><td><kbd>n</kbd> / <kbd>N</kbd></td><td>Próxima / anterior ocorrência da busca</td></tr>
+<tr><td><kbd>h</kbd></td><td>Mostra todas as teclas</td></tr>
+<tr><td><kbd>q</kbd></td><td>Sai do manual</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Procure a opção, não leia tudo</strong>
+<p>Dentro do <code>man cp</code>, digite <code>/-r</code> e <kbd>Enter</kbd> para pular direto para a opção <code>-r</code>. Aperte <kbd>n</kbd> até achar a explicação.</p>
+</div>
+
+<h3>As seções do manual</h3>
+<p>O manual é dividido em <strong>seções</strong> numeradas. O mesmo nome pode existir em mais de uma. O número aparece entre parênteses: <code>CP(1)</code>.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Seção</th><th>Conteúdo</th><th>Exemplo</th></tr>
+<tr><td>1</td><td>Comandos de usuário</td><td><code>ls(1)</code>, <code>passwd(1)</code></td></tr>
+<tr><td>5</td><td>Formatos de arquivos de configuração</td><td><code>passwd(5)</code>, <code>fstab(5)</code></td></tr>
+<tr><td>8</td><td>Comandos de administração (geralmente com <code>sudo</code>)</td><td><code>mount(8)</code>, <code>useradd(8)</code></td></tr>
+<tr><td>2 e 3</td><td>Funções para programadores</td><td><code>mkdir(2)</code></td></tr>
+<tr><td>7</td><td>Assuntos gerais</td><td><code>regex(7)</code></td></tr>
+</table>
+</div>
+
+<p>O comando <code>passwd</code> (trocar senha) e o arquivo <code>/etc/passwd</code> têm o mesmo nome. Para ler sobre o <strong>arquivo</strong>, informe a seção:</p>
+
+<dl class="anatomy">
+  <dt>man</dt><dd>O leitor de manuais.</dd>
+  <dt>5</dt><dd>A seção: formatos de arquivo.</dd>
+  <dt>passwd</dt><dd>A página.</dd>
+</dl>
+
+<pre class="term" data-title="man 5 passwd">PASSWD(5)                     Formatos de Arquivo                     PASSWD(5)
+
+NOME
+       passwd - arquivo de senhas
+
+DESCRIÇÃO
+       Passwd  é  um  arquivo  texto,  que contém a lista de contas do sistema,
+...</pre>
+
+<p>Essa página tem tradução em português. Sem o <code>5</code>, o <code>man passwd</code> abriria a seção 1, sobre o comando.</p>
+
+<hr>
+
+<h2 id="sinopse">Como ler a SINOPSE</h2>
+<p>A SINOPSE (e a linha <code>Uso:</code> do <code>--help</code>) usa símbolos com significado fixo. Depois que você aprende, lê a forma de qualquer comando.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Símbolo</th><th>Significa</th><th>Exemplo</th></tr>
+<tr><td><code>[ ]</code></td><td>Opcional: pode deixar de fora</td><td><code>[OPÇÃO]</code></td></tr>
+<tr><td><code>...</code></td><td>Pode repetir: um ou mais</td><td><code>ORIGEM...</code></td></tr>
+<tr><td><code>a|b</code></td><td>Escolha um ou outro</td><td><code>[-l|--long]</code></td></tr>
+<tr><td>MAIÚSCULAS ou <u>sublinhado</u></td><td>Troque pelo seu valor</td><td><code>DESTINO</code> → <code>backup/</code></td></tr>
+<tr><td>Sem colchetes</td><td>Obrigatório</td><td><code>DESTINO</code></td></tr>
+</table>
+</div>
+
+<p>Vamos ler a segunda forma do <code>cp</code>, parte por parte:</p>
+
+<dl class="anatomy">
+  <dt>cp</dt><dd>O comando, escrito exatamente assim.</dd>
+  <dt>[OPÇÃO]...</dt><dd>Opcional (colchetes) e repetível (reticências): zero ou mais opções.</dd>
+  <dt>ORIGEM...</dt><dd>Obrigatório (sem colchetes) e repetível: um ou mais arquivos para copiar.</dd>
+  <dt>DIRETÓRIO</dt><dd>Obrigatório e único: a pasta de destino, sempre por último.</dd>
+</dl>
+
+<p>Traduzindo para um comando real: <code>cp -v foto.jpg notas.txt backup/</code>. Uma opção, duas origens e o diretório no fim.</p>
+
+<hr>
+
+<h2>Exemplos prontos: <code>tldr</code></h2>
+<p>O <code>tldr</code> (de <em>too long; didn't read</em>, "longo demais, não li") mostra só os usos mais comuns, com exemplos. Ele não vem instalado. No Ubuntu, a versão recomendada é o pacote <code>tealdeer</code>:</p>
+
+<pre class="term">$ tldr tar
+Comando 'tldr' não encontrado, mas poder ser instalado com:
+sudo snap install tldr      # version 3.4.4, or
+sudo apt  install tealdeer  # version 1.8.1-1
+sudo apt  install tldr-py   # version 0.7.0-8build1
+Veja 'snap info tldr' para versões adicionais.
+$ sudo apt install tealdeer
+$ tldr --update</pre>
+
+<p>O <code>tldr --update</code> baixa a coleção de exemplos; só é preciso na primeira vez. Depois:</p>
+
+<pre class="term">$ tldr tar
+
+  Archiving utility.
+
+  Create an archive and write it to a file:
+
+      tar cf path/to/target.tar path/to/file1 path/to/file2 ...
+
+  Extract a (compressed) archive file into the current directory verbosely:
+
+      tar xvf path/to/source.tar[.gz|.bz2|.xz]
+...</pre>
+
+<p>Os exemplos estão em inglês por padrão. Ótimo para comandos com muitas opções, como <code>tar</code>, <code>find</code> e <code>rsync</code>. A saída exata pode variar com a versão da coleção.</p>
+
+<hr>
+
+<h2>Descobrir o nome de um comando: <code>apropos</code> e <code>whatis</code></h2>
+<p>Quando você sabe <strong>o que</strong> quer fazer, mas não sabe o nome do comando, use o <code>apropos</code>. Ele procura palavras nas descrições de todas as páginas de manual. As descrições estão quase todas em inglês, então busque em inglês.</p>
+
+<pre class="term">$ apropos "copy files"
+cp (1)               - copy files and directories
+cpio (1)             - copy files to and from archives
+git-checkout-index (1) - Copy files from the index to the working tree
+...</pre>
+
+<p>O <code>whatis</code> faz o contrário: dado um nome, mostra a descrição de uma linha de cada seção:</p>
+
+<pre class="term">$ whatis passwd
+passwd (5)           - arquivo de senhas
+passwd (1)           - change user password
+passwd (1ssl)        - OpenSSL application commands</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>apropos -s 8</code></td><td>Procura só na seção 8</td><td><code>apropos -s 8 network</code></td></tr>
+<tr><td><code>apropos -a</code></td><td>Exige todas as palavras</td><td><code>apropos -a copy file</code></td></tr>
+<tr><td><code>man -k</code></td><td>O mesmo que <code>apropos</code></td><td><code>man -k "disk usage"</code></td></tr>
+<tr><td><code>man -f</code></td><td>O mesmo que <code>whatis</code></td><td><code>man -f ls</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>O que é esse comando? <code>type</code> e <code>which</code></h2>
+<p>Nem todo comando é um programa separado. Há três tipos:</p>
+<ul>
+  <li><strong>Programa:</strong> um arquivo no disco, como <code>/usr/bin/ls</code>.</li>
+  <li><strong>Comando interno</strong> (<em>builtin</em>): faz parte do próprio Bash, como <code>cd</code>.</li>
+  <li><strong>Apelido</strong> (<em>alias</em>): um atalho para outro comando, como <code>ll</code>.</li>
+</ul>
+
+<p>O <code>type</code> diz qual é qual:</p>
+
+<pre class="term">$ type cd
+cd é um comando interno do shell
+$ type ll
+ll está apelidada para `ls -alF'
+$ type ls
+ls está apelidada para `ls --color=auto'           « o Ubuntu põe cores no ls com um apelido
+$ type -a ls
+ls está apelidada para `ls --color=auto'
+ls é /usr/bin/ls                                    « e por trás está o programa
+ls é /bin/ls</pre>
+
+<p>O <code>-a</code> (<em>all</em>) mostra todas as possibilidades, na ordem em que o shell procura. O <code>which</code> mostra só onde está o arquivo do programa:</p>
+
+<pre class="term">$ which ls
+/usr/bin/ls
+$ which programa-que-nao-existe
+$ echo $?
+1                                                   « não achou: código 1, sem mensagem</pre>
+
+<p>Repare: quando o <code>which</code> não acha, ele <strong>não mostra nada</strong>. O jeito de saber é o código de saída.</p>
+
+<div class="try" data-goal="ran:^type ,ran:^which ">
+<p class="try-task"><strong>Missão:</strong> descubra o que é <code>cd</code> (use <code>type</code>) e onde fica o programa <code>ls</code> (use <code>which</code>).</p>
+</div>
+
+<hr>
+
+<h2>Comandos internos: <code>help</code></h2>
+<p>Comandos internos do Bash, como <code>cd</code>, <code>echo</code> e <code>history</code>, não têm página própria no <code>man</code>:</p>
+
+<pre class="term">$ man cd
+Nenhuma entrada de manual para cd
+$ help cd
+cd: cd [-L|[-P [-e]]] [-@] [dir]
+    Altera o diretório de trabalho do shell.
+
+    Altera o diretório atual para DIR, sendo o padrão de DIR o mesmo valor
+    da variável HOME. Se DIR é "-", é convertido para $OLDPWD.
+...</pre>
+
+<p>Digite só <code>help</code> para ver a lista de todos os comandos internos.</p>
+
+<h2>Documentação GNU: <code>info</code></h2>
+<p>Alguns programas do projeto GNU, como o <code>bash</code>, o <code>tar</code> e o <code>grep</code>, têm uma documentação mais longa no formato <code>info</code>, dividida em capítulos. Use <kbd>Espaço</kbd> para avançar, <kbd>Enter</kbd> sobre um link para entrar, <kbd>u</kbd> para subir e <kbd>q</kbd> para sair: <code>info bash</code>.</p>
+
+<hr>
+
+<h2>Ajuda fora do terminal</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Fonte</th><th>Endereço</th></tr>
+<tr><td>Documentação do Ubuntu Desktop</td><td>help.ubuntu.com</td></tr>
+<tr><td>Documentação do Ubuntu Server</td><td>documentation.ubuntu.com/server</td></tr>
+<tr><td>Manuais online</td><td>manpages.ubuntu.com</td></tr>
+<tr><td>Fórum oficial</td><td>discourse.ubuntu.com</td></tr>
+<tr><td>Perguntas e respostas</td><td>askubuntu.com</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Pesquise a mensagem de erro em inglês</strong>
+<p>Há muito mais respostas em inglês na internet. Rode o comando com <code>LANG=C</code> na frente para ver a mensagem original: <code>LANG=C ls /root</code> mostra <code>Permission denied</code> em vez de <code>Permissão negada</code>.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Nenhuma entrada de manual para …"</strong>
+<pre class="term">$ man cd
+Nenhuma entrada de manual para cd</pre>
+<p><strong>O que aconteceu:</strong> ou o comando é interno do Bash (caso do <code>cd</code>), ou o programa não está instalado, ou o nome está errado.</p>
+<p><strong>Como resolver:</strong> rode <code>type cd</code>. Se for interno, use <code>help cd</code>. Se não existir, confira o nome com <code>apropos</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"nada apropriado"</strong>
+<pre class="term">$ apropos "copiar arquivos"
+copiar arquivos: nada apropriado.</pre>
+<p><strong>O que aconteceu:</strong> as descrições estão em inglês, e a busca foi em português.</p>
+<p><strong>Como resolver:</strong> <code>apropos "copy files"</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Fiquei preso dentro do man</strong>
+<p><strong>O que aconteceu:</strong> o <code>man</code> (e o <code>less</code>) ocupam a tela e esperam teclas, não comandos.</p>
+<p><strong>Como resolver:</strong> aperte <kbd>q</kbd>. Se tiver começado uma busca com <kbd>/</kbd>, aperte <kbd>Esc</kbd> antes.</p>
+</div>
+
+<div class="cenario">
+<strong>O <code>which</code> não mostra nada</strong>
+<pre class="term">$ which tldr
+$ echo $?
+1</pre>
+<p><strong>O que aconteceu:</strong> o programa não está instalado, ou não está numa pasta do <code>PATH</code> (veja <a href="bashrc.html">.bashrc, alias, PATH</a>).</p>
+<p><strong>Como resolver:</strong> digite o nome sozinho (<code>tldr</code>): o Ubuntu sugere o pacote a instalar.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. O manual do arquivo de senhas</h3>
+<p>Complete para abrir o manual do arquivo <code>/etc/passwd</code> (seção 5):</p>
+<div class="ex-code">man <input data-answer="5" aria-label="seção"> passwd</div>
+</div>
+
+<div class="exercise">
+<h3>2. Programa, interno ou apelido?</h3>
+<p>Complete o comando que diz o que é o <code>cd</code>:</p>
+<div class="ex-code"><input data-answer="type" aria-label="comando"> cd</div>
+</div>
+
+<div class="exercise">
+<h3>3. Procurar pela descrição</h3>
+<p>Complete para procurar comandos relacionados a "disk usage":</p>
+<div class="ex-code"><input data-answer="apropos|man -k" aria-label="comando"> "disk usage"</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Dentro do <code>man</code>, qual tecla sai do manual?</p>
+<label><input type="radio" name="q4"> <kbd>Esc</kbd></label>
+<label><input type="radio" name="q4"> <kbd>Ctrl</kbd>+<kbd>X</kbd></label>
+<label><input type="radio" name="q4"> <kbd>q</kbd></label>
+<label><input type="radio" name="q4"> <kbd>Enter</kbd></label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. Na sinopse <code>mv [OPÇÃO]... ORIGEM... DIRETÓRIO</code>, o que é obrigatório?</p>
+<label><input type="radio" name="q5"> Só a OPÇÃO.</label>
+<label><input type="radio" name="q5"> Pelo menos uma ORIGEM e o DIRETÓRIO.</label>
+<label><input type="radio" name="q5"> Nada, tudo é opcional.</label>
+<label><input type="radio" name="q5"> Exatamente três opções.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>comando --help</code> para lembrar opções; <code>man comando</code> para o manual completo (saia com <kbd>q</kbd>, busque com <kbd>/</kbd>).</li>
+  <li>Seções: 1 comandos, 5 arquivos, 8 administração. <code>man 5 passwd</code> escolhe a seção.</li>
+  <li>Na sinopse: <code>[ ]</code> opcional, <code>...</code> repete, <code>|</code> escolha, MAIÚSCULAS = troque pelo seu valor.</li>
+  <li><code>apropos</code> descobre comandos pela descrição (em inglês); <code>tldr</code> dá exemplos prontos.</li>
+  <li><code>type</code> diz se é programa, interno ou apelido; internos usam <code>help</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

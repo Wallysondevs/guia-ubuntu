@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Recuperar um Sistema — recovery mode, chroot e fsck | Guia Ubuntu</title>
+<meta name="description" content="Recupere um Ubuntu que não liga: modo recovery, shell de root, remount rw, consertar fstab, redefinir senha esquecida, pendrive live com chroot para reinstalar o GRUB, fsck e boot-repair.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Recuperar um Sistema</span></h1>
+
+<p class="intro">Um Ubuntu que não liga quase nunca está perdido. Na maioria das vezes, uma linha errada num arquivo, uma senha esquecida ou um carregador de boot apagado impedem o sistema de subir, enquanto os seus arquivos continuam intactos no disco. Nesta aula você aprende as ferramentas de resgate, da mais simples à mais poderosa.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A entrar no <em>recovery mode</em> e abrir um shell de root.</li>
+  <li>Por que o disco aparece "somente leitura" e como liberar a escrita.</li>
+  <li>A consertar um <code>/etc/fstab</code> errado e a redefinir uma senha esquecida.</li>
+  <li>A usar um pendrive live com <code>chroot</code> para reinstalar o GRUB.</li>
+  <li>Quando e como rodar o <code>fsck</code>.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes do comando: a escada do resgate</h2>
+<p>Comece sempre pelo degrau mais baixo. Só suba se ele não resolver:</p>
+
+<ol class="passo">
+  <li><strong>Console de texto</strong> (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>): quando só a parte gráfica travou. Veja <a href="travamentos.html">Quando o Sistema Trava</a>.</li>
+  <li><strong>Kernel anterior</strong> no menu do GRUB: quando o problema começou depois de uma atualização. Veja <a href="boot-grub.html">Boot, GRUB e Kernel</a>.</li>
+  <li><strong>Recovery mode</strong>: o sistema começa a ligar, mas para no meio. Você ganha um shell de root.</li>
+  <li><strong>Pendrive live + chroot</strong>: nem o GRUB aparece, ou o recovery mode não abre.</li>
+  <li><strong>Reinstalar</strong> mantendo a pasta pessoal: o último recurso, depois de salvar os arquivos.</li>
+</ol>
+
+<div class="warning">
+<strong>Primeiro os dados, depois o conserto</strong>
+<p>Se os arquivos são importantes e não há backup, copie-os para um HD externo <strong>antes</strong> de tentar consertos que mexem no disco (<code>fsck</code>, reinstalar o GRUB, particionar). Com um pendrive live, isso é só arrastar e soltar no app Arquivos.</p>
+</div>
+
+<hr>
+
+<h2>Recovery mode</h2>
+<ol class="passo">
+  <li>Ligue e abra o menu do GRUB (<kbd>Esc</kbd> em UEFI, <kbd>Shift</kbd> em BIOS).</li>
+  <li>Escolha <strong>Advanced options for Ubuntu</strong>.</li>
+  <li>Escolha a linha que termina em <code>(recovery mode)</code>, de preferência do kernel atual.</li>
+  <li>Aparece o <strong>Recovery Menu</strong>. Escolha <code>root</code> (<em>Drop to root shell prompt</em>).</li>
+</ol>
+
+<pre class="term" data-title="tela do computador" data-user="root">Recovery Menu (filesystem state: read-only)
+
+resume          Resume normal boot
+clean           Try to make free space
+dpkg            Repair broken packages
+fsck            Check all file systems
+grub            Update grub bootloader
+network         Enable networking
+root            Drop to root shell prompt          « esta
+system-summary  System summary</pre>
+
+<p>Repare em <code>filesystem state: read-only</code>: o disco foi montado <strong>somente leitura</strong>, para que nada seja estragado sem querer. Depois de <code>root</code> e <kbd>Enter</kbd>:</p>
+
+<pre class="term" data-title="tela do computador" data-user="root" data-cwd="/root">Press Enter for maintenance
+(or press Control-D to continue):
+#> touch /teste
+touch: cannot touch '/teste': Read-only file system      « ainda não dá para escrever</pre>
+
+<h3>Liberar a escrita: <code>mount -o remount,rw /</code></h3>
+
+<dl class="anatomy">
+  <dt>mount</dt><dd>Monta sistemas de arquivos (veja <a href="montar.html">mount e fstab</a>).</dd>
+  <dt>-o remount,rw</dt><dd>Opções: <em>remount</em> = montar de novo o que já está montado; <em>rw</em> = <em>read-write</em>, leitura e escrita.</dd>
+  <dt>/</dt><dd>A partição raiz, onde está o sistema.</dd>
+</dl>
+
+<pre class="term" data-title="tela do computador" data-user="root" data-cwd="/root">#> mount -o remount,rw /
+#> touch /teste &amp;&amp; rm /teste &amp;&amp; echo "agora dá para escrever"
+agora dá para escrever</pre>
+
+<p>Neste shell você é root: não use <code>sudo</code>, e cuidado redobrado com <code>rm</code>. Quando terminar, saia com <code>exit</code> (volta ao menu e escolha <code>resume</code>) ou reinicie com <code>reboot</code>.</p>
+
+<hr>
+
+<h2>Caso 1: o fstab errado impede o boot</h2>
+<p>Uma linha errada em <code>/etc/fstab</code>, como um HD externo que não está ligado, faz o boot parar no <strong>modo de emergência</strong>:</p>
+
+<pre class="term" data-title="tela do computador">You are in emergency mode. After logging in, type "journalctl -xb" to view
+system logs, "systemctl reboot" to reboot, or "exit" to boot into default mode.
+Cannot open access to console, the root account is locked.
+See sulogin(8) man page for more details.
+
+Press Enter to continue.</pre>
+
+<p>No Ubuntu, a conta root não tem senha, então esse modo de emergência não abre o shell. Use o recovery mode:</p>
+
+<pre class="term" data-title="tela do computador" data-user="root" data-cwd="/root">#> mount -o remount,rw /
+#> cp /etc/fstab /etc/fstab.bak                     « cópia de segurança
+#> nano /etc/fstab</pre>
+
+<p>No arquivo, ponha <code>#</code> no começo da linha suspeita, para desativá-la sem apagar:</p>
+
+<pre class="file" data-file="/etc/fstab">UUID=691a91a0-48e6-40f9-8aeb-72c0e2f0e05e /         ext4  defaults          0 1
+UUID=4C2A-9F13                            /boot/efi vfat  umask=0077        0 1
+#UUID=8d3e1f2a-…                          /dados    ext4  defaults          0 2   « desativada</pre>
+
+<p>Confira antes de reiniciar:</p>
+
+<pre class="term" data-title="tela do computador" data-user="root" data-cwd="/root">#> findmnt --verify
+Success, no errors or warnings detected            « em inglês: o recovery não carrega o português
+#> reboot</pre>
+
+<div class="tip">
+<strong>Para não acontecer de novo</strong>
+<p>Em discos que nem sempre estão ligados, use a opção <code>nofail</code> no fstab. O boot segue mesmo sem o disco.</p>
+</div>
+
+<hr>
+
+<h2>Caso 2: esqueci a senha</h2>
+<p>No recovery mode, você é root e pode definir uma senha nova para qualquer usuário, sem saber a antiga:</p>
+
+<dl class="anatomy">
+  <dt>passwd</dt><dd>Troca senhas (<em>password</em>).</dd>
+  <dt>ana</dt><dd>O usuário cuja senha será trocada. Sem o nome, trocaria a do root.</dd>
+</dl>
+
+<pre class="term" data-title="tela do computador" data-user="root" data-cwd="/root">#> mount -o remount,rw /
+#> passwd ana
+New password:                                       « nada aparece enquanto digita
+Retype new password:
+passwd: password updated successfully
+#> reboot</pre>
+
+<p>O recovery mode costuma estar em inglês, por isso as mensagens aparecem assim. Esqueceu o nome do usuário? <code>ls /home</code> mostra as pastas pessoais.</p>
+
+<div class="warning">
+<strong>Isso mostra por que o disco precisa de criptografia</strong>
+<p>Qualquer pessoa com acesso físico ao computador faz esse mesmo procedimento. Em notebooks, ative a criptografia do disco na instalação: sem a senha do disco, o recovery mode não abre nada.</p>
+</div>
+
+<div class="note">
+<strong>Senha do chaveiro</strong>
+<p>Depois de trocar a senha assim, o desktop pode pedir a senha <strong>antiga</strong> do "chaveiro" (onde ficam senhas de Wi-Fi e navegador). Se você não lembra dela, o jeito é criar um chaveiro novo; as senhas guardadas no antigo se perdem.</p>
+</div>
+
+<hr>
+
+<h2>Caso 3: nem o GRUB aparece — pendrive live + chroot</h2>
+<p>Quando aparece <code>grub rescue&gt;</code>, ou o computador diz que não há sistema operacional, o carregador de boot sumiu ou está quebrado. Você vai iniciar pelo pendrive de instalação do Ubuntu, "entrar" no sistema instalado e reinstalar o GRUB lá de dentro.</p>
+
+<p>A palavra-chave é <strong><code>chroot</code></strong> (<em>change root</em>, "mudar a raiz"): ele faz o terminal tratar uma pasta como se fosse o <code>/</code>. Montando o disco do sistema em <code>/mnt</code> e rodando <code>chroot /mnt</code>, os comandos passam a agir no Ubuntu instalado, e não no pendrive.</p>
+
+<ol class="passo">
+  <li>Inicie pelo pendrive e escolha <strong>Experimentar o Ubuntu</strong>. Abra o terminal.</li>
+  <li>Descubra as partições. Procure a <code>ext4</code> grande (o sistema) e a <code>vfat</code> pequena (EFI):
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ lsblk -f -e7
+NAME        FSTYPE FSVER LABEL UUID                                 FSAVAIL FSUSE% MOUNTPOINTS
+nvme0n1
+├─nvme0n1p1 vfat   FAT32       4C2A-9F13                                           « a EFI
+└─nvme0n1p2 ext4   1.0         691a91a0-48e6-40f9-8aeb-72c0e2f0e05e                « o sistema
+…</pre>
+<p>O próprio pendrive também aparece na lista (geralmente <code>sda</code>, com sistema de arquivos <code>iso9660</code>); ignore-o.</p></li>
+  <li>Monte o sistema em <code>/mnt</code> e a EFI dentro dele:
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ sudo mount /dev/nvme0n1p2 /mnt
+$ sudo mount /dev/nvme0n1p1 /mnt/boot/efi</pre></li>
+  <li>Empreste ao sistema montado as pastas especiais do pendrive (dispositivos, processos, firmware):
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ for d in dev sys; do sudo mount --rbind /$d /mnt/$d; done
+$ sudo mount -t proc proc /mnt/proc
+$ sudo mount --bind /run /mnt/run</pre></li>
+  <li>Entre no sistema instalado. O prompt muda para <code>root@ubuntu:/#</code>:
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ sudo chroot /mnt</pre>
+<pre class="term" data-user="root" data-host="ubuntu" data-cwd="/">#> cat /etc/hostname
+notebook                                            « é o sistema instalado, não o pendrive</pre></li>
+  <li>Reinstale o GRUB e gere o menu:
+<pre class="term" data-user="root" data-host="ubuntu" data-cwd="/">#> grub-install
+Installing for x86_64-efi platform.
+Installation finished. No error reported.
+#> update-grub
+Sourcing file `/etc/default/grub'
+Generating grub configuration file ...
+Found linux image: /boot/vmlinuz-7.0.0-38-generic
+…
+done</pre></li>
+  <li>Saia do chroot com <code>exit</code>, desmonte tudo e reinicie sem o pendrive:
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ sudo umount -R /mnt
+$ reboot</pre></li>
+</ol>
+
+<dl class="anatomy">
+  <dt>mount --rbind /dev /mnt/dev</dt><dd><em>Recursive bind</em>: faz <code>/mnt/dev</code> mostrar o mesmo conteúdo de <code>/dev</code>, inclusive o que está montado dentro dele.</dd>
+  <dt>chroot /mnt</dt><dd>Abre um shell em que <code>/mnt</code> vira o <code>/</code>.</dd>
+  <dt>umount -R /mnt</dt><dd>Desmonta <code>/mnt</code> e tudo o que foi montado dentro dele.</dd>
+</dl>
+
+<p>Dentro do <code>chroot</code> você também pode consertar pacotes (<code>dpkg --configure -a</code>, <code>apt install -f</code>), refazer o initramfs (<code>update-initramfs -u -k all</code>) ou trocar senhas. Só não confie no <code>uname -r</code>: ele mostra o kernel do <strong>pendrive</strong>.</p>
+
+<div class="tip">
+<strong>Atalho gráfico: Boot-Repair</strong>
+<p>O <strong>Boot-Repair</strong> é um programa gráfico, de terceiros, que automatiza esse conserto. No pendrive live: <code>sudo add-apt-repository ppa:yannubuntu/boot-repair</code>, <code>sudo apt install boot-repair</code> e clique em "Reparação recomendada". Ele também gera um relatório útil para pedir ajuda em fóruns.</p>
+</div>
+
+<hr>
+
+<h2>Verificar o sistema de arquivos: <code>fsck</code></h2>
+<p>Depois de uma queda de energia ou de erros como <code>Input/output error</code>, o sistema de arquivos pode ter inconsistências. O <code>fsck</code> (<em>file system check</em>) verifica e corrige.</p>
+
+<div class="warning">
+<strong>Nunca rode fsck numa partição montada</strong>
+<p>Corrigir uma partição em uso pode destruir dados. Rode pelo pendrive live (com a partição desmontada) ou pela opção <code>fsck</code> do Recovery Menu.</p>
+</div>
+
+<dl class="anatomy">
+  <dt>sudo fsck</dt><dd>O verificador. Para ext4 ele chama o <code>e2fsck</code>.</dd>
+  <dt>-f</dt><dd><em>Force</em>: verifica mesmo se a partição parece "limpa".</dd>
+  <dt>/dev/nvme0n1p2</dt><dd>A partição, desmontada.</dd>
+</dl>
+
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ findmnt /dev/nvme0n1p2                             « nada aparece = não está montada
+$ sudo fsck -f /dev/nvme0n1p2
+fsck from util-linux 2.41.3
+e2fsck 1.47.2 (1-Jan-2025)
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+/dev/nvme0n1p2: 412345/31227904 files (0.4% non-contiguous), 31234567/124895744 blocks
+$ echo $?
+0                                                   « 0 = nenhum erro; 1 = erros corrigidos</pre>
+
+<p>Se houver problemas, o <code>e2fsck</code> pergunta antes de cada correção. Para aceitar todas, use <code>-y</code>. As versões nessa saída são ilustrativas.</p>
+
+<hr>
+
+<h2>Formas diferentes de fazer</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Problema</th><th>Ferramenta mais simples</th><th>Se não der</th></tr>
+<tr><td>Desktop travado</td><td>Console de texto (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>)</td><td>SysRq (veja <a href="travamentos.html">Quando o Sistema Trava</a>)</td></tr>
+<tr><td>Quebrou depois de atualizar</td><td>Kernel anterior no GRUB</td><td>Recovery mode → <code>dpkg</code></td></tr>
+<tr><td>fstab errado / senha esquecida</td><td>Recovery mode → <code>root</code></td><td>Pendrive live, montar e editar</td></tr>
+<tr><td>Recovery mode não abre</td><td>Tecla <kbd>e</kbd> no GRUB + <code>init=/bin/bash</code> no fim da linha <code>linux</code></td><td>Pendrive live + chroot</td></tr>
+<tr><td>GRUB sumiu</td><td>Pendrive live + chroot + <code>grub-install</code></td><td>Boot-Repair</td></tr>
+<tr><td>Disco com erros</td><td>Recovery Menu → <code>fsck</code></td><td>Pendrive live + <code>fsck -f</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Read-only file system" no recovery mode</strong>
+<pre class="term" data-title="tela do computador" data-user="root" data-cwd="/root">#> nano /etc/fstab
+[ Error writing /etc/fstab: Read-only file system ]</pre>
+<p><strong>O que aconteceu:</strong> esqueceu de liberar a escrita.</p>
+<p><strong>Como resolver:</strong> <code>mount -o remount,rw /</code> e tente de novo.</p>
+</div>
+
+<div class="cenario">
+<strong>Montei o disco e só aparece a pasta EFI</strong>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ sudo mount /dev/nvme0n1p1 /mnt
+$ ls /mnt
+EFI                                                 « montou a EFI, não o sistema</pre>
+<p><strong>O que aconteceu:</strong> você montou a partição errada. É fácil confundir a EFI com o sistema.</p>
+<p><strong>Como resolver:</strong> <code>sudo umount /mnt</code>, rode <code>lsblk -f</code> de novo e escolha a partição <code>ext4</code> grande. Se o disco for criptografado, abra-o antes com <code>sudo cryptsetup open /dev/nvme0n1p3 disco</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>grub-install: "cannot find EFI directory"</strong>
+<p><strong>O que aconteceu:</strong> a partição EFI não foi montada em <code>/mnt/boot/efi</code> antes do <code>chroot</code>.</p>
+<p><strong>Como resolver:</strong> saia do chroot (<code>exit</code>), rode <code>sudo mount /dev/nvme0n1p1 /mnt/boot/efi</code>, entre de novo e repita.</p>
+</div>
+
+<div class="cenario">
+<strong>Login volta sempre para a tela de login</strong>
+<p><strong>O que aconteceu:</strong> as causas mais comuns são disco cheio ou arquivos da sua pasta pessoal pertencendo ao root (depois de rodar um programa gráfico com <code>sudo</code>).</p>
+<p><strong>Como resolver:</strong> no console de texto (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>), entre com seu usuário e confira <code>df -h /</code> e <code>ls -la ~ | grep root</code>. Para devolver a pasta pessoal: <code>sudo chown -R ana:ana /home/ana</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Para quê</th></tr>
+<tr><td><code>mount -o remount,rw /</code></td><td>Liberar escrita no recovery mode</td></tr>
+<tr><td><code>findmnt --verify</code></td><td>Conferir o <code>/etc/fstab</code></td></tr>
+<tr><td><code>passwd usuario</code></td><td>Definir nova senha (como root)</td></tr>
+<tr><td><code>dpkg --configure -a</code></td><td>Terminar instalações interrompidas</td></tr>
+<tr><td><code>lsblk -f</code></td><td>Identificar partições e sistemas de arquivos</td></tr>
+<tr><td><code>mount --rbind /dev /mnt/dev</code></td><td>Preparar o chroot</td></tr>
+<tr><td><code>chroot /mnt</code></td><td>Entrar no sistema instalado a partir do pendrive</td></tr>
+<tr><td><code>grub-install</code> + <code>update-grub</code></td><td>Reinstalar o carregador e refazer o menu</td></tr>
+<tr><td><code>update-initramfs -u -k all</code></td><td>Recriar o initramfs de todos os kernels</td></tr>
+<tr><td><code>umount -R /mnt</code></td><td>Desmontar tudo de uma vez</td></tr>
+<tr><td><code>fsck -f /dev/…</code></td><td>Verificar uma partição desmontada</td></tr>
+<tr><td><code>journalctl -b -1 -p err</code></td><td>Erros do boot anterior (o que falhou)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Liberar a escrita</h3>
+<p>No recovery mode, complete o comando que permite editar arquivos:</p>
+<div class="ex-code">mount -o <input data-answer="remount,rw" aria-label="opções"> /</div>
+</div>
+
+<div class="exercise">
+<h3>2. Senha esquecida</h3>
+<p>Como root, complete para definir uma nova senha para a usuária ana:</p>
+<div class="ex-code"><input data-answer="passwd ana" aria-label="comando"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Entrar no sistema instalado</h3>
+<p>O sistema está montado em <code>/mnt</code> com <code>/dev</code>, <code>/sys</code>, <code>/proc</code> e <code>/run</code> preparados. Complete:</p>
+<div class="ex-code">sudo <input data-answer="chroot" aria-label="comando"> /mnt</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Quando é seguro rodar <code>fsck</code> numa partição?</p>
+<label><input type="radio" name="q4"> A qualquer momento, com o sistema ligado normalmente.</label>
+<label><input type="radio" name="q4"> Só com <code>sudo</code> e a partição montada como leitura e escrita.</label>
+<label><input type="radio" name="q4"> Com a partição desmontada: pelo pendrive live ou pelo Recovery Menu.</label>
+<label><input type="radio" name="q4"> Nunca: o fsck sempre apaga dados.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. O boot parou em "You are in emergency mode" e diz que a conta root está bloqueada. Qual é o próximo passo?</p>
+<label><input type="radio" name="q5"> Reiniciar, entrar no recovery mode, escolher <code>root</code> e corrigir o <code>/etc/fstab</code>.</label>
+<label><input type="radio" name="q5"> Reinstalar o Ubuntu imediatamente.</label>
+<label><input type="radio" name="q5"> Rodar <code>fsck</code> na partição montada.</label>
+<label><input type="radio" name="q5"> Apagar o <code>/etc/fstab</code>.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Suba a escada aos poucos: console de texto → kernel anterior → recovery mode → pendrive + chroot → reinstalar.</li>
+  <li>No recovery mode, o disco começa somente leitura: <code>mount -o remount,rw /</code>.</li>
+  <li>fstab errado: comente a linha, confira com <code>findmnt --verify</code>; use <code>nofail</code> em discos removíveis.</li>
+  <li>Senha esquecida: <code>passwd usuario</code> como root. Criptografe o disco para que outros não façam o mesmo.</li>
+  <li>GRUB quebrado: pendrive, montar sistema e EFI, <code>--rbind</code>, <code>chroot</code>, <code>grub-install</code>, <code>update-grub</code>.</li>
+  <li><code>fsck</code> só com a partição desmontada.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Conceitos de Rede — IP, máscara, gateway, DNS e portas | Guia Ubuntu</title>
+<meta name="description" content="Entenda redes no Ubuntu com analogias simples: endereço IP, máscara, gateway, DNS, portas, TCP e UDP, IPv6 e um roteiro passo a passo para quando a internet não funciona.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Conceitos de Rede</span></h1>
+
+<p class="intro">Antes de usar comandos de rede, vale entender as peças: <strong>IP</strong>, <strong>máscara</strong>, <strong>gateway</strong>, <strong>DNS</strong> e <strong>porta</strong>. Com elas na cabeça, as saídas do <code>ip</code>, do <code>ping</code> e do <code>ssh</code> deixam de ser sopa de números. No fim, você terá um roteiro para descobrir por que "a internet não funciona".</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que são IP, máscara, gateway, DNS e porta, comparando com endereços de correio.</li>
+  <li>A diferença entre IP privado (da sua casa) e IP público (da internet).</li>
+  <li>Como ver essas informações no seu Ubuntu com três comandos.</li>
+  <li>Um roteiro de 6 passos para achar onde a conexão quebrou.</li>
+</ul>
+</div>
+
+<p>Os exemplos usam a máquina fictícia <strong>notebook</strong>, da usuária <strong>ana</strong>, ligada no Wi-Fi de casa. No seu computador, os números e os nomes das placas serão outros.</p>
+
+<hr>
+
+<h2>A rede como um sistema de correio</h2>
+<p>Uma rede de computadores funciona como o correio de uma cidade. Cada peça técnica tem um equivalente do dia a dia:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Termo</th><th>Analogia</th><th>Exemplo</th></tr>
+<tr><td>Endereço IP</td><td>O endereço da casa. Sem ele, ninguém sabe para onde mandar a carta.</td><td><code>192.168.0.15</code></td></tr>
+<tr><td>Máscara de rede</td><td>Diz qual parte do endereço é o "bairro". Quem está no mesmo bairro se fala direto.</td><td><code>/24</code> ou <code>255.255.255.0</code></td></tr>
+<tr><td>Gateway</td><td>A agência do correio do bairro. Tudo que vai para fora do bairro passa por ela.</td><td><code>192.168.0.1</code> (o roteador)</td></tr>
+<tr><td>DNS</td><td>A agenda de contatos: troca o nome pelo endereço.</td><td><code>ubuntu.com</code> → <code>185.125.190.20</code></td></tr>
+<tr><td>Porta</td><td>O número do apartamento dentro do prédio. Cada serviço mora num número.</td><td><code>22</code> (SSH), <code>443</code> (sites com HTTPS)</td></tr>
+<tr><td>Placa de rede (interface)</td><td>A caixa de correio da casa. Um notebook pode ter várias: cabo e Wi-Fi.</td><td><code>wlp2s0</code>, <code>enp3s0</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Endereço IP</h2>
+<p>IP vem de <em>Internet Protocol</em>, "protocolo de internet". O endereço IPv4 tem 4 números de 0 a 255, separados por pontos. O jeito mais rápido de ver o seu é o <code>hostname -I</code>:</p>
+
+<dl class="anatomy">
+  <dt>hostname</dt><dd>O programa que mostra o nome da máquina.</dd>
+  <dt>-I</dt><dd>Opção com i <strong>maiúsculo</strong>: em vez do nome, mostra todos os endereços IP da máquina.</dd>
+</dl>
+
+<pre class="term">$ hostname -I
+192.168.0.15 2804:14c:5b80:8a1f::1a2b       « o primeiro é o IPv4; o segundo, IPv6</pre>
+
+<h3>IP privado e IP público</h3>
+<p>O <code>192.168.0.15</code> é um <strong>IP privado</strong>: só vale dentro da sua casa, como "apartamento 15" só faz sentido dentro do prédio. Para a internet, toda a sua casa aparece com um único <strong>IP público</strong>, o do roteador. Para descobrir o IP público, é preciso perguntar a um site de fora:</p>
+
+<pre class="term">$ curl -4 -s ifconfig.me
+177.92.48.203                                « o endereço da sua casa vista de fora</pre>
+
+<p>Esse IP público é ilustrativo. O <code>curl</code> busca o conteúdo de um endereço da web; você vai conhecê-lo em <a href="curl-wget.html">curl, wget, dig</a>.</p>
+
+<p>Três faixas são reservadas para redes privadas. Se o seu IP começa assim, ele é privado:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Faixa</th><th>Onde costuma aparecer</th></tr>
+<tr><td><code>192.168.x.x</code></td><td>Roteadores de casa e de pequenos escritórios</td></tr>
+<tr><td><code>10.x.x.x</code></td><td>Empresas, VPNs, provedores de nuvem</td></tr>
+<tr><td><code>172.16.x.x</code> a <code>172.31.x.x</code></td><td>Empresas e o Docker</td></tr>
+<tr><td><code>127.0.0.1</code></td><td>Não é rede: é o próprio computador (<em>localhost</em>)</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>localhost: o computador falando com ele mesmo</strong>
+<p><code>127.0.0.1</code>, ou o nome <code>localhost</code>, sempre aponta para a própria máquina. É útil para testar programas sem sair do computador, e funciona até sem internet.</p>
+</div>
+
+<hr>
+
+<h2>Máscara de rede: qual é o seu "bairro"</h2>
+<p>A máscara diz quantos números do começo do IP formam o endereço da rede (o bairro). Ela aparece depois de uma barra, no formato chamado <strong>CIDR</strong>: <code>192.168.0.15/24</code>.</p>
+
+<p>O <code>/24</code> quer dizer que os 24 primeiros bits, ou seja, os três primeiros números (<code>192.168.0</code>), são o bairro. O último número muda de casa para casa. Por isso <code>192.168.0.15</code> e <code>192.168.0.30</code> se falam direto, mas <code>192.168.1.7</code> já está em outro bairro.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>CIDR</th><th>Máscara escrita por extenso</th><th>Parte fixa</th><th>Endereços para máquinas</th></tr>
+<tr><td><code>/8</code></td><td><code>255.0.0.0</code></td><td><code>10</code>.x.x.x</td><td>cerca de 16 milhões</td></tr>
+<tr><td><code>/16</code></td><td><code>255.255.0.0</code></td><td><code>172.16</code>.x.x</td><td>65.534</td></tr>
+<tr><td><code>/24</code></td><td><code>255.255.255.0</code></td><td><code>192.168.0</code>.x</td><td>254</td></tr>
+<tr><td><code>/26</code></td><td><code>255.255.255.192</code></td><td>parte do último número</td><td>62</td></tr>
+<tr><td><code>/32</code></td><td><code>255.255.255.255</code></td><td>o endereço inteiro</td><td>1 (uma máquina só)</td></tr>
+</table>
+</div>
+
+<p>Para o dia a dia, basta lembrar: em casa, quase sempre é <code>/24</code>.</p>
+
+<hr>
+
+<h2>Gateway: a porta de saída</h2>
+<p>Para falar com algo fora do bairro (um site, por exemplo), o computador entrega o pacote ao <strong>gateway</strong>, quase sempre o roteador. O comando <code>ip r</code> mostra as rotas, inclusive o gateway:</p>
+
+<dl class="anatomy">
+  <dt>ip</dt><dd>A ferramenta de rede do Linux.</dd>
+  <dt>r</dt><dd>Abreviação de <code>route</code>: mostra a tabela de rotas, ou seja, por onde cada destino sai.</dd>
+</dl>
+
+<pre class="term">$ ip r
+default via 192.168.0.1 dev wlp2s0 proto dhcp src 192.168.0.15 metric 600     « para qualquer outro lugar, vá pelo roteador
+192.168.0.0/24 dev wlp2s0 proto kernel scope link src 192.168.0.15 metric 600  « o "bairro": entrega direto</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Pedaço</th><th>Significado</th></tr>
+<tr><td><code>default</code></td><td>"Qualquer destino que não esteja nas outras linhas."</td></tr>
+<tr><td><code>via 192.168.0.1</code></td><td>Mande pelo gateway, o roteador.</td></tr>
+<tr><td><code>dev wlp2s0</code></td><td>Pela placa Wi-Fi.</td></tr>
+<tr><td><code>proto dhcp</code></td><td>Essa rota veio do <strong>DHCP</strong>: o roteador entregou IP e gateway automaticamente.</td></tr>
+<tr><td><code>src 192.168.0.15</code></td><td>Usando o seu IP como remetente.</td></tr>
+<tr><td><code>metric 600</code></td><td>Prioridade. Se houver duas rotas iguais, vence o número menor (o cabo costuma ter 100).</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>DNS: a agenda de nomes</h2>
+<p>Computadores só entendem números, mas pessoas lembram nomes. O <strong>DNS</strong> (<em>Domain Name System</em>, "sistema de nomes de domínio") traduz <code>ubuntu.com</code> para um IP. Veja a tradução com o <code>dig</code>:</p>
+
+<dl class="anatomy">
+  <dt>dig</dt><dd>Pergunta ao DNS (de <em>domain information groper</em>).</dd>
+  <dt>+short</dt><dd>Mostra só a resposta, sem os detalhes técnicos.</dd>
+  <dt>ubuntu.com</dt><dd>O nome a traduzir.</dd>
+</dl>
+
+<pre class="term">$ dig +short ubuntu.com
+185.125.190.20
+185.125.190.21
+91.189.91.44                                « um nome pode ter vários IPs</pre>
+
+<p>No Ubuntu, quem atende essas perguntas é um serviço local chamado <strong>systemd-resolved</strong>, no endereço <code>127.0.0.53</code>. Ele repassa ao DNS do roteador ou a outro que você configurar. O comando <code>resolvectl status</code> mostra qual servidor está em uso; você vai usá-lo no roteiro de diagnóstico abaixo.</p>
+
+<div class="note">
+<strong>Quando "a internet caiu", muitas vezes é só o DNS</strong>
+<p>Se você consegue alcançar um IP mas não consegue abrir nenhum nome, a internet está funcionando: quem falhou foi a agenda. O roteiro mais abaixo mostra como distinguir os dois casos.</p>
+</div>
+
+<hr>
+
+<h2>Portas, TCP e UDP</h2>
+<p>Um computador roda vários serviços ao mesmo tempo. A <strong>porta</strong> é o número que diz para qual deles o pacote vai, como o número do apartamento num prédio. O IP leva até o prédio, e a porta leva até o apartamento.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Porta</th><th>Protocolo</th><th>Serviço</th></tr>
+<tr><td><code>22</code></td><td>TCP</td><td>SSH: acesso remoto pelo terminal (<a href="ssh.html">SSH</a>)</td></tr>
+<tr><td><code>53</code></td><td>UDP e TCP</td><td>DNS</td></tr>
+<tr><td><code>80</code></td><td>TCP</td><td>HTTP: sites sem criptografia</td></tr>
+<tr><td><code>443</code></td><td>TCP</td><td>HTTPS: sites com cadeado</td></tr>
+<tr><td><code>25</code>, <code>587</code></td><td>TCP</td><td>Envio de e-mail (SMTP)</td></tr>
+<tr><td><code>3306</code> / <code>5432</code></td><td>TCP</td><td>Bancos de dados MySQL / PostgreSQL</td></tr>
+<tr><td><code>67</code>, <code>68</code></td><td>UDP</td><td>DHCP: entrega de IP automático</td></tr>
+</table>
+</div>
+
+<p>Existem dois "tipos de entrega":</p>
+<ul>
+  <li><strong>TCP</strong>: como uma carta registrada. Confirma o recebimento e reenvia o que se perder. Usado por sites, SSH e e-mail.</li>
+  <li><strong>UDP</strong>: como um panfleto. Mais rápido, sem confirmação. Usado por DNS, chamadas de vídeo e jogos.</li>
+</ul>
+
+<p>Para ver quais portas o seu computador está escutando, use <code>ss -tuln</code> (detalhado em <a href="ip.html">ip, ping, ss</a>).</p>
+
+<hr>
+
+<h2>IPv4 e IPv6</h2>
+<p>Os endereços IPv4 (4 números) estão acabando: são só cerca de 4 bilhões. O <strong>IPv6</strong> resolve isso com endereços enormes, escritos em hexadecimal e separados por dois-pontos, como <code>2804:14c:5b80:8a1f::1a2b</code>. Os dois convivem: o seu Ubuntu provavelmente já tem os dois tipos.</p>
+<ul>
+  <li><code>::</code> é uma abreviação para "um monte de zeros".</li>
+  <li>Endereços que começam com <code>fe80:</code> são locais e só valem dentro da rede.</li>
+  <li><code>::1</code> é o localhost do IPv6.</li>
+</ul>
+
+<hr>
+
+<h2>Onde ver tudo isso no seu Ubuntu</h2>
+<p>Há mais de uma forma de descobrir as mesmas informações:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Quero ver…</th><th>Comando</th><th>Pela interface gráfica</th></tr>
+<tr><td>Meu IP</td><td><code>hostname -I</code> ou <code>ip -br a</code></td><td>Configurações → Wi-Fi (ou Rede) → engrenagem da conexão</td></tr>
+<tr><td>Meu gateway</td><td><code>ip r</code></td><td>Mesma tela, campo "Rota padrão"</td></tr>
+<tr><td>Meu DNS</td><td><code>resolvectl status</code></td><td>Mesma tela, campo "DNS"</td></tr>
+<tr><td>Meu IP público</td><td><code>curl -4 ifconfig.me</code></td><td>Qualquer site do tipo "qual é meu IP"</td></tr>
+<tr><td>Tudo de uma vez</td><td><code>nmcli device show</code></td><td>—</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Roteiro: "a internet não funciona"</h2>
+<p>Siga os passos em ordem. Cada passo testa uma peça do correio; o primeiro que falhar mostra onde está o problema.</p>
+
+<ol class="passo">
+<li>
+<p><strong>A placa de rede está ligada e tem IP?</strong> Use <code>ip -br a</code> (<code>-br</code> = <em>brief</em>, "resumido"):</p>
+<pre class="term">$ ip -br a
+lo               UNKNOWN        127.0.0.1/8 ::1/128
+enp3s0           DOWN                                     « cabo: desligado
+wlp2s0           UP             192.168.0.15/24 fe80::5a1c:3b2d:8e4f:9a10/64   « Wi-Fi: ligado, com IP</pre>
+<p>Se a placa que você usa está <code>DOWN</code>, ou <code>UP</code> mas sem endereço IPv4, o problema é a conexão física: Wi-Fi desligado, senha errada ou cabo solto. Veja <a href="configurar-rede.html">Configurar a Rede</a>.</p>
+</li>
+<li>
+<p><strong>Existe um gateway?</strong></p>
+<pre class="term">$ ip r
+default via 192.168.0.1 dev wlp2s0 proto dhcp src 192.168.0.15 metric 600
+192.168.0.0/24 dev wlp2s0 proto kernel scope link src 192.168.0.15 metric 600</pre>
+<p>Sem a linha <code>default</code>, o computador não sabe sair do bairro. Geralmente o problema é o DHCP do roteador: desconecte e conecte o Wi-Fi de novo.</p>
+</li>
+<li>
+<p><strong>O roteador responde?</strong> O <code>ping</code> manda um "você está aí?" e espera a resposta. <code>-c 3</code> limita a 3 tentativas; sem isso, ele não para até você apertar <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
+<pre class="term">$ ping -c 3 192.168.0.1
+PING 192.168.0.1 (192.168.0.1) 56(84) bytes of data.
+64 bytes from 192.168.0.1: icmp_seq=1 ttl=64 time=3.12 ms
+64 bytes from 192.168.0.1: icmp_seq=2 ttl=64 time=2.87 ms
+64 bytes from 192.168.0.1: icmp_seq=3 ttl=64 time=4.05 ms
+
+--- 192.168.0.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2003ms     « 0% de perda: o roteador está ok</pre>
+<p>Se aparecer <code>100% packet loss</code>, o problema está entre você e o roteador: sinal fraco ou rede errada.</p>
+</li>
+<li>
+<p><strong>A internet responde por IP?</strong> Teste um IP conhecido, como o DNS do Google, <code>8.8.8.8</code>. Assim você testa a saída para a internet sem depender do DNS:</p>
+<pre class="term">$ ping -c 3 8.8.8.8
+PING 8.8.8.8 (8.8.8.8) 56(84) bytes of data.
+64 bytes from 8.8.8.8: icmp_seq=1 ttl=117 time=14.2 ms
+64 bytes from 8.8.8.8: icmp_seq=2 ttl=117 time=13.8 ms
+64 bytes from 8.8.8.8: icmp_seq=3 ttl=117 time=14.5 ms
+
+--- 8.8.8.8 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2004ms</pre>
+<p>Se o roteador responde mas o <code>8.8.8.8</code> não, a internet do provedor caiu. Reinicie o roteador ou ligue para o provedor.</p>
+</li>
+<li>
+<p><strong>A internet responde por nome?</strong> Agora o mesmo teste com um nome:</p>
+<pre class="term">$ ping -c 3 google.com
+ping: google.com: Nome ou serviço desconhecido      « o IP funcionou, o nome não: é o DNS</pre>
+<p>Se o <code>ping 8.8.8.8</code> funcionou mas o <code>ping google.com</code> não, o problema é o <strong>DNS</strong>.</p>
+</li>
+<li>
+<p><strong>Qual DNS está em uso?</strong></p>
+<pre class="term">$ resolvectl status wlp2s0
+Link 3 (wlp2s0)
+    Current Scopes: DNS
+         Protocols: +DefaultRoute -LLMNR -mDNS -DNSOverTLS DNSSEC=no/unsupported
+Current DNS Server: 192.168.0.1             « o roteador está fazendo papel de DNS
+       DNS Servers: 192.168.0.1
+     Default Route: yes</pre>
+<p>Se o DNS do roteador está com problema, configure um DNS público, como <code>1.1.1.1</code> ou <code>8.8.8.8</code>, na conexão (veja <a href="configurar-rede.html">Configurar a Rede</a>).</p>
+</li>
+</ol>
+
+<div class="tip">
+<strong>Resumo do roteiro</strong>
+<p>Placa com IP → gateway → ping no roteador → ping num IP da internet → ping num nome → DNS. O primeiro passo que falha diz onde está o defeito.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Nome ou serviço desconhecido"</strong>
+<pre class="term">$ ping -c 3 ubuntu.com
+ping: ubuntu.com: Nome ou serviço desconhecido</pre>
+<p><strong>O que aconteceu:</strong> o DNS não conseguiu traduzir o nome. Ou o nome está errado (confira a digitação), ou o DNS não está respondendo.</p>
+<p><strong>Como confirmar:</strong> rode <code>ping -c 3 8.8.8.8</code>. Se esse funcionar, a internet está ok e o problema é só o DNS.</p>
+<p><strong>Como resolver:</strong> veja o passo 6 do roteiro e troque o DNS da conexão.</p>
+</div>
+
+<div class="cenario">
+<strong>"A rede está fora de alcance"</strong>
+<pre class="term">$ ping -c 3 8.8.8.8
+ping: connect: A rede está fora de alcance</pre>
+<p><strong>O que aconteceu:</strong> o computador nem tentou enviar, porque não tem rota para fora: não há gateway, ou a placa está sem IP.</p>
+<p><strong>Como resolver:</strong> volte aos passos 1 e 2 do roteiro. Reconecte o Wi-Fi ou o cabo.</p>
+</div>
+
+<div class="cenario">
+<strong>O ping não responde, mas o site abre</strong>
+<pre class="term">$ ping -c 3 microsoft.com
+PING microsoft.com (20.70.246.20) 56(84) bytes of data.
+
+--- microsoft.com ping statistics ---
+3 packets transmitted, 0 received, 100% packet loss, time 2051ms</pre>
+<p><strong>O que aconteceu:</strong> muitos servidores bloqueiam o <code>ping</code> de propósito, por segurança. Não responder ao ping <strong>não</strong> significa estar fora do ar.</p>
+<p><strong>Como confirmar:</strong> teste o serviço de verdade, por exemplo com <code>curl -I https://microsoft.com</code> (veja <a href="curl-wget.html">curl, wget, dig</a>).</p>
+</div>
+
+<hr>
+
+<h2>Referência rápida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Mostra</th></tr>
+<tr><td><code>hostname -I</code></td><td>Seus endereços IP</td></tr>
+<tr><td><code>ip -br a</code></td><td>Cada placa de rede, se está ligada e o IP dela</td></tr>
+<tr><td><code>ip r</code></td><td>Rotas e o gateway (<code>default via</code>)</td></tr>
+<tr><td><code>resolvectl status</code></td><td>Servidores DNS em uso</td></tr>
+<tr><td><code>dig +short nome</code></td><td>IP de um nome</td></tr>
+<tr><td><code>ping -c 3 destino</code></td><td>Se o destino responde, e em quanto tempo</td></tr>
+<tr><td><code>ss -tuln</code></td><td>Portas que o computador está escutando</td></tr>
+<tr><td><code>curl -4 ifconfig.me</code></td><td>Seu IP público</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">1. Na analogia do correio, a <strong>porta</strong> corresponde a quê?</p>
+<label><input type="radio" name="q1"> Ao endereço da casa.</label>
+<label><input type="radio" name="q1"> Ao número do apartamento dentro do prédio.</label>
+<label><input type="radio" name="q1"> À agência do correio do bairro.</label>
+<label><input type="radio" name="q1"> À agenda de contatos.</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">2. <code>ping 8.8.8.8</code> funciona, mas <code>ping google.com</code> mostra "Nome ou serviço desconhecido". Onde está o problema?</p>
+<label><input type="radio" name="q2"> No cabo de rede.</label>
+<label><input type="radio" name="q2"> No gateway.</label>
+<label><input type="radio" name="q2"> No DNS.</label>
+<label><input type="radio" name="q2"> No site do Google.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">3. Qual destes IPs é <strong>privado</strong>?</p>
+<label><input type="radio" name="q3"> <code>192.168.1.40</code></label>
+<label><input type="radio" name="q3"> <code>185.125.190.20</code></label>
+<label><input type="radio" name="q3"> <code>8.8.8.8</code></label>
+<label><input type="radio" name="q3"> <code>177.92.48.203</code></label>
+</div>
+
+<div class="exercise">
+<h3>4. Ver o gateway</h3>
+<p>Complete o comando que mostra a tabela de rotas, onde aparece o gateway:</p>
+<div class="ex-code">ip <input data-answer="r|route|ro|rou" aria-label="subcomando"></div>
+</div>
+
+<div class="exercise">
+<h3>5. Ping que para sozinho</h3>
+<p>Complete para enviar só 4 pings ao roteador:</p>
+<div class="ex-code">ping <input data-answer="-c 4|-c4" aria-label="opção"> 192.168.0.1</div>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><strong>IP</strong> é o endereço; <strong>máscara</strong> define o bairro; <strong>gateway</strong> é a saída; <strong>DNS</strong> traduz nomes; <strong>porta</strong> escolhe o serviço.</li>
+  <li><code>192.168.x.x</code>, <code>10.x.x.x</code> e <code>172.16–31.x.x</code> são IPs privados; <code>127.0.0.1</code> é o próprio computador.</li>
+  <li><code>hostname -I</code>, <code>ip r</code> e <code>resolvectl status</code> mostram IP, gateway e DNS.</li>
+  <li>Para diagnosticar: placa → gateway → roteador → IP da internet → nome → DNS.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

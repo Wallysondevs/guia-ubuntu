@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu curl, wget, dig — baixar arquivos, testar sites e consultar DNS | Guia Ubuntu</title>
+<meta name="description" content="Aprenda curl, wget e dig no Ubuntu: baixar arquivos, ver cabeçalhos HTTP, enviar dados para APIs, retomar downloads, consultar DNS e entender os erros mais comuns.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">curl, wget, dig</span></h1>
+
+<p class="intro">O <code>curl</code> e o <code>wget</code> conversam com sites pelo terminal: baixam arquivos, testam se um endereço está no ar e enviam dados para APIs. O <code>dig</code> pergunta ao DNS qual é o IP de um nome. Juntos, eles respondem a pergunta "o problema é a rede, o DNS ou o site?".</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Baixar arquivos com <code>curl</code> e com <code>wget</code>, e quando preferir cada um.</li>
+  <li>Ver só os cabeçalhos de uma resposta e entender os códigos HTTP (200, 301, 404…).</li>
+  <li>Enviar dados para uma API com <code>curl</code>.</li>
+  <li>Consultar o DNS com <code>dig</code> e <code>resolvectl</code>, e seguir o caminho dos pacotes com <code>tracepath</code>.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Como a web conversa: pedido e resposta</h2>
+<p>Quando você abre um site, o navegador envia um <strong>pedido</strong> (<em>request</em>) ao servidor, e o servidor devolve uma <strong>resposta</strong> (<em>response</em>). Essa conversa segue o protocolo <strong>HTTP</strong>, ou HTTPS quando é criptografada.</p>
+<p>A resposta tem duas partes: os <strong>cabeçalhos</strong> (informações sobre a resposta, como o tipo e o tamanho) e o <strong>corpo</strong> (a página, a imagem ou o arquivo). O primeiro cabeçalho traz um <strong>código de status</strong>:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Código</th><th>Significado</th><th>Exemplo do dia a dia</th></tr>
+<tr><td><code>200</code></td><td>OK, deu certo</td><td>A página abriu</td></tr>
+<tr><td><code>301</code> / <code>302</code></td><td>Mudou de endereço (redirecionamento)</td><td><code>http://</code> mandando para <code>https://</code></td></tr>
+<tr><td><code>403</code></td><td>Proibido</td><td>Sem permissão para ver</td></tr>
+<tr><td><code>404</code></td><td>Não encontrado</td><td>Link quebrado</td></tr>
+<tr><td><code>500</code> / <code>502</code> / <code>503</code></td><td>Erro no servidor</td><td>O site está com problema, não você</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>curl: ver o conteúdo de um endereço</h2>
+<p><code>curl</code> vem de <em>Client URL</em>, "cliente de URL". Sem opções, ele busca o endereço e mostra o corpo da resposta na tela:</p>
+
+<dl class="anatomy">
+  <dt>curl</dt><dd>O programa.</dd>
+  <dt>https://api.github.com/zen</dt><dd>O endereço (URL) a buscar.</dd>
+</dl>
+
+<pre class="term">$ curl https://api.github.com/zen
+Keep it logically awesome.                   « o corpo da resposta: um texto curto</pre>
+
+<p>Se o endereço for uma página comum, a tela se enche de HTML. Por isso, o <code>curl</code> quase sempre vem acompanhado de opções.</p>
+
+<h3>Só os cabeçalhos: <code>-I</code></h3>
+<p>Para saber se um site está no ar, você não precisa da página inteira. <code>-I</code> (i maiúsculo, de <em>head</em>) pede só os cabeçalhos:</p>
+
+<dl class="anatomy">
+  <dt>curl</dt><dd>O programa.</dd>
+  <dt>-I</dt><dd>Busca só os cabeçalhos da resposta.</dd>
+  <dt>https://ubuntu.com</dt><dd>O site.</dd>
+</dl>
+
+<pre class="term">$ curl -I https://ubuntu.com
+HTTP/2 200                                   « 200: o site respondeu normalmente
+server: nginx/1.14.0 (Ubuntu)                « o programa do servidor
+date: Thu, 15 Oct 2026 13:30:00 GMT
+content-type: text/html; charset=utf-8       « o tipo do conteúdo: uma página HTML
+content-length: 209845                       « o tamanho, em bytes
+referrer-policy: strict-origin-when-cross-origin</pre>
+
+<p>A resposta real tem mais linhas; mostramos as principais.</p>
+
+<h3>Seguir redirecionamentos: <code>-L</code></h3>
+<p>Muitos endereços mandam você para outro lugar. Sem <code>-L</code> (de <em>location</em>), o <code>curl</code> para no primeiro passo e mostra só o aviso de mudança:</p>
+
+<pre class="term">$ curl -I http://ubuntu.com
+HTTP/1.1 301 Moved Permanently               « mudou de endereço…
+location: https://ubuntu.com/                « …para este
+$ curl -sIL http://ubuntu.com | grep -i -E "^HTTP|^location"
+HTTP/1.1 301 Moved Permanently
+location: https://ubuntu.com/
+HTTP/2 200                                   « com -L, ele seguiu e chegou ao destino</pre>
+
+<p>Aqui também usamos <code>-s</code> (<em>silent</em>, "silencioso"), que esconde a barra de progresso. O <code>| grep</code> filtra só as linhas que interessam.</p>
+
+<hr>
+
+<h2>Baixar arquivos com curl: <code>-o</code> e <code>-O</code></h2>
+<p>Para salvar em vez de mostrar, há duas opções, e a diferença é só a letra maiúscula:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Nome do arquivo salvo</th><th>Exemplo</th></tr>
+<tr><td><code>-o nome</code></td><td>O nome que <strong>você</strong> escolher</td><td><code>curl -o logo.png https://site/img/a1b2.png</code></td></tr>
+<tr><td><code>-O</code></td><td>O mesmo nome que está no endereço</td><td><code>curl -O https://site/manual.pdf</code> salva <code>manual.pdf</code></td></tr>
+</table>
+</div>
+
+<dl class="anatomy">
+  <dt>curl</dt><dd>O programa.</dd>
+  <dt>-L</dt><dd>Segue redirecionamentos (links de download costumam redirecionar).</dd>
+  <dt>-O</dt><dd>Salva com o nome original do arquivo.</dd>
+  <dt>https://releases.ubuntu.com/26.04/SHA256SUMS</dt><dd>O arquivo a baixar.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/Downloads">$ curl -LO https://releases.ubuntu.com/26.04/SHA256SUMS
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   202  100   202    0     0    870      0 --:--:-- --:--:-- --:--:--   870
+$ ls -l SHA256SUMS
+-rw-rw-r-- 1 ana ana 202 Oct 15 10:30 SHA256SUMS</pre>
+
+<p>A tabela de progresso mostra o tamanho total, quanto já foi recebido e a velocidade. Os números são ilustrativos.</p>
+
+<div class="warning">
+<strong>Cuidado com <code>curl … | bash</code></strong>
+<p>Alguns sites mandam instalar programas com <code>curl -fsSL https://site/install.sh | bash</code>. Isso baixa um script e executa na hora, sem você ver o que ele faz. Prefira baixar primeiro (<code>curl -fsSLO …</code>), ler com <code>less install.sh</code> e só depois rodar.</p>
+</div>
+
+<hr>
+
+<h2>O que o curl devolve</h2>
+<p>Por padrão, o <code>curl</code> considera "sucesso" qualquer resposta, até um <code>404</code>. Para scripts, isso engana. A opção <code>-f</code> (<em>fail</em>, "falhar") faz ele devolver erro quando o servidor responde com erro:</p>
+
+<pre class="term">$ curl -s https://ubuntu.com/pagina-que-nao-existe &gt; /dev/null; echo $?
+0                                            « "deu certo", apesar do 404!
+$ curl -sf https://ubuntu.com/pagina-que-nao-existe &gt; /dev/null; echo $?
+22                                           « com -f: erro 22 = o servidor respondeu com erro HTTP</pre>
+
+<p>E para ver só o código HTTP, use <code>-w</code> (<em>write-out</em>) com <code>-o /dev/null</code>, que descarta o corpo:</p>
+<pre class="term">$ curl -s -o /dev/null -w "%{http_code}\n" https://ubuntu.com
+200
+$ curl -s -o /dev/null -w "%{http_code} em %{time_total}s\n" https://ubuntu.com
+200 em 0.411899s</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Código do curl</th><th>Significado</th></tr>
+<tr><td><code>0</code></td><td>Sucesso</td></tr>
+<tr><td><code>6</code></td><td>Não conseguiu resolver o nome (problema de DNS ou nome errado)</td></tr>
+<tr><td><code>7</code></td><td>Não conseguiu conectar (servidor desligado ou porta fechada)</td></tr>
+<tr><td><code>22</code></td><td>O servidor respondeu com erro HTTP (só com <code>-f</code>)</td></tr>
+<tr><td><code>28</code></td><td>Tempo esgotado</td></tr>
+<tr><td><code>60</code></td><td>Certificado HTTPS inválido</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Enviar dados para uma API</h2>
+<p>APIs são endereços feitos para programas, não para pessoas. Com o <code>curl</code> você escolhe o <strong>método</strong> do pedido, envia cabeçalhos e dados:</p>
+
+<dl class="anatomy">
+  <dt>curl</dt><dd>O programa.</dd>
+  <dt>-X POST</dt><dd>O método. <code>GET</code> busca (é o padrão); <code>POST</code> envia; <code>PUT</code> atualiza; <code>DELETE</code> apaga.</dd>
+  <dt>-H "Content-Type: application/json"</dt><dd>Um cabeçalho: avisa que os dados estão em JSON.</dd>
+  <dt>-d '{"nome":"ana"}'</dt><dd>Os dados enviados no corpo do pedido.</dd>
+  <dt>https://httpbin.org/post</dt><dd>Um serviço de teste que devolve o que recebeu.</dd>
+</dl>
+
+<pre class="term">$ curl -s -X POST -H "Content-Type: application/json" -d '{"nome":"ana"}' https://httpbin.org/post
+{
+  "data": "{\"nome\":\"ana\"}",
+  "headers": {
+    "Content-Type": "application/json",
+    …
+  },
+  "json": {
+    "nome": "ana"                            « o servidor recebeu o que enviamos
+  },
+  …
+}</pre>
+
+<p>Formas mais curtas: quando há <code>-d</code>, o método já vira <code>POST</code> sozinho, então o <code>-X POST</code> pode sair. E a opção <code>--json</code> junta o cabeçalho e os dados num só:</p>
+<pre class="term">$ curl -s --json '{"nome":"ana"}' https://httpbin.org/post</pre>
+
+<h3>Login com usuário e senha: <code>-u</code></h3>
+<pre class="term">$ curl -u ana:senha123 https://exemplo.com/area-restrita</pre>
+<p>Se você omitir a senha (<code>-u ana</code>), o <code>curl</code> pergunta, e ela não fica no histórico do terminal.</p>
+
+<hr>
+
+<h2>wget: o especialista em downloads</h2>
+<p><code>wget</code> vem de <em>web get</em>, "pegar da web". Diferente do <code>curl</code>, o padrão dele é <strong>salvar em arquivo</strong>, e ele sabe retomar downloads interrompidos.</p>
+
+<dl class="anatomy">
+  <dt>wget</dt><dd>O programa.</dd>
+  <dt>https://releases.ubuntu.com/26.04/SHA256SUMS</dt><dd>O arquivo: é salvo com o mesmo nome, na pasta atual.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/Downloads">$ wget https://releases.ubuntu.com/26.04/SHA256SUMS
+--2026-10-15 10:30:00--  https://releases.ubuntu.com/26.04/SHA256SUMS
+Resolvendo releases.ubuntu.com (releases.ubuntu.com)... 185.125.190.37, 185.125.190.40
+Conectando-se a releases.ubuntu.com (releases.ubuntu.com)|185.125.190.37|:443... conectado.
+A requisição HTTP foi enviada, aguardando resposta... 200 OK
+Tamanho: 202 [text/plain]
+Salvando em: “SHA256SUMS”
+
+SHA256SUMS          100%[===================&gt;]     202  --.-KB/s    em 0s
+
+2026-10-15 10:30:01 (9,63 MB/s) - “SHA256SUMS” salvo [202/202]</pre>
+
+<p>O <code>wget</code> conta cada etapa: resolveu o nome (DNS), conectou, recebeu a resposta 200 e salvou. Se algo falhar, a última linha mostra onde parou.</p>
+
+<h3>Retomar um download: <code>-c</code></h3>
+<p>Baixando um arquivo grande, a conexão caiu? Rode o mesmo comando com <code>-c</code> (<em>continue</em>) e ele continua de onde parou, em vez de recomeçar:</p>
+<pre class="term" data-cwd="~/Downloads">$ wget -c https://releases.ubuntu.com/26.04/ubuntu-26.04-desktop-amd64.iso</pre>
+
+<h3>Outras opções do wget</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Faz</th><th>Exemplo</th></tr>
+<tr><td><code>-O nome</code></td><td>Salva com outro nome (<code>-O -</code> mostra na tela)</td><td><code>wget -O logo.png https://…</code></td></tr>
+<tr><td><code>-c</code></td><td>Continua um download interrompido</td><td><code>wget -c https://…/arquivo.iso</code></td></tr>
+<tr><td><code>-q</code></td><td>Silencioso</td><td><code>wget -q https://…</code></td></tr>
+<tr><td><code>-P pasta</code></td><td>Salva dentro da pasta indicada</td><td><code>wget -P ~/Downloads https://…</code></td></tr>
+<tr><td><code>-i lista.txt</code></td><td>Baixa todos os endereços de um arquivo</td><td><code>wget -i links.txt</code></td></tr>
+<tr><td><code>--spider</code></td><td>Só testa se o endereço existe, sem baixar</td><td><code>wget --spider https://…</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Formas diferentes de baixar um arquivo</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Comando</th><th>Melhor quando…</th></tr>
+<tr><td>wget</td><td><code>wget URL</code></td><td>Você só quer o arquivo salvo, sem pensar em opções</td></tr>
+<tr><td>wget com retomada</td><td><code>wget -c URL</code></td><td>O arquivo é grande ou a conexão é instável</td></tr>
+<tr><td>curl com nome original</td><td><code>curl -LO URL</code></td><td>Você já está usando o curl, ou ele está instalado e o wget não</td></tr>
+<tr><td>curl com outro nome</td><td><code>curl -L -o nome URL</code></td><td>O nome no endereço é feio ou genérico</td></tr>
+<tr><td>Navegador</td><td>Clique no link</td><td>É um arquivo só e você está no desktop</td></tr>
+</table>
+</div>
+
+<p>Para conversar com APIs, testar cabeçalhos e enviar dados, o <code>curl</code> é a ferramenta certa. Para baixar muitos arquivos ou retomar downloads, o <code>wget</code> é mais prático.</p>
+
+<hr>
+
+<h2>dig: perguntar ao DNS</h2>
+<p>Quando um site não abre, a primeira suspeita é o DNS. O <code>dig</code> pergunta diretamente qual IP corresponde a um nome.</p>
+
+<pre class="term">$ dig ubuntu.com
+; &lt;&lt;&gt;&gt; DiG 9.20.24-1ubuntu0.3-Ubuntu &lt;&lt;&gt;&gt; ubuntu.com
+;; global options: +cmd
+;; Got answer:
+;; -&gt;&gt;HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 3694      « NOERROR: o nome existe
+;; flags: qr rd ra; QUERY: 1, ANSWER: 3, AUTHORITY: 0, ADDITIONAL: 1
+
+;; QUESTION SECTION:
+;ubuntu.com.                    IN      A                         « a pergunta: qual o IPv4 (A)?
+
+;; ANSWER SECTION:
+ubuntu.com.             7       IN      A       185.125.190.20    « as respostas
+ubuntu.com.             7       IN      A       185.125.190.21
+ubuntu.com.             7       IN      A       91.189.91.44
+
+;; Query time: 0 msec
+;; SERVER: 127.0.0.53#53(127.0.0.53) (UDP)                       « quem respondeu: o DNS local do Ubuntu
+;; WHEN: Thu Oct 15 10:30:00 -03 2026
+;; MSG SIZE  rcvd: 151</pre>
+
+<p>O número <code>7</code> na resposta é o TTL: por quantos segundos essa resposta pode ficar guardada antes de perguntar de novo. Para o dia a dia, quase sempre basta a forma curta:</p>
+
+<pre class="term">$ dig +short ubuntu.com
+185.125.190.20
+185.125.190.21
+91.189.91.44</pre>
+
+<h3>Tipos de registro e servidor específico</h3>
+<p>O DNS guarda mais do que IPv4. Escolha o tipo depois do nome, e pergunte a um servidor específico com <code>@</code>:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tipo</th><th>Guarda</th><th>Exemplo</th></tr>
+<tr><td><code>A</code></td><td>Endereço IPv4 (o padrão)</td><td><code>dig +short ubuntu.com A</code></td></tr>
+<tr><td><code>AAAA</code></td><td>Endereço IPv6</td><td><code>dig +short ubuntu.com AAAA</code></td></tr>
+<tr><td><code>MX</code></td><td>Servidores de e-mail do domínio</td><td><code>dig +short gmail.com MX</code></td></tr>
+<tr><td><code>NS</code></td><td>Servidores de DNS responsáveis pelo domínio</td><td><code>dig +short ubuntu.com NS</code></td></tr>
+<tr><td><code>TXT</code></td><td>Textos de verificação, regras antispam</td><td><code>dig +short ubuntu.com TXT</code></td></tr>
+<tr><td><code>CNAME</code></td><td>Apelido: um nome que aponta para outro</td><td><code>dig +short www.exemplo.com CNAME</code></td></tr>
+</table>
+</div>
+
+<pre class="term">$ dig +short ubuntu.com @1.1.1.1              « pergunta direto à Cloudflare, sem passar pelo roteador
+185.125.190.20
+185.125.190.21
+91.189.91.44</pre>
+
+<p>Se o DNS do roteador falha mas o <code>@1.1.1.1</code> responde, o problema é o DNS configurado na sua rede.</p>
+
+<h3>Outras formas de consultar o DNS</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Característica</th></tr>
+<tr><td><code>dig +short nome</code></td><td>O mais completo e o mais usado para diagnóstico</td></tr>
+<tr><td><code>resolvectl query nome</code></td><td>Pergunta do jeito que o próprio Ubuntu pergunta (inclui o cache local)</td></tr>
+<tr><td><code>nslookup nome</code></td><td>Antigo, também existe no Windows</td></tr>
+<tr><td><code>getent hosts nome</code></td><td>Usa as mesmas regras dos programas, incluindo o <code>/etc/hosts</code></td></tr>
+</table>
+</div>
+
+<pre class="term">$ resolvectl query ubuntu.com
+ubuntu.com: 185.125.190.20                     -- link: wlp2s0
+            185.125.190.21                     -- link: wlp2s0
+            2620:2d:4000:1::26                 -- link: wlp2s0
+
+-- Information acquired via protocol DNS in 21.4ms.
+-- Data is authenticated: no; Data was acquired via local or encrypted transport: no
+-- Data from: network</pre>
+
+<hr>
+
+<h2>tracepath e mtr: o caminho até o destino</h2>
+<p>Entre você e um site existem vários roteadores. O <code>tracepath</code> mostra cada "salto" do caminho e quanto tempo cada um leva. Se a conexão trava num salto, você sabe se é o seu roteador, o provedor ou o destino.</p>
+
+<pre class="term">$ tracepath -n 8.8.8.8
+ 1?: [LOCALHOST]                      pmtu 1500
+ 1:  192.168.0.1                                           3.194ms      « o seu roteador
+ 2:  10.15.255.250                                        12.805ms      « o provedor
+ 3:  138.255.244.85                                       14.456ms
+ 4:  no reply                                                           « um roteador que não responde: normal
+ …</pre>
+
+<p><code>-n</code> mostra só os IPs, sem tentar descobrir nomes, o que é mais rápido. O <code>mtr</code> faz o mesmo de forma contínua, atualizando a tela: rode <code>mtr 8.8.8.8</code> e saia com <kbd>q</kbd>.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>curl: (6) Could not resolve host</strong>
+<pre class="term">$ curl https://ubunto.com
+curl: (6) Could not resolve host: ubunto.com</pre>
+<p><strong>O que aconteceu:</strong> o DNS não achou o nome. Aqui foi erro de digitação, mas também acontece quando o DNS está fora.</p>
+<p><strong>Como confirmar:</strong> <code>dig +short ubunto.com</code> não devolve nada. Teste um nome conhecido (<code>dig +short ubuntu.com</code>); se ele também falhar, o problema é o DNS. Veja o roteiro em <a href="redes.html">Conceitos de Rede</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>curl: (7) Failed to connect</strong>
+<pre class="term">$ curl http://192.168.0.50:8080
+curl: (7) Failed to connect to 192.168.0.50 port 8080 after 2 ms: Could not connect to server</pre>
+<p><strong>O que aconteceu:</strong> o nome foi resolvido e a máquina foi encontrada, mas nada respondeu nessa porta. O programa está parado, escuta em outra porta, ou um firewall bloqueia.</p>
+<p><strong>Como confirmar:</strong> na máquina de destino, rode <code>sudo ss -tlpn</code> e veja se a porta aparece (veja <a href="ip.html">ip, ping, ss</a>).</p>
+</div>
+
+<div class="cenario">
+<strong>O arquivo baixado tem só alguns bytes</strong>
+<pre class="term">$ curl -O https://exemplo.com/download/programa.deb
+$ ls -l programa.deb
+-rw-rw-r-- 1 ana ana 162 Oct 15 10:30 programa.deb        « 162 bytes: não é um programa</pre>
+<p><strong>O que aconteceu:</strong> o link redirecionava para outro endereço, e o <code>curl</code> salvou só a página de aviso do redirecionamento.</p>
+<p><strong>Como resolver:</strong> acrescente <code>-L</code>: <code>curl -LO URL</code>. Use também <code>-f</code> para o curl reclamar quando a resposta for um erro.</p>
+</div>
+
+<div class="cenario">
+<strong>wget: ERRO 404</strong>
+<pre class="term">$ wget https://ubuntu.com/arquivo-que-nao-existe
+…
+A requisição HTTP foi enviada, aguardando resposta... 404 Not Found
+2026-10-15 10:30:42 ERRO 404: Not Found.</pre>
+<p><strong>O que aconteceu:</strong> o servidor está no ar, mas esse endereço não existe. Confira o link: maiúsculas, versão no nome do arquivo, barra no final.</p>
+</div>
+
+<div class="cenario">
+<strong>curl: (60) SSL certificate problem</strong>
+<p><strong>O que aconteceu:</strong> o certificado HTTPS do site é inválido, vencido ou de um servidor de teste. Também acontece quando a data do computador está errada.</p>
+<p><strong>Como resolver:</strong> confira a data com <code>date</code>. Só use <code>-k</code> (ignorar o certificado) em servidores seus, de teste; nunca em sites de banco ou de login.</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<h3>curl</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th></tr>
+<tr><td><code>-I</code></td><td>Só cabeçalhos</td></tr>
+<tr><td><code>-L</code></td><td>Segue redirecionamentos</td></tr>
+<tr><td><code>-o nome</code> / <code>-O</code></td><td>Salva com o nome escolhido / com o nome original</td></tr>
+<tr><td><code>-s</code> / <code>-S</code></td><td>Silencioso / mostra erros mesmo com <code>-s</code></td></tr>
+<tr><td><code>-f</code></td><td>Devolve erro (código 22) se o servidor responder com erro</td></tr>
+<tr><td><code>-v</code></td><td>Mostra a conversa inteira, para depurar</td></tr>
+<tr><td><code>-X MÉTODO</code></td><td>GET, POST, PUT, DELETE…</td></tr>
+<tr><td><code>-H "Nome: valor"</code></td><td>Envia um cabeçalho</td></tr>
+<tr><td><code>-d dados</code> / <code>--json dados</code></td><td>Envia dados / envia JSON</td></tr>
+<tr><td><code>-u usuario:senha</code></td><td>Autenticação</td></tr>
+<tr><td><code>-w formato</code></td><td>Mostra informações no fim, como <code>%{http_code}</code></td></tr>
+<tr><td><code>-C -</code></td><td>Continua um download interrompido</td></tr>
+<tr><td><code>-4</code> / <code>-6</code></td><td>Força IPv4 / IPv6</td></tr>
+</table>
+</div>
+
+<h3>dig</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Descrição</th></tr>
+<tr><td><code>dig nome</code></td><td>Consulta completa</td></tr>
+<tr><td><code>dig +short nome</code></td><td>Só a resposta</td></tr>
+<tr><td><code>dig nome TIPO</code></td><td>A, AAAA, MX, NS, TXT, CNAME</td></tr>
+<tr><td><code>dig nome @servidor</code></td><td>Pergunta a um DNS específico</td></tr>
+<tr><td><code>dig -x IP</code></td><td>Consulta reversa: o nome de um IP</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. O site está no ar?</h3>
+<p>Complete para ver só os cabeçalhos da resposta de <code>https://ubuntu.com</code>:</p>
+<div class="ex-code">curl <input data-answer="-I|--head|-sI|-Is" aria-label="opção"> https://ubuntu.com</div>
+</div>
+
+<div class="exercise">
+<h3>2. Download com nome original e redirecionamento</h3>
+<p>Complete para baixar o arquivo seguindo redirecionamentos e mantendo o nome original:</p>
+<div class="ex-code">curl <input data-answer="-LO|-OL|-L -O|-O -L" aria-label="opções"> https://exemplo.com/download/app.tar.gz</div>
+</div>
+
+<div class="exercise">
+<h3>3. Retomar o download</h3>
+<p>A conexão caiu no meio de um download grande. Complete para continuar de onde parou:</p>
+<div class="ex-code">wget <input data-answer="-c|--continue" aria-label="opção"> https://releases.ubuntu.com/26.04/ubuntu-26.04-desktop-amd64.iso</div>
+</div>
+
+<div class="exercise">
+<h3>4. Só o IP</h3>
+<p>Complete para mostrar só os IPs de <code>ubuntu.com</code>, sem detalhes:</p>
+<div class="ex-code">dig <input data-answer="+short" aria-label="opção"> ubuntu.com</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. <code>curl https://site.com</code> mostra <code>curl: (7) Failed to connect</code>. O que isso indica?</p>
+<label><input type="radio" name="q5"> O nome do site não existe.</label>
+<label><input type="radio" name="q5"> A página não foi encontrada (404).</label>
+<label><input type="radio" name="q5"> O nome foi resolvido, mas nada respondeu na porta.</label>
+<label><input type="radio" name="q5"> O certificado HTTPS está vencido.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>curl URL</code> mostra a resposta; <code>-I</code> mostra só os cabeçalhos; <code>-L</code> segue redirecionamentos.</li>
+  <li>Baixar: <code>curl -LO URL</code> ou <code>wget URL</code>; retomar: <code>wget -c URL</code>.</li>
+  <li>Em scripts, use <code>curl -f</code> para o código de saída refletir erros HTTP.</li>
+  <li><code>dig +short nome</code> mostra o IP; <code>@1.1.1.1</code> pergunta a outro DNS; <code>tracepath</code> mostra o caminho.</li>
+  <li>Erro 6 = DNS; erro 7 = conexão recusada; 404 = endereço errado no servidor.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

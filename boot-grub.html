@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Boot, GRUB e Kernel — do botão ligar ao login | Guia Ubuntu</title>
+<meta name="description" content="Entenda o boot do Ubuntu (UEFI, shim, GRUB, kernel, initramfs, systemd), mostre o menu do GRUB, edite /etc/default/grub, veja os kernels instalados, inicie com o kernel anterior e use parâmetros de kernel.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Boot, GRUB e Kernel</span></h1>
+
+<p class="intro">Entre apertar o botão de ligar e ver a tela de login, o computador passa por cinco etapas. Quando uma delas falha, a mensagem na tela diz <strong>qual</strong>, mas só se você souber ler. Nesta aula você aprende o caminho do boot, a abrir e configurar o menu do <strong>GRUB</strong> e a voltar para um kernel anterior quando uma atualização dá errado.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>As etapas do boot: UEFI → shim/GRUB → kernel → initramfs → systemd.</li>
+  <li>A mostrar o menu do GRUB, que no Ubuntu vem escondido.</li>
+  <li>A mudar as opções do GRUB em <code>/etc/default/grub</code> com segurança.</li>
+  <li>A ver os kernels instalados e iniciar com o anterior.</li>
+  <li>A passar parâmetros para o kernel, só uma vez ou de forma permanente.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes do comando: o caminho do boot</h2>
+
+<ol class="passo">
+  <li><strong>Firmware (UEFI)</strong>: o "programa da placa-mãe". Testa o hardware e procura um carregador na <strong>partição EFI</strong>, que no Ubuntu está montada em <code>/boot/efi</code>.</li>
+  <li><strong>shim e GRUB</strong>: o <code>shimx64.efi</code> é um pequeno programa assinado que permite ligar com o <em>Secure Boot</em> ativo. Ele chama o <code>grubx64.efi</code>, o <strong>GRUB</strong> (<em>GRand Unified Bootloader</em>), que mostra o menu e carrega o kernel.</li>
+  <li><strong>Kernel</strong>: o arquivo <code>/boot/vmlinuz-…</code>. É o núcleo do Linux: assume o controle do hardware.</li>
+  <li><strong>initramfs</strong>: o arquivo <code>/boot/initrd.img-…</code>, um mini-sistema temporário com os drivers necessários para encontrar e montar o disco de verdade.</li>
+  <li><strong>systemd</strong>: o primeiro programa do sistema real (PID 1). Sobe os serviços e, por fim, a tela de login.</li>
+</ol>
+
+<p>Você vê as peças no disco:</p>
+
+<pre class="term">$ ls /boot
+config-7.0.0-34-generic      initrd.img-7.0.0-38-generic  vmlinuz-7.0.0-34-generic
+config-7.0.0-38-generic      initrd.img.old               vmlinuz-7.0.0-38-generic
+efi                          mt86+x64                     vmlinuz.old
+grub                         System.map-7.0.0-34-generic
+initrd.img                   System.map-7.0.0-38-generic
+initrd.img-7.0.0-34-generic  vmlinuz
+$ ls -l /boot/vmlinuz /boot/vmlinuz.old
+lrwxrwxrwx 1 root root 24 Oct 11 12:48 /boot/vmlinuz -&gt; vmlinuz-7.0.0-38-generic          « o atual
+lrwxrwxrwx 1 root root 24 Oct 11 12:48 /boot/vmlinuz.old -&gt; vmlinuz-7.0.0-34-generic      « o anterior
+$ sudo ls /boot/efi/EFI/ubuntu
+BOOTX64.CSV  grub.cfg  grubx64.efi  mmx64.efi  shimx64.efi</pre>
+
+<p>Há sempre <strong>dois</strong> kernels: o atual e o anterior. É essa "reserva" que salva você quando uma atualização de kernel não se dá bem com o seu hardware.</p>
+
+<hr>
+
+<h2>Kernels instalados</h2>
+
+<dl class="anatomy">
+  <dt>dpkg -l</dt><dd>Lista pacotes instalados (veja <a href="dpkg.html">dpkg e .deb</a>).</dd>
+  <dt>'linux-image*'</dt><dd>Só os que começam com <code>linux-image</code>. As aspas impedem o shell de expandir o <code>*</code>.</dd>
+  <dt>| grep ^ii</dt><dd>Só as linhas que começam com <code>ii</code> = instalado.</dd>
+</dl>
+
+<pre class="term">$ dpkg -l 'linux-image*' | grep ^ii
+ii  linux-image-7.0.0-34-generic    7.0.0-34.34  amd64  Signed kernel image generic          « o anterior
+ii  linux-image-7.0.0-38-generic    7.0.0-38.38  amd64  Signed kernel image generic          « o atual
+ii  linux-image-generic             7.0.0-38.38  amd64  Generic Linux kernel image
+ii  linux-image-generic-hwe-26.04   7.0.0-38.38  amd64  Generic Linux kernel image
+$ uname -r
+7.0.0-38-generic                                                                         « o que está rodando agora</pre>
+
+<p>Os pacotes <code>linux-image-generic</code> e <code>…-hwe-26.04</code> são "metapacotes": não contêm kernel, só puxam sempre o mais novo. O <code>apt autoremove</code> apaga os kernels mais velhos que o anterior (veja <a href="manutencao.html">Manutenção</a>).</p>
+
+<hr>
+
+<h2>Mostrar o menu do GRUB</h2>
+<p>Num computador só com Ubuntu, o menu fica escondido e o boot segue direto. Para vê-lo <strong>uma vez</strong>:</p>
+<ul>
+  <li><strong>UEFI</strong> (a maioria dos computadores atuais): pressione <kbd>Esc</kbd> algumas vezes logo depois que a marca do fabricante sumir.</li>
+  <li><strong>BIOS antiga</strong>: segure <kbd>Shift</kbd> durante o início do boot.</li>
+</ul>
+
+<p>O menu tem a entrada <strong>Ubuntu</strong> e a <strong>Advanced options for Ubuntu</strong> ("opções avançadas"). Os nomes das entradas ficam em inglês mesmo com o sistema em português. Dentro das opções avançadas fica cada kernel instalado, em versão normal e em <em>recovery mode</em> (modo de recuperação).</p>
+
+<div class="note">
+<strong>Apertou Esc demais?</strong>
+<p>Se aparecer só <code>grub&gt;</code> numa tela preta, você caiu no terminal do GRUB. Digite <code>normal</code> e <kbd>Enter</kbd> para voltar ao menu, ou <code>exit</code> para seguir o boot.</p>
+</div>
+
+<hr>
+
+<h2>Configurar o GRUB: <code>/etc/default/grub</code></h2>
+<p>As opções do GRUB ficam em <code>/etc/default/grub</code>. Na instalação padrão:</p>
+
+<pre class="file" data-file="/etc/default/grub (trechos)">GRUB_DEFAULT=0                                  # entrada iniciada por padrão (0 = a primeira)
+GRUB_TIMEOUT_STYLE=hidden                       # menu escondido
+GRUB_TIMEOUT=0                                  # segundos de espera
+GRUB_DISTRIBUTOR=`( . /etc/os-release &amp;&amp; echo ${NAME} )`
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"       # parâmetros do kernel no boot normal
+GRUB_CMDLINE_LINUX=""                           # parâmetros em todos os boots, inclusive recovery</pre>
+
+<h3>Deixar o menu sempre visível por 5 segundos</h3>
+<ol class="passo">
+  <li>Faça uma cópia de segurança do arquivo:
+<pre class="term">$ sudo cp /etc/default/grub /etc/default/grub.bak</pre></li>
+  <li>Edite e troque as duas linhas:
+<pre class="term">$ sudo nano /etc/default/grub</pre>
+<pre class="file" data-file="/etc/default/grub">GRUB_TIMEOUT_STYLE=menu
+GRUB_TIMEOUT=5</pre></li>
+  <li>Gere de novo a configuração que o GRUB realmente lê:
+<pre class="term">$ sudo update-grub
+Sourcing file `/etc/default/grub'
+Generating grub configuration file ...
+Found linux image: /boot/vmlinuz-7.0.0-38-generic                 « achou o kernel atual
+Found initrd image: /boot/initrd.img-7.0.0-38-generic
+Found linux image: /boot/vmlinuz-7.0.0-34-generic                 « e o anterior
+Found initrd image: /boot/initrd.img-7.0.0-34-generic
+…
+done</pre></li>
+</ol>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>O arquivo gerado fica em <code>/boot</code>, que só o root altera.</dd>
+  <dt>update-grub</dt><dd>Lê <code>/etc/default/grub</code> e os scripts de <code>/etc/grub.d/</code> e escreve <code>/boot/grub/grub.cfg</code>.</dd>
+</dl>
+
+<div class="warning">
+<strong>Nunca edite <code>/boot/grub/grub.cfg</code> à mão</strong>
+<p>Ele é sobrescrito a cada <code>update-grub</code>, inclusive nas atualizações de kernel. Toda mudança vai em <code>/etc/default/grub</code>, seguida de <code>sudo update-grub</code>. Esquecer o <code>update-grub</code> é o erro mais comum: a mudança simplesmente não vale.</p>
+</div>
+
+<hr>
+
+<h2>Iniciar com o kernel anterior</h2>
+<p>Depois de uma atualização, a tela ficou preta, o Wi-Fi sumiu ou o sistema trava? Antes de tudo, teste o kernel anterior:</p>
+
+<ol class="passo">
+  <li>Reinicie e abra o menu do GRUB (<kbd>Esc</kbd> ou <kbd>Shift</kbd>).</li>
+  <li>Escolha <strong>Advanced options for Ubuntu</strong>.</li>
+  <li>Escolha a linha com o kernel <strong>mais antigo</strong> (ex.: <code>Ubuntu, with Linux 7.0.0-34-generic</code>), a que <strong>não</strong> termina em <code>(recovery mode)</code>.</li>
+  <li>Se tudo funcionar, confirme no terminal qual está rodando:
+<pre class="term">$ uname -r
+7.0.0-34-generic</pre></li>
+</ol>
+
+<p>Se o kernel anterior resolveu, o problema está no novo. Você pode segurar a atualização do kernel até sair uma correção:</p>
+
+<pre class="term">$ sudo apt-mark hold linux-image-generic linux-image-generic-hwe-26.04
+linux-image-generic configurado como retido.
+linux-image-generic-hwe-26.04 configurado como retido.</pre>
+
+<p>Para voltar a receber kernels novos depois: <code>sudo apt-mark unhold linux-image-generic linux-image-generic-hwe-26.04</code>.</p>
+
+<h3>Lembrar sempre a última escolha do menu</h3>
+<p>Para o GRUB iniciar automaticamente o que você escolheu da última vez:</p>
+<pre class="file" data-file="/etc/default/grub">GRUB_DEFAULT=saved
+GRUB_SAVEDEFAULT=true
+GRUB_TIMEOUT_STYLE=menu
+GRUB_TIMEOUT=5</pre>
+<p>Depois, <code>sudo update-grub</code>. Na próxima vez em que você escolher o kernel anterior no menu, ele vira o padrão.</p>
+
+<hr>
+
+<h2>Parâmetros do kernel</h2>
+<p>O GRUB passa ao kernel uma "linha de comando", como um programa recebe argumentos. Veja a atual:</p>
+
+<pre class="term">$ cat /proc/cmdline
+BOOT_IMAGE=/boot/vmlinuz-7.0.0-38-generic root=UUID=691a91a0-48e6-40f9-8aeb-72c0e2f0e05e ro quiet splash</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Parâmetro</th><th>Significado</th></tr>
+<tr><td><code>root=UUID=…</code></td><td>Em que partição está o sistema</td></tr>
+<tr><td><code>ro</code></td><td>Monta o disco como somente leitura no início (o systemd remonta como escrita depois)</td></tr>
+<tr><td><code>quiet</code></td><td>Esconde as mensagens do kernel</td></tr>
+<tr><td><code>splash</code></td><td>Mostra a animação de boot do Ubuntu</td></tr>
+<tr><td><code>nomodeset</code></td><td>Não carrega o driver de vídeo completo. Salva-vidas para tela preta</td></tr>
+<tr><td><code>systemd.unit=rescue.target</code></td><td>Sobe só o mínimo e pede a senha de root (modo de resgate)</td></tr>
+</table>
+</div>
+
+<h3>Só para este boot: a tecla <kbd>e</kbd></h3>
+<ol class="passo">
+  <li>No menu do GRUB, selecione a entrada e pressione <kbd>e</kbd> (de <em>edit</em>).</li>
+  <li>Ache a linha que começa com <code>linux</code>. Ela termina com <code>ro quiet splash</code>.</li>
+  <li>Edite: por exemplo, apague <code>quiet splash</code> para ver as mensagens, ou acrescente <code>nomodeset</code> no fim.</li>
+  <li>Pressione <kbd>Ctrl</kbd>+<kbd>X</kbd> ou <kbd>F10</kbd> para iniciar.</li>
+</ol>
+<p>A mudança vale só para este boot e não estraga nada. É a forma segura de testar um parâmetro.</p>
+
+<h3>Para sempre</h3>
+<p>Coloque o parâmetro em <code>GRUB_CMDLINE_LINUX_DEFAULT</code> e rode <code>sudo update-grub</code>:</p>
+<pre class="file" data-file="/etc/default/grub">GRUB_CMDLINE_LINUX_DEFAULT="quiet splash nomodeset"</pre>
+
+<hr>
+
+<h2>Medir o tempo de boot</h2>
+<pre class="term">$ systemd-analyze
+Startup finished in 4.350s (firmware) + 2.102s (loader) + 3.871s (kernel) + 9.512s (userspace) = 19.835s
+graphical.target reached after 9.380s in userspace.</pre>
+<p>O <code>systemd-analyze</code> separa o tempo de cada etapa: firmware (UEFI), loader (GRUB), kernel (com o initramfs) e userspace (serviços). Uma etapa muito maior que as outras é onde investigar; os serviços lentos você acha com <code>systemd-analyze blame</code> e <code>critical-chain</code> (veja <a href="desempenho.html">Desempenho e Monitoramento</a>). Os números são ilustrativos e variam de máquina para máquina.</p>
+
+<hr>
+
+<h2>Outras peças úteis</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Para quê</th></tr>
+<tr><td><code>mokutil --sb-state</code></td><td>Diz se o Secure Boot está ativo (<code>SecureBoot enabled</code>/<code>disabled</code>)</td></tr>
+<tr><td><code>sudo update-initramfs -u</code></td><td>Recria o initramfs do kernel atual (depois de mudar drivers ou criptografia)</td></tr>
+<tr><td><code>sudo grub-reboot "ID"</code></td><td>Escolhe uma entrada só para o próximo boot (exige <code>GRUB_DEFAULT=saved</code>)</td></tr>
+<tr><td><code>journalctl -b -1 -p err</code></td><td>Erros do boot <strong>anterior</strong> (aquele que falhou)</td></tr>
+<tr><td><code>journalctl --list-boots</code></td><td>Lista os boots guardados no log</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Formas diferentes de fazer</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Objetivo</th><th>Forma temporária</th><th>Forma permanente</th></tr>
+<tr><td>Ver o menu</td><td><kbd>Esc</kbd> ou <kbd>Shift</kbd> no boot</td><td><code>GRUB_TIMEOUT_STYLE=menu</code> + <code>update-grub</code></td></tr>
+<tr><td>Usar outro kernel</td><td>Escolher em "Advanced options for Ubuntu"</td><td><code>GRUB_DEFAULT=saved</code> + <code>GRUB_SAVEDEFAULT=true</code></td></tr>
+<tr><td>Parâmetro de kernel</td><td>Tecla <kbd>e</kbd> no menu</td><td><code>GRUB_CMDLINE_LINUX_DEFAULT</code> + <code>update-grub</code></td></tr>
+<tr><td>Evitar kernel novo</td><td>Escolher o anterior a cada boot</td><td><code>apt-mark hold</code> nos metapacotes</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Mudei o /etc/default/grub e nada mudou</strong>
+<p><strong>O que aconteceu:</strong> faltou gerar o <code>grub.cfg</code>.</p>
+<p><strong>Como resolver:</strong> <code>sudo update-grub</code> e reinicie. Confira a mensagem <code>done</code> no fim.</p>
+</div>
+
+<div class="cenario">
+<strong>Tela preta depois de atualizar</strong>
+<p><strong>O que aconteceu:</strong> quase sempre é o driver de vídeo com o kernel novo.</p>
+<p><strong>Como resolver:</strong> 1) inicie com o kernel anterior; 2) se não der, edite a entrada com <kbd>e</kbd> e acrescente <code>nomodeset</code>; 3) já no sistema, rode <code>sudo apt update &amp;&amp; sudo apt upgrade</code> (pode haver correção) e leia <code>journalctl -b -1 -p err</code>. Veja também <a href="travamentos.html">Quando o Sistema Trava</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>Aparece só "grub rescue&gt;"</strong>
+<pre class="term" data-title="tela do computador">error: unknown filesystem.
+Entering rescue mode...
+grub rescue&gt;</pre>
+<p><strong>O que aconteceu:</strong> o GRUB não acha a própria pasta: a partição mudou, foi apagada ou outro sistema sobrescreveu o carregador.</p>
+<p><strong>Como resolver:</strong> inicie por um pendrive do Ubuntu e reinstale o GRUB com <code>chroot</code>, como mostra <a href="recuperacao.html">Recuperar um Sistema</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>O Windows sumiu do menu (dual boot)</strong>
+<p><strong>O que aconteceu:</strong> o GRUB procura outros sistemas com o <code>os-prober</code>, que pode estar desativado.</p>
+<p><strong>Como resolver:</strong> em <code>/etc/default/grub</code>, descomente ou acrescente <code>GRUB_DISABLE_OS_PROBER=false</code>, confira se o pacote <code>os-prober</code> está instalado e rode <code>sudo update-grub</code>. A saída deve trazer <code>Found Windows Boot Manager…</code>.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Aplicar mudanças</h3>
+<p>Você editou <code>/etc/default/grub</code>. Complete o comando que faz a mudança valer:</p>
+<div class="ex-code">sudo <input data-answer="update-grub|grub-mkconfig -o /boot/grub/grub.cfg" aria-label="comando"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Qual kernel está rodando?</h3>
+<div class="ex-code">uname <input data-answer="-r" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Menu visível</h3>
+<p>Complete a linha para o menu do GRUB sempre aparecer:</p>
+<div class="ex-code">GRUB_TIMEOUT_STYLE=<input data-answer="menu" aria-label="valor"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Qual é a ordem correta do boot?</p>
+<label><input type="radio" name="q4"> GRUB → UEFI → systemd → kernel</label>
+<label><input type="radio" name="q4"> UEFI → GRUB → kernel → initramfs → systemd</label>
+<label><input type="radio" name="q4"> kernel → GRUB → UEFI → systemd</label>
+<label><input type="radio" name="q4"> systemd → kernel → GRUB → UEFI</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. Você quer testar o parâmetro <code>nomodeset</code> sem arriscar nada. O que fazer?</p>
+<label><input type="radio" name="q5"> Editar <code>/boot/grub/grub.cfg</code> à mão.</label>
+<label><input type="radio" name="q5"> Remover o kernel atual.</label>
+<label><input type="radio" name="q5"> Rodar <code>sudo update-initramfs -u</code>.</label>
+<label><input type="radio" name="q5"> No menu do GRUB, pressionar <kbd>e</kbd>, acrescentar o parâmetro e iniciar com <kbd>Ctrl</kbd>+<kbd>X</kbd>.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Boot: UEFI → shim/GRUB → kernel (<code>vmlinuz</code>) → initramfs (<code>initrd.img</code>) → systemd → login.</li>
+  <li>O Ubuntu mantém o kernel atual e o anterior; <code>uname -r</code> diz qual está rodando.</li>
+  <li>Menu escondido: <kbd>Esc</kbd> (UEFI) ou <kbd>Shift</kbd> (BIOS). <code>grub&gt;</code> → digite <code>normal</code>.</li>
+  <li>Mudanças em <code>/etc/default/grub</code> só valem depois de <code>sudo update-grub</code>.</li>
+  <li>Tecla <kbd>e</kbd> no menu = parâmetro temporário; <code>GRUB_CMDLINE_LINUX_DEFAULT</code> = permanente.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

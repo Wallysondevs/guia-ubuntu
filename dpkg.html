@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu dpkg e .deb — instalar e consultar pacotes | Guia Ubuntu</title>
+<meta name="description" content="Aprenda o que é um arquivo .deb, como instalá-lo com apt ou dpkg, descobrir de qual pacote veio um arquivo, listar pacotes e consertar instalações interrompidas no Ubuntu.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">dpkg e .deb</span></h1>
+
+<p class="intro">Um arquivo <code>.deb</code> é um programa empacotado no formato do Debian e do Ubuntu, como um instalador <code>.exe</code> no Windows. O <code>dpkg</code> é a ferramenta que instala, remove e consulta esses pacotes. O <code>apt</code>, que você já conhece, usa o <code>dpkg</code> por baixo dos panos.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A diferença entre <code>apt</code> e <code>dpkg</code>, e quando usar cada um.</li>
+  <li>Três formas de instalar um <code>.deb</code> baixado de um site.</li>
+  <li>Como descobrir quais arquivos um pacote instalou e de qual pacote veio um arquivo.</li>
+  <li>Como ler a tabela do <code>dpkg -l</code> (o que significam <code>ii</code>, <code>rc</code>, <code>iU</code>).</li>
+  <li>Como consertar o sistema quando uma instalação é interrompida no meio.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes do comando: o que é um pacote</h2>
+<p>Um pacote <code>.deb</code> é um arquivo compactado com três coisas dentro:</p>
+<ol>
+  <li><strong>Os arquivos do programa</strong>, já com o caminho onde devem ficar (<code>/usr/bin/nano</code>, <code>/etc/nanorc</code>…).</li>
+  <li><strong>Informações</strong>: nome, versão, descrição e a lista de <strong>dependências</strong> (outros pacotes que ele precisa para funcionar).</li>
+  <li><strong>Scripts</strong> que rodam antes e depois de instalar, como "criar um usuário" ou "ligar um serviço".</li>
+</ol>
+
+<p>O Ubuntu registra cada pacote instalado num banco de dados em <code>/var/lib/dpkg/</code>. É esse banco que o <code>dpkg</code> consulta quando você pergunta "o nano está instalado?".</p>
+
+<h3>apt × dpkg: quem faz o quê</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>apt</th><th>dpkg</th></tr>
+<tr><td>Baixa da internet</td><td>Sim, dos repositórios</td><td>Não. Só trabalha com arquivos que já estão no disco</td></tr>
+<tr><td>Resolve dependências</td><td>Sim, baixa o que faltar</td><td>Não. Se faltar algo, para no meio</td></tr>
+<tr><td>Consulta o que está instalado</td><td>Um pouco (<code>apt list --installed</code>)</td><td>Muito (<code>-l</code>, <code>-L</code>, <code>-S</code>, <code>-s</code>)</td></tr>
+<tr><td>Uso no dia a dia</td><td>Instalar, atualizar, remover</td><td>Consultar e consertar</td></tr>
+</table>
+</div>
+
+<p>Resumindo: <strong>para instalar, use o <code>apt</code></strong>; <strong>para investigar, use o <code>dpkg</code></strong>.</p>
+
+<hr>
+
+<h2>Instalar um .deb baixado</h2>
+<p>Alguns programas (Google Chrome, Zoom, Discord…) oferecem um <code>.deb</code> para baixar no site. Imagine que a Ana baixou <code>programa_2.1_amd64.deb</code> para a pasta <code>Downloads</code>.</p>
+
+<h3>Forma 1 (recomendada): <code>apt install ./arquivo.deb</code></h3>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Roda como administrador. Instalar programas mexe no sistema todo.</dd>
+  <dt>apt install</dt><dd>O apt, no modo instalar.</dd>
+  <dt>./programa_2.1_amd64.deb</dt><dd>O arquivo. O <code>./</code> é obrigatório: diz "é um arquivo nesta pasta", e não um pacote do repositório.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/Downloads">$ sudo apt install ./programa_2.1_amd64.deb
+[sudo: authenticate] Senha:
+Nota, selecionando 'programa' em vez de './programa_2.1_amd64.deb'
+Instalando:
+  programa
+Instalando dependências:
+  libfoo2                                            « o apt achou e vai baixar o que falta
+Resumo:
+  Atualizando: 0, Instalando: 2, Removendo: 0, Não atualizando: 0
+  Tamanho de download: 84,2 kB
+Você quer continuar? [S/n] S</pre>
+
+<p>O apt lê as dependências de dentro do <code>.deb</code>, baixa as que faltam dos repositórios e instala tudo de uma vez. A saída varia de programa para programa; os nomes e tamanhos acima são ilustrativos.</p>
+
+<div class="tip">
+<strong>Por que o <code>./</code>?</strong>
+<p>Sem ele, <code>sudo apt install programa_2.1_amd64.deb</code> procura um pacote com esse <strong>nome</strong> nos repositórios e responde que não encontrou. O <code>./</code> (ou um caminho como <code>~/Downloads/programa.deb</code>) avisa que é um arquivo.</p>
+</div>
+
+<h3>Forma 2: <code>dpkg -i</code></h3>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Precisa de administrador.</dd>
+  <dt>dpkg</dt><dd>O programa (de <em>Debian package</em>).</dd>
+  <dt>-i</dt><dd>De <em>install</em>, "instalar". No dpkg, as ações são opções com hífen.</dd>
+  <dt>programa_2.1_amd64.deb</dt><dd>O arquivo. Aqui o <code>./</code> não é necessário.</dd>
+</dl>
+
+<p>O <code>dpkg</code> não baixa nada. Se faltar uma dependência, a instalação fica pela metade:</p>
+
+<pre class="term" data-cwd="~/Downloads">$ sudo dpkg -i programa_2.1_amd64.deb
+Selecionando pacote previamente não selecionado programa.
+Desempacotando programa (2.1) ...
+dpkg: dependency problems prevent configuration of programa:
+ programa depends on libfoo2; however:
+  O pacote libfoo2 não está instalado.              « faltou uma dependência
+dpkg: error processing package programa (--install):
+ problemas de dependência - deixando desconfigurado</pre>
+
+<p>Repare que a mensagem mistura inglês e português: parte da tradução do dpkg não está pronta no Ubuntu 26.04. "depends on … however" quer dizer "depende de … porém".</p>
+
+<p>Para terminar a instalação, peça ao apt que baixe o que falta:</p>
+
+<dl class="anatomy">
+  <dt>sudo apt</dt><dd>O apt como administrador.</dd>
+  <dt>-f</dt><dd>De <em>fix broken</em>, "consertar o que está quebrado". Forma longa: <code>--fix-broken</code>.</dd>
+  <dt>install</dt><dd>Sem nome de pacote: instala só o que falta para os pacotes pela metade.</dd>
+</dl>
+
+<pre class="term">$ sudo apt -f install</pre>
+
+<h3>Forma 3: duplo clique no arquivo</h3>
+<p>No desktop, dê duplo clique no <code>.deb</code> no app <strong>Arquivos</strong>. Ele abre a Central de Aplicativos, que instala com dependências, como o apt.</p>
+
+<h3>Qual forma usar?</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Baixa dependências?</th><th>Melhor quando…</th></tr>
+<tr><td><code>sudo apt install ./arq.deb</code></td><td>Sim</td><td>Sempre que houver internet. É a forma padrão.</td></tr>
+<tr><td><code>sudo dpkg -i arq.deb</code></td><td>Não</td><td>Máquina sem internet, com todas as dependências já instaladas.</td></tr>
+<tr><td>Duplo clique</td><td>Sim</td><td>Você está no desktop e prefere a interface gráfica.</td></tr>
+</table>
+</div>
+
+<div class="warning">
+<strong>Atenção: <code>.deb</code> roda como administrador</strong>
+<p>Um pacote é instalado com poder total sobre o sistema, e seus scripts podem fazer qualquer coisa. Só instale <code>.deb</code> baixado do site oficial do programa. Nunca instale um <code>.deb</code> recebido por mensagem ou de um site desconhecido.</p>
+</div>
+
+<hr>
+
+<h2>Espiar um .deb antes de instalar</h2>
+<p>Você pode ver o que tem dentro de um pacote sem instalar nada, e sem <code>sudo</code>:</p>
+
+<pre class="term" data-cwd="~/Downloads">$ dpkg -I programa_2.1_amd64.deb
+ Package: programa
+ Version: 2.1
+ Architecture: amd64
+ Depends: libc6 (&gt;= 2.38), libfoo2           « o que ele precisa
+ Description: um programa de exemplo
+$ dpkg -c programa_2.1_amd64.deb
+drwxr-xr-x root/root         0 2026-09-01 10:00 ./usr/bin/
+-rwxr-xr-x root/root    184320 2026-09-01 10:00 ./usr/bin/programa   « onde ele vai ficar</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Origem</th><th>Mostra</th></tr>
+<tr><td><code>-I</code> (i maiúsculo)</td><td><em>info</em></td><td>Nome, versão, dependências, descrição</td></tr>
+<tr><td><code>-c</code></td><td><em>contents</em>, "conteúdo"</td><td>A lista de arquivos e onde serão instalados</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Consultar pacotes instalados</h2>
+<p>Estas consultas não precisam de <code>sudo</code>: só leem o banco de dados.</p>
+
+<h3>Listar: <code>-l</code></h3>
+
+<dl class="anatomy">
+  <dt>dpkg</dt><dd>O programa.</dd>
+  <dt>-l</dt><dd>De <em>list</em>, "listar".</dd>
+  <dt>nano curl</dt><dd>Opcional: só esses pacotes. Sem nomes, lista todos (são milhares).</dd>
+</dl>
+
+<pre class="term">$ dpkg -l nano curl
++-- Desired=Unknown/Install/Remove/Purge/Hold
+|+- Status=Not/Inst/Conf-files/Unpacked/halF-conf/Half-inst/trig-aWait/Trig-pend
+||+ Err?=(none)/Reinst-required (Status,Err: uppercase=bad)
+||| Nome           Versão            Arquitetura  Descrição
++++-==============-=================-============-=======================================================
+ii  curl           8.18.0-1ubuntu2.7 amd64        command line tool for transferring data with URL syntax
+ii  nano           8.7.1-1ubuntu0.1  amd64        small, friendly text editor inspired by Pico</pre>
+
+<p>As três primeiras linhas são a legenda das letras que aparecem antes do nome. As que mais importam:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Código</th><th>Significado</th><th>O que fazer</th></tr>
+<tr><td><code>ii</code></td><td>Instalado e funcionando</td><td>Nada, está tudo certo</td></tr>
+<tr><td><code>rc</code></td><td>Removido, mas a configuração ficou (foi usado <code>remove</code>, não <code>purge</code>)</td><td><code>sudo apt purge pacote</code> para limpar</td></tr>
+<tr><td><code>iU</code></td><td>Desempacotado, mas não configurado (instalação pela metade)</td><td><code>sudo dpkg --configure -a</code></td></tr>
+<tr><td><code>iF</code></td><td>A configuração falhou</td><td>Leia o erro e rode <code>sudo apt -f install</code></td></tr>
+<tr><td><code>hi</code></td><td>Instalado e "congelado" (hold): não será atualizado</td><td>Veja <code>apt-mark</code> em <a href="apt.html">apt</a></td></tr>
+</table>
+</div>
+
+<p>Para procurar um pacote no meio de todos, combine com <code>grep</code>:</p>
+<pre class="term">$ dpkg -l | grep openssh
+ii  openssh-client  1:10.0p1-5ubuntu1  amd64  secure shell (SSH) client, for secure access to remote machines</pre>
+
+<h3>Os arquivos de um pacote: <code>-L</code></h3>
+<p>Quer saber onde um programa foi parar? O <code>-L</code> (de <em>list files</em>) mostra todos os arquivos que um pacote instalou:</p>
+
+<pre class="term">$ dpkg -L nano | head -8
+/.
+/etc
+/etc/nanorc                          « o arquivo de configuração
+/usr
+/usr/bin
+/usr/bin/nano                        « o programa
+/usr/share
+/usr/share/doc</pre>
+
+<h3>De qual pacote veio este arquivo? <code>-S</code></h3>
+<p>O <code>-S</code> (de <em>search</em>, "procurar") faz o caminho contrário: você dá o arquivo e ele diz o pacote.</p>
+
+<dl class="anatomy">
+  <dt>dpkg</dt><dd>O programa.</dd>
+  <dt>-S</dt><dd>Procura qual pacote instalou o arquivo.</dd>
+  <dt>/usr/bin/nano</dt><dd>O caminho completo do arquivo.</dd>
+</dl>
+
+<pre class="term">$ dpkg -S /usr/bin/nano
+nano: /usr/bin/nano
+$ dpkg -S /usr/bin/ls
+coreutils-from-uutils: /usr/bin/ls        « no 26.04, o ls vem da versão em Rust</pre>
+
+<p>Não sabe o caminho? Use o <code>which</code> para descobrir e passe o resultado direto:</p>
+<pre class="term">$ dpkg -S $(which curl)
+curl: /usr/bin/curl</pre>
+
+<p>O <code>$(which curl)</code> roda o <code>which</code> primeiro e coloca a resposta no lugar. Isso se chama <strong>substituição de comando</strong>.</p>
+
+<h3>Detalhes de um pacote: <code>-s</code></h3>
+<pre class="term">$ dpkg -s nano
+Package: nano
+Status: install ok installed               « está instalado corretamente
+Priority: important
+Section: editors
+Installed-Size: 872                        « em KiB
+Maintainer: Ubuntu Developers &lt;ubuntu-devel-discuss@lists.ubuntu.com&gt;
+Architecture: amd64
+Version: 8.7.1-1ubuntu0.1
+Depends: libc6 (&gt;= 2.38), libncursesw6 (&gt;= 6), libtinfo6 (&gt;= 6)</pre>
+
+<h3>O que o comando devolve</h3>
+<p>Em scripts, o código de saída do <code>dpkg -s</code> responde "está instalado?": <code>0</code> se sim, <code>1</code> se não.</p>
+
+<pre class="term">$ dpkg -s nano &gt; /dev/null 2&gt;&amp;1; echo $?
+0                                          « instalado
+$ dpkg -s htop &gt; /dev/null 2&gt;&amp;1; echo $?
+1                                          « não instalado</pre>
+
+<p>O <code>&gt; /dev/null 2&gt;&amp;1</code> joga fora toda a saída, para mostrar só o código. Veja <a href="redirecionamento.html">Redirecionamento</a>.</p>
+
+<hr>
+
+<h2>Remover com o dpkg</h2>
+<pre class="term">$ sudo dpkg -r programa      # remove, mantendo a configuração
+$ sudo dpkg -P programa      # remove tudo, inclusive a configuração</pre>
+
+<p><code>-r</code> é de <em>remove</em> e <code>-P</code> de <em>purge</em> ("expurgar"). Mesmo assim, prefira <code>sudo apt remove</code> e <code>sudo apt autoremove</code>: o apt também tira as dependências que ficaram sem uso.</p>
+
+<hr>
+
+<h2>Consertar uma instalação interrompida</h2>
+<p>Se a energia caiu ou a internet parou no meio de uma atualização, os pacotes podem ficar "desconfigurados". O próximo <code>apt</code> avisa:</p>
+
+<pre class="term">$ sudo apt upgrade
+Erro: dpkg foi interrompido, você deve executar manualmente 'sudo dpkg --configure -a' para corrigir o problema.</pre>
+
+<p>A mensagem já diz o comando. Rode na ordem:</p>
+
+<ol class="passo">
+  <li><strong>Terminar a configuração pendente.</strong>
+    <dl class="anatomy">
+      <dt>sudo dpkg</dt><dd>O dpkg como administrador.</dd>
+      <dt>--configure</dt><dd>Configura pacotes que foram desempacotados mas não configurados.</dd>
+      <dt>-a</dt><dd>De <em>all</em>: todos os pendentes.</dd>
+    </dl>
+    <pre class="term">$ sudo dpkg --configure -a</pre></li>
+  <li><strong>Baixar dependências que faltarem.</strong>
+    <pre class="term">$ sudo apt -f install</pre></li>
+  <li><strong>Atualizar normalmente.</strong>
+    <pre class="term">$ sudo apt update &amp;&amp; sudo apt upgrade</pre></li>
+</ol>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"a operação solicitada requer privilégios de superusuário"</strong>
+<pre class="term">$ dpkg -i programa_2.1_amd64.deb
+dpkg: erro: a operação solicitada requer privilégios de superusuário</pre>
+<p><strong>O que aconteceu:</strong> instalar e remover mexem no sistema e exigem administrador.</p>
+<p><strong>Como resolver:</strong> coloque <code>sudo</code> na frente. Consultas (<code>-l</code>, <code>-L</code>, <code>-S</code>, <code>-s</code>) não precisam.</p>
+</div>
+
+<div class="cenario">
+<strong>"nenhum pacote encontrado correspondente a…"</strong>
+<pre class="term">$ dpkg -l htop
+dpkg-query: nenhum pacote encontrado correspondente a htop</pre>
+<p><strong>O que aconteceu:</strong> o pacote não está instalado, ou o nome está errado. O <code>dpkg</code> só conhece o que está instalado; ele não procura nos repositórios.</p>
+<p><strong>Como resolver:</strong> para procurar no repositório, use <code>apt search htop</code>. Para instalar, <code>sudo apt install htop</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"nenhum caminho encontrado correspondente ao padrão"</strong>
+<pre class="term">$ dpkg -S /usr/local/bin/meuscript
+dpkg-query: nenhum caminho encontrado correspondente ao padrão /usr/local/bin/meuscript</pre>
+<p><strong>O que aconteceu:</strong> o arquivo não veio de nenhum pacote. Foi criado à mão, por um script de instalação, ou por snap/flatpak.</p>
+<p><strong>Como resolver:</strong> isso é normal para arquivos em <code>/usr/local</code>, <code>/opt</code> e na sua pasta pessoal. Programas snap ficam em <code>/snap</code> e são consultados com <code>snap list</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Não foi possível obter a trava" (lock)</strong>
+<pre class="term">$ sudo dpkg -i programa_2.1_amd64.deb
+dpkg: erro: dpkg frontend lock was locked by another process with pid 4321</pre>
+<p><strong>O que aconteceu:</strong> outro programa está instalando pacotes agora, normalmente a atualização automática.</p>
+<p><strong>Como resolver:</strong> espere alguns minutos e tente de novo. Veja quem é com <code>ps -fp 4321</code>. <strong>Não apague</strong> os arquivos de trava em <code>/var/lib/dpkg/</code>: isso pode corromper o banco de pacotes. A página <a href="apt.html">apt</a> detalha esse caso.</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Precisa de sudo?</th><th>Exemplo</th></tr>
+<tr><td><code>-i</code></td><td>Instala um arquivo .deb</td><td>Sim</td><td><code>sudo dpkg -i arq.deb</code></td></tr>
+<tr><td><code>-r</code></td><td>Remove, mantendo a configuração</td><td>Sim</td><td><code>sudo dpkg -r pacote</code></td></tr>
+<tr><td><code>-P</code></td><td>Remove tudo (purge)</td><td>Sim</td><td><code>sudo dpkg -P pacote</code></td></tr>
+<tr><td><code>-l</code></td><td>Lista pacotes (aceita padrão: <code>'nginx*'</code>)</td><td>Não</td><td><code>dpkg -l 'python3*'</code></td></tr>
+<tr><td><code>-L</code></td><td>Arquivos de um pacote instalado</td><td>Não</td><td><code>dpkg -L curl</code></td></tr>
+<tr><td><code>-S</code></td><td>Qual pacote instalou o arquivo</td><td>Não</td><td><code>dpkg -S /usr/bin/ssh</code></td></tr>
+<tr><td><code>-s</code></td><td>Estado e detalhes de um pacote</td><td>Não</td><td><code>dpkg -s nano</code></td></tr>
+<tr><td><code>-I</code></td><td>Informações de um arquivo .deb</td><td>Não</td><td><code>dpkg -I arq.deb</code></td></tr>
+<tr><td><code>-c</code></td><td>Arquivos dentro de um .deb</td><td>Não</td><td><code>dpkg -c arq.deb</code></td></tr>
+<tr><td><code>--configure -a</code></td><td>Termina configurações interrompidas</td><td>Sim</td><td><code>sudo dpkg --configure -a</code></td></tr>
+<tr><td><code>--get-selections</code></td><td>Lista simples de pacotes (útil para backup)</td><td>Não</td><td><code>dpkg --get-selections &gt; pacotes.txt</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Instalar um .deb da forma recomendada</h3>
+<p>Complete para instalar o arquivo <code>zoom_amd64.deb</code>, que está na pasta atual, deixando o apt resolver as dependências:</p>
+<div class="ex-code">sudo apt install <input data-answer="./zoom_amd64.deb" aria-label="arquivo"></div>
+</div>
+
+<div class="exercise">
+<h3>2. De onde veio esse arquivo?</h3>
+<p>Complete para descobrir qual pacote instalou <code>/usr/bin/ssh</code>:</p>
+<div class="ex-code">dpkg <input data-answer="-S|--search" aria-label="opção"> /usr/bin/ssh</div>
+</div>
+
+<div class="exercise">
+<h3>3. Instalação interrompida</h3>
+<p>O apt disse que o dpkg foi interrompido. Complete o comando de conserto:</p>
+<div class="ex-code">sudo dpkg <input data-answer="--configure -a|--configure --pending" aria-label="opções"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. No <code>dpkg -l</code>, um pacote aparece com <code>rc</code>. O que isso significa?</p>
+<label><input type="radio" name="q4"> Está instalado e funcionando.</label>
+<label><input type="radio" name="q4"> Foi removido, mas os arquivos de configuração ficaram.</label>
+<label><input type="radio" name="q4"> Está com a instalação pela metade.</label>
+<label><input type="radio" name="q4"> Está congelado e não será atualizado.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. Por que <code>sudo apt install ./arq.deb</code> é preferível a <code>sudo dpkg -i arq.deb</code>?</p>
+<label><input type="radio" name="q5"> Porque é mais rápido.</label>
+<label><input type="radio" name="q5"> Porque não precisa de sudo.</label>
+<label><input type="radio" name="q5"> Porque verifica vírus.</label>
+<label><input type="radio" name="q5"> Porque baixa e instala as dependências que faltarem.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Para instalar um <code>.deb</code>: <code>sudo apt install ./arquivo.deb</code> (com o <code>./</code>).</li>
+  <li>O <code>dpkg</code> é a ferramenta de consulta: <code>-l</code> lista, <code>-L</code> mostra arquivos, <code>-S</code> acha o pacote de um arquivo, <code>-s</code> mostra detalhes.</li>
+  <li>Consultas não precisam de <code>sudo</code>; instalar e remover precisam.</li>
+  <li><code>ii</code> = instalado; <code>rc</code> = sobrou configuração; <code>iU</code>/<code>iF</code> = algo ficou pela metade.</li>
+  <li>Instalação interrompida: <code>sudo dpkg --configure -a</code> e depois <code>sudo apt -f install</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

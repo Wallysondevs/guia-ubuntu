@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu ls — listar arquivos e pastas | Guia Ubuntu</title>
+<meta name="description" content="Aprenda o comando ls no Ubuntu parte por parte: listar, ver detalhes com -l, arquivos ocultos, ordenar por data e tamanho, ler cada coluna da saída e resolver erros comuns, com terminal simulado.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">ls</span></h1>
+
+<p class="intro">O <code>ls</code> mostra o que existe dentro de uma pasta. Ele é os "olhos" do terminal: antes de copiar, mover ou apagar, você usa o <code>ls</code> para ver onde está mexendo. Provavelmente é o comando que você mais vai digitar.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Listar a pasta atual, outra pasta ou vários lugares de uma vez.</li>
+  <li>Ler cada coluna do <code>ls -l</code>: tipo, permissões, dono, tamanho e data.</li>
+  <li>Ver arquivos ocultos e ordenar por data ou por tamanho.</li>
+  <li>Outras formas de ver o conteúdo de uma pasta (<code>ll</code>, <code>tree</code>, app Arquivos).</li>
+  <li>O que fazer quando o <code>ls</code> responde com erro.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>A ideia: uma pasta é uma lista de nomes</h2>
+<p>Para o Linux, uma pasta (ou <strong>diretório</strong>) é uma lista de nomes. Cada nome aponta para um arquivo ou para outra pasta. O <code>ls</code> lê essa lista e mostra na tela. O nome vem de <em>list</em>, "listar".</p>
+
+<p>Sem nenhum argumento, ele lista a pasta onde você está agora (a "pasta atual", que aparece no prompt depois dos dois-pontos):</p>
+
+<dl class="anatomy">
+  <dt>ls</dt><dd>O programa. Sem argumentos, lista a pasta atual.</dd>
+</dl>
+
+<pre class="term">$ ls
+ Documentos   Imagens   Música    Vídeos      'Área de trabalho'
+ Downloads    Modelos   Público   frutas.txt</pre>
+
+<p>O que observar nessa resposta:</p>
+<ul>
+  <li><strong>Colunas de cima para baixo:</strong> o <code>ls</code> organiza os nomes em colunas para caber na janela. Leia descendo: Documentos, Downloads, Imagens, Modelos…</li>
+  <li><strong>Maiúsculas primeiro:</strong> no Ubuntu 26.04 a ordem segue o código de cada letra. Maiúsculas vêm antes das minúsculas, e letras com acento (como o "Á") vão para o fim.</li>
+  <li><strong>Aspas:</strong> <code>'Área de trabalho'</code> tem espaços, então o <code>ls</code> mostra entre aspas. Para os nomes ficarem alinhados, os outros ganham um espaço na frente.</li>
+  <li><strong>Cores</strong> (no seu terminal): pastas em azul, programas executáveis em verde, arquivos compactados em vermelho, imagens em roxo.</li>
+</ul>
+
+<h3>O que o comando devolve</h3>
+<p>Quando a pasta está vazia, o <code>ls</code> não mostra nada. Isso não é erro: o código de saída continua <code>0</code>.</p>
+<pre class="term" data-cwd="~/vazia">$ ls
+$ echo $?
+0                     « pasta vazia, mas o comando deu certo
+$ ls nada
+ls: não é possível acessar 'nada': Arquivo ou diretório inexistente
+$ echo $?
+2                     « 2 = o ls não achou o que você pediu</pre>
+
+<hr>
+
+<h2>Listar outra pasta</h2>
+<p>Passe o caminho da pasta como <strong>argumento</strong>. Você não precisa entrar nela com <code>cd</code>.</p>
+
+<dl class="anatomy">
+  <dt>ls</dt><dd>O programa.</dd>
+  <dt>Documentos</dt><dd>O argumento: qual pasta listar. Pode ser um caminho relativo ou absoluto (veja <a href="caminhos.html">Caminhos</a>).</dd>
+</dl>
+
+<pre class="term">$ ls Documentos
+acesso.log  notas.txt  projetos  relatorio.odt
+$ ls /etc/apt
+sources.list.d</pre>
+
+<p>Com mais de um argumento, o <code>ls</code> lista cada um com um título:</p>
+
+<pre class="term">$ ls Documentos Imagens
+Documentos:
+acesso.log  notas.txt  projetos  relatorio.odt
+
+Imagens:
+ferias.jpg  perfil.png</pre>
+
+<div class="try" data-goal="ran:^ls .*Imagens">
+<p class="try-task"><strong>Missão:</strong> sem sair da pasta pessoal, descubra o que há dentro de <code>Imagens</code> e de <code>Documentos/projetos</code>.</p>
+</div>
+
+<hr>
+
+<h2>Ver detalhes: <code>-l</code></h2>
+<p>A opção <code>-l</code> (de <em>long</em>, "formato longo") mostra uma linha por item, com informações sobre cada um.</p>
+
+<dl class="anatomy">
+  <dt>ls</dt><dd>O programa.</dd>
+  <dt>-l</dt><dd>Opção: formato longo, uma linha por item.</dd>
+  <dt>Documentos</dt><dd>A pasta a listar.</dd>
+</dl>
+
+<pre class="term">$ ls -l Documentos
+total 20
+-rw-rw-r-- 1 ana ana  389 Oct 15 09:07 acesso.log
+-rw-rw-r-- 1 ana ana   71 Oct 14 17:40 notas.txt
+drwxrwxr-x 3 ana ana 4096 Oct 12 08:03 projetos        « começa com d: é uma pasta
+-rw-rw-r-- 1 ana ana 8394 Oct 14 17:40 relatorio.odt</pre>
+
+<h3>Lendo uma linha, pedaço por pedaço</h3>
+<p>Pegue a linha do <code>notas.txt</code>:</p>
+
+<dl class="anatomy">
+  <dt>-</dt><dd><strong>Tipo:</strong> <code>-</code> arquivo comum, <code>d</code> pasta (<em>directory</em>), <code>l</code> link.</dd>
+  <dt>rw-rw-r--</dt><dd><strong>Permissões:</strong> o que o dono, o grupo e os outros podem fazer. Explicado em <a href="permissoes.html">Entendendo Permissões</a>.</dd>
+  <dt>1</dt><dd><strong>Links:</strong> quantos nomes apontam para este arquivo. Para pastas, conta as subpastas.</dd>
+  <dt>ana</dt><dd><strong>Dono:</strong> o usuário dono do arquivo.</dd>
+  <dt>ana</dt><dd><strong>Grupo:</strong> o grupo dono do arquivo. No Ubuntu, cada usuário tem um grupo com o mesmo nome.</dd>
+  <dt>71</dt><dd><strong>Tamanho</strong> em bytes. Pastas mostram 4096: é o espaço da lista de nomes, não do conteúdo.</dd>
+  <dt>Oct 14 17:40</dt><dd><strong>Última modificação.</strong> No Ubuntu 26.04, o mês aparece em inglês. Arquivos com mais de 6 meses mostram o ano no lugar da hora.</dd>
+  <dt>notas.txt</dt><dd><strong>Nome.</strong></dd>
+</dl>
+
+<p>E a primeira linha, <code>total 20</code>? É o espaço ocupado no disco pelos itens listados, em blocos de 1 KB. Você raramente vai precisar dela.</p>
+
+<div class="tip">
+<strong>Tamanho de pasta ≠ tamanho do conteúdo</strong>
+<p>O 4096 da pasta <code>projetos</code> não diz quanto os arquivos dentro dela ocupam. Para isso use <code>du -sh projetos</code> (veja <a href="discos.html">lsblk, df, du</a>).</p>
+</div>
+
+<hr>
+
+<h2>Tamanhos legíveis: <code>-h</code></h2>
+<p>Ler <code>6333579264</code> bytes é difícil. A opção <code>-h</code> (de <em>human-readable</em>, "legível por humanos") converte para K, M e G. Ela só faz sentido junto com <code>-l</code>.</p>
+
+<pre class="term">$ ls -l Downloads
+total 6295060
+-rw-rw-r-- 1 ana ana      49152 Oct 15 08:47 foto.jpg
+-rw-rw-r-- 1 ana ana  104857600 Oct  1 19:30 fotos-viagem.zip
+-rw-rw-r-- 1 ana ana    2411520 Oct 13 11:02 manual.pdf
+-rw-rw-r-- 1 ana ana    5242880 Oct  9 20:10 musica.mp3
+-rw-rw-r-- 1 ana ana 6333579264 Oct 10 21:14 ubuntu-26.04-desktop-amd64.iso
+$ ls -lh Downloads
+total 6,1G
+-rw-rw-r-- 1 ana ana  48K Oct 15 08:47 foto.jpg
+-rw-rw-r-- 1 ana ana 100M Oct  1 19:30 fotos-viagem.zip
+-rw-rw-r-- 1 ana ana 2,3M Oct 13 11:02 manual.pdf
+-rw-rw-r-- 1 ana ana 5,0M Oct  9 20:10 musica.mp3
+-rw-rw-r-- 1 ana ana 5,9G Oct 10 21:14 ubuntu-26.04-desktop-amd64.iso   « 5,9 gigabytes</pre>
+
+<h3>Juntando opções</h3>
+<p>Opções curtas podem ser escritas juntas, e a ordem das letras não importa. Os quatro comandos abaixo fazem exatamente a mesma coisa:</p>
+
+<pre class="term">$ ls -l -h Downloads
+$ ls -lh Downloads
+$ ls -hl Downloads
+$ ls Downloads -lh</pre>
+
+<hr>
+
+<h2>Arquivos ocultos: <code>-a</code> e <code>-A</code></h2>
+<p>No Linux, todo nome que começa com ponto é <strong>oculto</strong>. Não é segurança, é só organização: configurações como <code>.bashrc</code> ficam escondidas para não poluir a pasta. A opção <code>-a</code> (de <em>all</em>, "todos") mostra tudo.</p>
+
+<pre class="term">$ ls -a
+ .               .bashrc      Downloads   Música    frutas.txt
+ ..              .profile     Imagens     Público  'Área de trabalho'
+ .bash_history   Documentos   Modelos     Vídeos</pre>
+
+<p>Dois nomes estranhos apareceram:</p>
+<ul>
+  <li><code>.</code> é a própria pasta onde você está.</li>
+  <li><code>..</code> é a pasta "de cima" (a pasta-mãe).</li>
+</ul>
+<p>Eles existem em toda pasta. Se você quer ver os ocultos sem esses dois, use <code>-A</code> (maiúsculo, de <em>almost all</em>, "quase todos"):</p>
+
+<pre class="term">$ ls -A
+ .bash_history   .profile     Downloads   Modelos   Público   frutas.txt
+ .bashrc         Documentos   Imagens     Música    Vídeos   'Área de trabalho'</pre>
+
+<div class="try" data-goal="ran:^ls +-[a-zA-Z]*[aA]">
+<p class="try-task"><strong>Missão:</strong> descubra quais arquivos ocultos existem na pasta pessoal da Ana. Quantos são, sem contar <code>.</code> e <code>..</code>?</p>
+</div>
+
+<hr>
+
+<h2>Ordenar a lista</h2>
+<p>Por padrão, a ordem é pelo nome. Estas opções mudam a ordem:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Ordena por</th><th>Vem de</th></tr>
+<tr><td><code>-t</code></td><td>Data de modificação, mais recente primeiro</td><td><em>time</em></td></tr>
+<tr><td><code>-S</code></td><td>Tamanho, maior primeiro</td><td><em>size</em></td></tr>
+<tr><td><code>-X</code></td><td>Extensão (o que vem depois do ponto)</td><td><em>extension</em></td></tr>
+<tr><td><code>-r</code></td><td>Inverte qualquer uma das ordens</td><td><em>reverse</em></td></tr>
+</table>
+</div>
+
+<h3>Os arquivos mais recentes</h3>
+<p>Útil para achar o que você acabou de baixar:</p>
+
+<pre class="term">$ ls -lt Downloads
+total 6295060
+-rw-rw-r-- 1 ana ana      49152 Oct 15 08:47 foto.jpg            « o mais novo
+-rw-rw-r-- 1 ana ana    2411520 Oct 13 11:02 manual.pdf
+-rw-rw-r-- 1 ana ana 6333579264 Oct 10 21:14 ubuntu-26.04-desktop-amd64.iso
+-rw-rw-r-- 1 ana ana    5242880 Oct  9 20:10 musica.mp3
+-rw-rw-r-- 1 ana ana  104857600 Oct  1 19:30 fotos-viagem.zip    « o mais antigo</pre>
+
+<p>Em pastas de log, o mais comum é o contrário: <code>ls -ltr</code> deixa o mais recente <strong>no fim</strong>, perto do prompt, onde você está olhando.</p>
+
+<h3>Os maiores arquivos</h3>
+<pre class="term">$ ls -lhS Downloads
+total 6,1G
+-rw-rw-r-- 1 ana ana 5,9G Oct 10 21:14 ubuntu-26.04-desktop-amd64.iso   « o maior
+-rw-rw-r-- 1 ana ana 100M Oct  1 19:30 fotos-viagem.zip
+-rw-rw-r-- 1 ana ana 5,0M Oct  9 20:10 musica.mp3
+-rw-rw-r-- 1 ana ana 2,3M Oct 13 11:02 manual.pdf
+-rw-rw-r-- 1 ana ana  48K Oct 15 08:47 foto.jpg</pre>
+
+<div class="try" data-setup="cd Downloads" data-goal="ran:-[a-zA-Z]*S">
+<p class="try-task"><strong>Missão:</strong> você está em <code>Downloads</code>. Liste os arquivos do <strong>menor para o maior</strong>, com tamanhos legíveis. Dica: junte <code>-l</code>, <code>-h</code>, <code>-S</code> e <code>-r</code>.</p>
+</div>
+
+<hr>
+
+<h2>Só alguns arquivos: curingas</h2>
+<p>Você pode passar um padrão com <code>*</code> ("qualquer coisa") para listar só o que combina. Quem entende o <code>*</code> é o shell, explicado em <a href="curingas.html">Curingas</a>.</p>
+
+<pre class="term">$ ls Downloads/*.jpg
+Downloads/foto.jpg
+$ ls -lh Downloads/*.zip
+-rw-rw-r-- 1 ana ana 100M Oct  1 19:30 Downloads/fotos-viagem.zip</pre>
+
+<hr>
+
+<h2>Subpastas: <code>-R</code>, e a própria pasta: <code>-d</code></h2>
+<p><code>-R</code> (de <em>recursive</em>, "recursivo") entra em cada subpasta e lista o conteúdo dela também:</p>
+
+<pre class="term">$ ls -R Documentos
+Documentos:
+acesso.log  notas.txt  projetos  relatorio.odt
+
+Documentos/projetos:
+backup.sh  site
+
+Documentos/projetos/site:
+index.html  style.css</pre>
+
+<p>Já o <code>-d</code> (de <em>directory</em>) faz o contrário: mostra a pasta <strong>em si</strong>, sem abrir. Use com <code>-l</code> para ver as permissões de uma pasta:</p>
+
+<pre class="term">$ ls -ld /tmp
+drwxrwxrwt 2 root root 4096 Oct 15 10:30 /tmp     « o "t" no fim é o sticky bit</pre>
+
+<hr>
+
+<h2>Marcar o tipo: <code>-F</code></h2>
+<p>Quando não há cores (por exemplo, ao copiar a saída para um e-mail), <code>-F</code> (de <em>classify</em>, "classificar") coloca um símbolo no fim de cada nome:</p>
+
+<pre class="term">$ ls -F Documentos/projetos
+backup.sh*  site/</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Símbolo</th><th>Significa</th></tr>
+<tr><td><code>/</code></td><td>Pasta</td></tr>
+<tr><td><code>*</code></td><td>Executável (programa ou script)</td></tr>
+<tr><td><code>@</code></td><td>Link simbólico (veja <a href="links.html">Links</a>)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Formas diferentes de ver o que há numa pasta</h2>
+
+<h3>1. <code>ll</code>: o atalho que o Ubuntu já traz</h3>
+<p>O arquivo <code>~/.bashrc</code> do Ubuntu define <code>ll</code> como <code>ls -alF</code>: tudo, em formato longo, com o tipo marcado.</p>
+
+<pre class="term">$ ll
+total 52
+drwxr-x--- 10 ana  ana  4096 Oct 15 08:47  ./
+drwxr-xr-x  3 root root 4096 Mar 26  2026  ../
+-rw-------  1 ana  ana     0 Oct 15 08:40  .bash_history
+-rw-r--r--  1 ana  ana   148 Mar 26  2026  .bashrc
+-rw-r--r--  1 ana  ana    13 Mar 26  2026  .profile
+drwxr-xr-x  3 ana  ana  4096 Oct 12 08:03  Documentos/
+drwxr-xr-x  2 ana  ana  4096 Oct 12 08:03  Downloads/
+drwxr-xr-x  2 ana  ana  4096 Oct 12 08:03  Imagens/
+drwxr-xr-x  2 ana  ana  4096 Oct 12 08:03  Modelos/
+drwxr-xr-x  2 ana  ana  4096 Oct 12 08:03  Música/
+drwxr-xr-x  2 ana  ana  4096 Oct 12 08:03  Público/
+drwxr-xr-x  2 ana  ana  4096 Oct 12 08:03  Vídeos/
+-rw-rw-r--  1 ana  ana    47 Oct 14 16:05  frutas.txt
+drwxr-xr-x  2 ana  ana  4096 Oct 12 08:03 'Área de trabalho'/</pre>
+
+<p>Também existem <code>la</code> (<code>ls -A</code>) e <code>l</code> (<code>ls -CF</code>). Confira com <code>type ll</code>.</p>
+
+<h3>2. <code>tree</code>: a árvore inteira</h3>
+<p>O <code>tree</code> desenha a pasta e todas as subpastas. Ele não vem instalado: rode <code>sudo apt install tree</code>.</p>
+
+<pre class="term">$ tree Documentos
+Documentos
+├── acesso.log
+├── notas.txt
+├── projetos
+│   ├── backup.sh
+│   └── site
+│       ├── index.html
+│       └── style.css
+└── relatorio.odt
+
+2 directories, 6 files</pre>
+
+<p>Em pastas grandes, limite a profundidade com <code>tree -L 1</code> (só um nível) ou mostre só pastas com <code>tree -d</code>.</p>
+
+<h3>3. O app Arquivos</h3>
+<p>No desktop, <kbd>Ctrl</kbd>+<kbd>H</kbd> mostra os arquivos ocultos, e a visualização em lista (<kbd>Ctrl</kbd>+<kbd>2</kbd>) mostra tamanho e data, como um <code>ls -l</code>.</p>
+
+<h3>Qual usar?</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Melhor para…</th></tr>
+<tr><td><code>ls</code></td><td>Olhada rápida nos nomes.</td></tr>
+<tr><td><code>ls -lh</code></td><td>Ver tamanhos e datas.</td></tr>
+<tr><td><code>ll</code></td><td>Ver tudo, inclusive ocultos, com detalhes.</td></tr>
+<tr><td><code>ls -lt</code> / <code>ls -ltr</code></td><td>Achar o arquivo mais novo.</td></tr>
+<tr><td><code>ls -lhS</code></td><td>Achar os arquivos que mais ocupam espaço.</td></tr>
+<tr><td><code>tree</code></td><td>Entender a estrutura de um projeto.</td></tr>
+</table>
+</div>
+
+<div class="try" data-goal="ran:^tree">
+<p class="try-task"><strong>Missão:</strong> compare <code>ls -R Documentos</code> com <code>tree Documentos</code>. Depois experimente <code>ll</code> e <code>type ll</code>.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Arquivo ou diretório inexistente"</strong>
+<pre class="term">$ ls documentos
+ls: não é possível acessar 'documentos': Arquivo ou diretório inexistente</pre>
+<p><strong>O que aconteceu:</strong> o Linux diferencia maiúsculas de minúsculas. <code>documentos</code> e <code>Documentos</code> são nomes diferentes.</p>
+<p><strong>Como resolver:</strong> digite o começo do nome e aperte <kbd>Tab</kbd>. O terminal completa o nome certo, com as maiúsculas certas.</p>
+</div>
+
+<div class="cenario">
+<strong>Nome com espaço virou três erros</strong>
+<pre class="term">$ ls Área de trabalho
+ls: não é possível acessar 'Área': Arquivo ou diretório inexistente
+ls: não é possível acessar 'de': Arquivo ou diretório inexistente
+ls: não é possível acessar 'trabalho': Arquivo ou diretório inexistente</pre>
+<p><strong>O que aconteceu:</strong> o espaço separa argumentos. O <code>ls</code> recebeu três nomes: "Área", "de" e "trabalho".</p>
+<p><strong>Como resolver:</strong> use aspas, <code>ls "Área de trabalho"</code>, ou barra invertida antes de cada espaço, <code>ls Área\ de\ trabalho</code>. O <kbd>Tab</kbd> faz isso por você.</p>
+</div>
+
+<div class="cenario">
+<strong>"Permissão negada"</strong>
+<pre class="term">$ ls /root
+ls: não é possível abrir o diretório '/root': Permissão negada</pre>
+<p><strong>O que aconteceu:</strong> <code>/root</code> é a pasta pessoal do administrador. Seu usuário não pode ler o que tem dentro.</p>
+<p><strong>Como resolver:</strong> se você realmente precisa, use <code>sudo ls /root</code> (veja <a href="sudo.html">sudo</a>). Na maioria das vezes, a pergunta certa é "por que preciso olhar aí?".</p>
+</div>
+
+<div class="cenario">
+<strong>O arquivo existe, mas não aparece</strong>
+<p><strong>O que aconteceu:</strong> o nome começa com ponto, então ele é oculto.</p>
+<p><strong>Como resolver:</strong> use <code>ls -a</code>. Se a pasta tiver muitos arquivos, filtre: <code>ls -a | grep bash</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-l</code></td><td>Formato longo: tipo, permissões, dono, tamanho, data</td><td><code>ls -l</code></td></tr>
+<tr><td><code>-a</code></td><td>Todos, inclusive ocultos, <code>.</code> e <code>..</code></td><td><code>ls -a</code></td></tr>
+<tr><td><code>-A</code></td><td>Ocultos, sem <code>.</code> e <code>..</code></td><td><code>ls -A</code></td></tr>
+<tr><td><code>-h</code></td><td>Tamanhos em K, M, G (com <code>-l</code>)</td><td><code>ls -lh</code></td></tr>
+<tr><td><code>-t</code></td><td>Ordena por data, mais recente primeiro</td><td><code>ls -lt</code></td></tr>
+<tr><td><code>-S</code></td><td>Ordena por tamanho, maior primeiro</td><td><code>ls -lS</code></td></tr>
+<tr><td><code>-X</code></td><td>Ordena por extensão</td><td><code>ls -X</code></td></tr>
+<tr><td><code>-r</code></td><td>Inverte a ordem</td><td><code>ls -ltr</code></td></tr>
+<tr><td><code>-R</code></td><td>Entra nas subpastas</td><td><code>ls -R</code></td></tr>
+<tr><td><code>-d</code></td><td>Mostra a pasta, não o conteúdo</td><td><code>ls -ld /etc</code></td></tr>
+<tr><td><code>-1</code></td><td>Um nome por linha</td><td><code>ls -1</code></td></tr>
+<tr><td><code>-F</code></td><td>Marca o tipo: <code>/</code> <code>*</code> <code>@</code></td><td><code>ls -F</code></td></tr>
+<tr><td><code>-i</code></td><td>Mostra o número do inode</td><td><code>ls -li</code></td></tr>
+<tr><td><code>--group-directories-first</code></td><td>Pastas antes dos arquivos</td><td><code>ls -l --group-directories-first</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Tudo, com detalhes</h3>
+<p>Complete para listar <strong>todos</strong> os arquivos da pasta pessoal, inclusive os ocultos, em formato longo:</p>
+<div class="ex-code">ls <input data-answer="-la|-al|-l -a|-a -l|-lA|-Al|-lah|-alh|-lha|-hla|-ahl|-hal" aria-label="opções"> ~</div>
+</div>
+
+<div class="exercise">
+<h3>2. O maior arquivo</h3>
+<p>Complete para ordenar <code>Downloads</code> por tamanho, com tamanhos legíveis:</p>
+<div class="ex-code">ls -lh<input data-answer="S" aria-label="opção que falta"> ~/Downloads</div>
+</div>
+
+<div class="exercise">
+<h3>3. Permissões da pasta</h3>
+<p>Complete para ver as permissões da própria pasta <code>/var/log</code>, e não o conteúdo dela:</p>
+<div class="ex-code">ls -l<input data-answer="d" aria-label="opção que falta"> /var/log</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Na linha <code>drwxr-xr-x 3 ana ana 4096 Oct 12 08:03 projetos</code>, o que indica que <code>projetos</code> é uma pasta?</p>
+<label><input type="radio" name="q4"> O número 4096.</label>
+<label><input type="radio" name="q4"> A letra <code>d</code> no começo.</label>
+<label><input type="radio" name="q4"> O nome não ter extensão.</label>
+<label><input type="radio" name="q4"> O número 3.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. Você rodou <code>ls</code> numa pasta e nada apareceu. O que isso significa?</p>
+<label><input type="radio" name="q5"> O comando deu erro.</label>
+<label><input type="radio" name="q5"> Você não tem permissão.</label>
+<label><input type="radio" name="q5"> A pasta não existe.</label>
+<label><input type="radio" name="q5"> A pasta está vazia, ou só tem arquivos ocultos.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>ls</code> lista a pasta atual; <code>ls pasta</code> lista outra pasta sem entrar nela.</li>
+  <li><code>-l</code> mostra detalhes; <code>-h</code> deixa os tamanhos legíveis; <code>-a</code> mostra os ocultos.</li>
+  <li><code>-t</code> ordena por data, <code>-S</code> por tamanho e <code>-r</code> inverte.</li>
+  <li>Na linha do <code>-l</code>, o primeiro caractere diz o tipo: <code>d</code> pasta, <code>-</code> arquivo, <code>l</code> link.</li>
+  <li><code>ll</code> e <code>tree</code> são formas práticas de ver tudo de uma vez.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

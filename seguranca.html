@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Segurança do Servidor — primeiros 15 minutos, SSH e fail2ban | Guia Ubuntu</title>
+<meta name="description" content="Proteja um servidor Ubuntu novo: checklist dos primeiros 15 minutos, usuário administrador, chave SSH, endurecimento do sshd, firewall, fail2ban, atualizações automáticas e AppArmor.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Segurança do Servidor</span></h1>
+
+<p class="intro">Um servidor ligado à internet começa a receber tentativas de invasão em <strong>minutos</strong>: robôs testam senhas no SSH o dia inteiro, em todos os endereços. Esta aula transforma um servidor recém-criado num servidor protegido, em um roteiro que leva uns 15 minutos.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Os princípios que guiam toda decisão de segurança.</li>
+  <li>O roteiro dos primeiros 15 minutos num servidor novo, passo a passo.</li>
+  <li>Como endurecer o SSH sem se trancar para fora.</li>
+  <li>Como o <code>fail2ban</code> bloqueia quem erra a senha muitas vezes.</li>
+  <li>Onde olhar para saber quem tentou entrar.</li>
+</ul>
+</div>
+
+<p>Antes, leia <a href="ssh.html">SSH</a>, <a href="ufw.html">Firewall (ufw)</a> e <a href="usuarios.html">Usuários e Grupos</a>. Nesta aula, a Ana acabou de criar uma máquina na nuvem chamada <strong>servidor</strong>, com IP 192.168.0.20. O provedor entregou acesso como <code>root</code>, com senha.</p>
+
+<hr>
+
+<h2>Os princípios</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Princípio</th><th>Na prática</th></tr>
+<tr><td><strong>Menor privilégio</strong></td><td>Cada pessoa e cada programa só tem o acesso de que precisa. Ninguém trabalha como root; usa-se <code>sudo</code> quando necessário.</td></tr>
+<tr><td><strong>Menos portas, menos risco</strong></td><td>Todo serviço aberto é uma porta de entrada. Desinstale o que não usa e feche o resto no firewall.</td></tr>
+<tr><td><strong>Atualizado sempre</strong></td><td>A maioria das invasões explora falhas que já têm correção. Atualizações de segurança devem ser automáticas.</td></tr>
+<tr><td><strong>Defesa em camadas</strong></td><td>Chave SSH + firewall + fail2ban. Se uma camada falhar, a próxima segura.</td></tr>
+<tr><td><strong>Registrar e revisar</strong></td><td>Logs mostram quem tentou entrar. Backups permitem voltar atrás (veja <a href="backup.html">Backup</a>).</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Os primeiros 15 minutos num servidor novo</h2>
+<p>Siga na ordem. Os passos 1 e 2 são feitos como root, no acesso que o provedor entregou. Do passo 3 em diante, a Ana usa o próprio usuário.</p>
+
+<div class="note">
+<strong>Por que as mensagens estão em inglês?</strong>
+<p>Servidores criados a partir de imagens de nuvem costumam vir com o idioma <code>C.UTF-8</code>, que é inglês. É normal; os comandos são os mesmos.</p>
+</div>
+
+<ol class="passo">
+<li>
+<p><strong>Atualize tudo.</strong> A imagem do provedor pode ter semanas de atraso. Conecte com <code>ssh root@192.168.0.20</code> e rode:</p>
+<pre class="term" data-host="servidor">#&gt; apt update &amp;&amp; apt full-upgrade -y
+#&gt; ls /var/run/reboot-required
+/var/run/reboot-required                            « o arquivo existe: reinicie
+#&gt; reboot</pre>
+<p>Se o arquivo <code>/var/run/reboot-required</code> existir, uma atualização (normalmente do kernel) só vale depois de reiniciar. Veja <a href="atualizacoes.html">Atualizações</a>.</p>
+</li>
+
+<li>
+<p><strong>Crie um usuário administrador.</strong> Trabalhar como root é perigoso: um erro de digitação não tem nenhuma barreira.</p>
+<dl class="anatomy">
+  <dt>adduser</dt><dd>Cria o usuário, a pasta pessoal e pede a senha.</dd>
+  <dt>ana</dt><dd>O nome do novo usuário.</dd>
+</dl>
+<pre class="term" data-host="servidor">#&gt; adduser ana
+info: Adding user `ana' ...
+info: Selecting UID/GID from range 1000 to 59999 ...
+info: Adding new group `ana' (1000) ...
+info: Adding new user `ana' (1000) with group `ana (1000)' ...
+info: Creating home directory `/home/ana' ...
+info: Copying files from `/etc/skel' ...
+New password:                                       « nada aparece enquanto você digita
+Retype new password:
+passwd: password updated successfully
+Changing the user information for ana
+Enter the new value, or press ENTER for the default
+	Full Name []: Ana
+	Room Number []:
+	Work Phone []:
+	Home Phone []:
+	Other []:
+Is the information correct? [Y/n] y
+info: Adding new user `ana' to supplemental / extra groups `users' ...
+info: Adding user `ana' to group `users' ...
+#&gt; usermod -aG sudo ana
+#&gt; groups ana
+ana : ana sudo users</pre>
+<p>O <code>usermod -aG sudo ana</code> coloca a ana no grupo <code>sudo</code>, que pode administrar o sistema. O <code>-a</code> é essencial: sem ele, a ana sairia de todos os outros grupos (veja <a href="usuarios.html">Usuários e Grupos</a>).</p>
+</li>
+
+<li>
+<p><strong>Entre com chave SSH.</strong> No <strong>seu computador</strong> (o notebook), crie uma chave e copie a parte pública para o servidor:</p>
+<pre class="term">$ ssh-keygen -t ed25519 -C "ana@notebook"
+$ ssh-copy-id ana@192.168.0.20
+$ ssh ana@192.168.0.20</pre>
+<p>Se o último comando entrou <strong>sem pedir a senha da conta</strong> (no máximo a senha da chave), a chave funciona. Detalhes em <a href="ssh.html">SSH</a>.</p>
+</li>
+
+<li>
+<p><strong>Endureça o SSH.</strong> Vamos proibir o login do root e o login por senha. Mas não edite o arquivo principal: crie um arquivo seu em <code>/etc/ssh/sshd_config.d/</code>.</p>
+<pre class="file" data-file="/etc/ssh/sshd_config.d/10-seguranca.conf"># Configuração de segurança do SSH
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+MaxAuthTries 3
+AllowUsers ana</pre>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>O que faz</th></tr>
+<tr><td><code>PermitRootLogin no</code></td><td>Ninguém entra direto como root. Robôs sempre tentam "root".</td></tr>
+<tr><td><code>PasswordAuthentication no</code></td><td>Só entra quem tem uma chave. Adivinhar senha deixa de funcionar.</td></tr>
+<tr><td><code>KbdInteractiveAuthentication no</code></td><td>Fecha outra forma de pedir senha (o "teclado interativo").</td></tr>
+<tr><td><code>MaxAuthTries 3</code></td><td>Derruba a conexão após 3 tentativas erradas.</td></tr>
+<tr><td><code>AllowUsers ana</code></td><td>Só a ana pode entrar por SSH, mesmo que existam outros usuários.</td></tr>
+</table>
+</div>
+<pre class="term" data-host="servidor">$ sudo nano /etc/ssh/sshd_config.d/10-seguranca.conf
+$ sudo sshd -t
+$ sudo sshd -T | grep -E "^(permitrootlogin|passwordauthentication) "
+permitrootlogin no
+passwordauthentication no
+$ sudo systemctl restart ssh</pre>
+<dl class="anatomy">
+  <dt>sshd -t</dt><dd><em>test</em>: confere se a configuração tem erro, sem aplicar nada. Sem saída = sem erros.</dd>
+  <dt>sshd -T</dt><dd>Mostra a configuração <strong>efetiva</strong>, já juntando todos os arquivos.</dd>
+  <dt>systemctl restart ssh</dt><dd>Aplica. Quem já está conectado continua conectado.</dd>
+</dl>
+<div class="note">
+<strong>Por que "10-" no nome do arquivo?</strong>
+<p>No SSH, vale a <strong>primeira</strong> vez que uma opção aparece. Os arquivos de <code>sshd_config.d</code> são lidos em ordem alfabética, antes do resto. Em servidores de nuvem, costuma existir um <code>50-cloud-init.conf</code> com <code>PasswordAuthentication yes</code>. Com o nome começando por <code>10-</code>, o seu arquivo é lido antes e vence. O <code>sshd -T</code> confirma qual valor ficou.</p>
+</div>
+<div class="warning">
+<strong>Teste num segundo terminal antes de sair</strong>
+<p>Mantenha a sessão atual aberta. Abra outro terminal no notebook e rode <code>ssh ana@192.168.0.20</code>. Só feche a primeira sessão quando a segunda entrar. Teste também que o root foi barrado: <code>ssh root@192.168.0.20</code> deve responder <code>Permission denied (publickey)</code>.</p>
+</div>
+</li>
+
+<li>
+<p><strong>Ligue o firewall</strong>, liberando o SSH primeiro (detalhes em <a href="ufw.html">Firewall (ufw)</a>):</p>
+<pre class="term" data-host="servidor">$ sudo ufw allow OpenSSH
+Rules updated
+Rules updated (v6)
+$ sudo ufw enable
+Command may disrupt existing ssh connections. Proceed with operation (y|n)? y
+Firewall is active and enabled on system startup</pre>
+</li>
+
+<li>
+<p><strong>Instale o fail2ban</strong> (explicado na próxima seção):</p>
+<pre class="term" data-host="servidor">$ sudo apt install fail2ban -y
+$ sudo systemctl enable --now fail2ban</pre>
+</li>
+
+<li>
+<p><strong>Confirme as atualizações automáticas de segurança.</strong> No Ubuntu Server, o <code>unattended-upgrades</code> já vem instalado. Confira se está ligado:</p>
+<pre class="term" data-host="servidor">$ cat /etc/apt/apt.conf.d/20auto-upgrades
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";              « 1 = ligado</pre>
+<p>Se o arquivo não existir ou tiver <code>"0"</code>, rode <code>sudo dpkg-reconfigure -plow unattended-upgrades</code> e responda <strong>Yes</strong>.</p>
+</li>
+
+<li>
+<p><strong>Acerte o fuso horário</strong>, para os logs mostrarem a hora certa:</p>
+<pre class="term" data-host="servidor">$ sudo timedatectl set-timezone America/Sao_Paulo
+$ date
+Thu Oct 15 10:45:12 -03 2026</pre>
+</li>
+
+<li>
+<p><strong>Veja o que está aberto para a rede.</strong> Cada linha é um programa escutando uma porta:</p>
+<pre class="term" data-host="servidor">$ sudo ss -tulpn
+Netid State  Recv-Q Send-Q Local Address:Port  Peer Address:Port Process
+udp   UNCONN 0      0         127.0.0.54:53         0.0.0.0:*     users:(("systemd-resolve",pid=512,fd=16))
+udp   UNCONN 0      0      127.0.0.53%lo:53         0.0.0.0:*     users:(("systemd-resolve",pid=512,fd=14))
+tcp   LISTEN 0      4096   127.0.0.53%lo:53         0.0.0.0:*     users:(("systemd-resolve",pid=512,fd=15))
+tcp   LISTEN 0      4096         0.0.0.0:22         0.0.0.0:*     users:(("sshd",pid=1043,fd=3),("systemd",pid=1,fd=104))
+tcp   LISTEN 0      4096            [::]:22            [::]:*     users:(("sshd",pid=1043,fd=4),("systemd",pid=1,fd=105))</pre>
+<p>Endereços <code>127.0.0.x</code> só aceitam conexões do próprio servidor; <code>0.0.0.0</code> e <code>[::]</code> aceitam de qualquer lugar. Aqui, só o SSH está exposto, como deve ser. Se aparecer algo que você não reconhece, descubra o que é (veja <a href="ip.html">ip, ping, ss</a>) e desinstale se não precisar.</p>
+</li>
+</ol>
+
+<hr>
+
+<h2>fail2ban: banir quem insiste</h2>
+<p>Mesmo com login só por chave, robôs continuam tentando, enchendo os logs. O <code>fail2ban</code> lê os registros, conta as falhas de cada IP e, quando passa do limite, cria uma regra de firewall que bloqueia aquele IP por um tempo.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Termo</th><th>Significado</th></tr>
+<tr><td><em>jail</em> ("cadeia")</td><td>Uma proteção para um serviço. A jail <code>sshd</code> protege o SSH; o pacote do Ubuntu já a deixa ligada.</td></tr>
+<tr><td><code>maxretry</code></td><td>Quantas falhas são toleradas.</td></tr>
+<tr><td><code>findtime</code></td><td>Em quanto tempo essas falhas são contadas.</td></tr>
+<tr><td><code>bantime</code></td><td>Por quanto tempo o IP fica bloqueado.</td></tr>
+<tr><td><code>ignoreip</code></td><td>Endereços que nunca são bloqueados (o seu, por exemplo).</td></tr>
+</table>
+</div>
+
+<h3>Configurar</h3>
+<p>Nunca edite o <code>jail.conf</code>, que é substituído nas atualizações. Crie um <code>jail.local</code>, que tem prioridade:</p>
+
+<pre class="file" data-file="/etc/fail2ban/jail.local">[DEFAULT]
+# 5 falhas em 10 minutos = 1 hora de bloqueio
+maxretry = 5
+findtime = 10m
+bantime  = 1h
+# nunca bloquear o próprio servidor nem a rede do escritório
+ignoreip = 127.0.0.1/8 ::1 192.168.0.0/24
+
+[sshd]
+enabled = true</pre>
+
+<pre class="term" data-host="servidor">$ sudo nano /etc/fail2ban/jail.local
+$ sudo systemctl restart fail2ban
+$ sudo fail2ban-client status
+Status
+|- Number of jail:	1
+`- Jail list:	sshd</pre>
+
+<h3>Ver quem foi bloqueado</h3>
+<pre class="term" data-host="servidor">$ sudo fail2ban-client status sshd
+Status for the jail: sshd
+|- Filter
+|  |- Currently failed:	2
+|  |- Total failed:	57
+|  `- File list:	/var/log/auth.log
+`- Actions
+   |- Currently banned:	1                         « IPs bloqueados agora
+   |- Total banned:	4
+   `- Banned IP list:	203.0.113.45</pre>
+<p>Dependendo de onde o fail2ban lê os registros, a linha <code>File list</code> pode aparecer como <code>Journal matches</code>. O resultado é o mesmo.</p>
+
+<h3>Desbloquear um IP</h3>
+<pre class="term" data-host="servidor">$ sudo fail2ban-client set sshd unbanip 203.0.113.45
+1                                                   « 1 IP desbloqueado</pre>
+
+<hr>
+
+<h2>Quem tentou entrar?</h2>
+<p>Formas diferentes de investigar os acessos ao SSH:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Pergunta</th><th>Comando</th></tr>
+<tr><td>Quem está conectado agora?</td><td><code>who</code> ou <code>w</code></td></tr>
+<tr><td>Últimos logins com sucesso</td><td><code>last -n 10</code> (no 26.04, vem no pacote <code>wtmpdb</code>)</td></tr>
+<tr><td>Tentativas que falharam</td><td><code>sudo grep "Failed\|Invalid user" /var/log/auth.log | tail</code></td></tr>
+<tr><td>Tudo do SSH desde ontem</td><td><code>sudo journalctl -u ssh --since yesterday</code></td></tr>
+<tr><td>IPs que mais tentaram</td><td>veja abaixo</td></tr>
+</table>
+</div>
+
+<pre class="term" data-host="servidor">$ sudo grep "Invalid user" /var/log/auth.log | tail -2
+2026-10-15T10:51:33.402871-03:00 servidor sshd-session[2231]: Invalid user admin from 203.0.113.45 port 40122
+2026-10-15T10:51:35.118203-03:00 servidor sshd-session[2233]: Invalid user oracle from 203.0.113.45 port 40130
+$ sudo grep "Invalid user" /var/log/auth.log | grep -oE "from [0-9.]+" | sort | uniq -c | sort -nr | head -3
+     41 from 203.0.113.45
+     12 from 198.51.100.7
+      3 from 192.0.2.88</pre>
+<p>Robôs testam nomes comuns (<code>admin</code>, <code>oracle</code>, <code>test</code>). Com <code>AllowUsers ana</code> e login só por chave, todas essas tentativas falham. O segundo comando junta <a href="grep.html">grep</a>, <a href="texto.html">sort e uniq</a> para contar tentativas por IP.</p>
+
+<hr>
+
+<h2>AppArmor: limitar o que cada programa pode fazer</h2>
+<p>O AppArmor vem ligado no Ubuntu. Ele dá a programas como o navegador e o servidor web uma lista do que podem acessar. Mesmo que um programa seja invadido, ele não consegue sair dessa lista.</p>
+<pre class="term" data-host="servidor">$ sudo aa-status | head -4
+apparmor module is loaded.
+119 profiles are loaded.
+33 profiles are in enforce mode.                    « enforce = regras aplicadas
+   /usr/bin/man</pre>
+<p>Você raramente precisa mexer nele. O importante é <strong>não desligá-lo</strong> quando um tutorial da internet mandar; prefira entender qual regra está bloqueando, em <code>sudo journalctl -k | grep apparmor</code>.</p>
+
+<hr>
+
+<h2>Boas práticas no dia a dia</h2>
+<ul>
+  <li><strong>Não rode scripts da internet sem ler.</strong> <code>curl https://site/instalar.sh | sudo bash</code> executa como root um código que você não viu. Baixe, leia, depois rode.</li>
+  <li><strong>Proteja a chave privada</strong> com uma senha (o <code>ssh-keygen</code> pergunta) e nunca a copie para o servidor.</li>
+  <li><strong>Um usuário por pessoa.</strong> Não compartilhe a conta da ana; crie outra e remova quando a pessoa sair.</li>
+  <li><strong>Serviços como usuários próprios</strong>, nunca como root (veja <a href="criar-servico.html">Criar um Serviço</a>).</li>
+  <li><strong>Backup fora do servidor.</strong> Um invasor que apaga o servidor também apaga o backup que está nele.</li>
+  <li><strong>Revise de tempos em tempos</strong>: <code>sudo ss -tulpn</code>, <code>sudo ufw status</code>, <code>sudo fail2ban-client status sshd</code> e as atualizações (veja <a href="manutencao.html">Manutenção</a>).</li>
+</ul>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Permission denied (publickey)" depois de desligar a senha</strong>
+<pre class="term">$ ssh ana@192.168.0.20
+ana@192.168.0.20: Permission denied (publickey).</pre>
+<p><strong>O que aconteceu:</strong> o servidor agora só aceita chave, e a sua chave não está em <code>/home/ana/.ssh/authorized_keys</code>, ou as permissões da pasta <code>.ssh</code> estão abertas demais.</p>
+<p><strong>Como resolver:</strong> se a primeira sessão ainda está aberta, use-a para conferir: <code>ls -la ~/.ssh</code> (a pasta deve ser <code>drwx------</code> e o arquivo <code>-rw-------</code>). Se você se trancou para fora, entre pelo console web do provedor e, temporariamente, volte <code>PasswordAuthentication yes</code> no seu arquivo de configuração.</p>
+</div>
+
+<div class="cenario">
+<strong>"Bad configuration option" ao testar</strong>
+<pre class="term" data-host="servidor">$ sudo sshd -t
+/etc/ssh/sshd_config.d/10-seguranca.conf: line 2: Bad configuration option: PermitRotLogin
+/etc/ssh/sshd_config.d/10-seguranca.conf: terminating, 1 bad configuration options</pre>
+<p><strong>O que aconteceu:</strong> erro de digitação no nome da opção ("Rot" em vez de "Root").</p>
+<p><strong>Como resolver:</strong> corrija a linha indicada e rode <code>sudo sshd -t</code> de novo. <strong>Nunca</strong> reinicie o SSH antes de o teste passar.</p>
+</div>
+
+<div class="cenario">
+<strong>O fail2ban bloqueou o seu próprio IP</strong>
+<p><strong>O que aconteceu:</strong> você errou a senha (ou um script errou por você) mais vezes que o <code>maxretry</code>. A conexão fica tentando e não responde.</p>
+<p><strong>Como resolver:</strong> entre por outro IP (a rede do celular, por exemplo) ou pelo console do provedor e rode <code>sudo fail2ban-client set sshd unbanip SEU_IP</code>. Depois, coloque o seu IP fixo em <code>ignoreip</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O root ainda consegue entrar com senha</strong>
+<p><strong>O que aconteceu:</strong> outro arquivo de <code>sshd_config.d</code>, lido antes do seu, define o valor contrário. Ou o SSH não foi reiniciado.</p>
+<p><strong>Como resolver:</strong> <code>sudo grep -ri "permitrootlogin\|passwordauthentication" /etc/ssh/sshd_config /etc/ssh/sshd_config.d/</code> mostra todos os lugares. Ajuste o nome do seu arquivo para ser lido primeiro e confira com <code>sudo sshd -T</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Para quê</th></tr>
+<tr><td><code>sudo adduser NOME</code> + <code>sudo usermod -aG sudo NOME</code></td><td>Criar um administrador</td></tr>
+<tr><td><code>ssh-keygen -t ed25519</code> + <code>ssh-copy-id</code></td><td>Login por chave</td></tr>
+<tr><td><code>sudo sshd -t</code> / <code>sudo sshd -T</code></td><td>Testar / ver a configuração efetiva do SSH</td></tr>
+<tr><td><code>sudo systemctl restart ssh</code></td><td>Aplicar mudanças do SSH</td></tr>
+<tr><td><code>sudo ufw allow OpenSSH</code> + <code>sudo ufw enable</code></td><td>Firewall</td></tr>
+<tr><td><code>sudo fail2ban-client status sshd</code></td><td>IPs bloqueados</td></tr>
+<tr><td><code>sudo fail2ban-client set sshd unbanip IP</code></td><td>Desbloquear</td></tr>
+<tr><td><code>sudo dpkg-reconfigure -plow unattended-upgrades</code></td><td>Ligar atualizações automáticas</td></tr>
+<tr><td><code>sudo ss -tulpn</code></td><td>Portas abertas</td></tr>
+<tr><td><code>sudo aa-status</code></td><td>Estado do AppArmor</td></tr>
+<tr><td><code>sudo journalctl -u ssh --since today</code></td><td>Acessos ao SSH</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Proibir o root</h3>
+<p>Complete a linha de configuração do SSH:</p>
+<div class="ex-code">PermitRootLogin <input data-answer="no" aria-label="valor"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Testar antes de aplicar</h3>
+<p>Complete o comando que confere a configuração do SSH sem aplicá-la:</p>
+<div class="ex-code">sudo sshd <input data-answer="-t" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Adicionar ao grupo sudo</h3>
+<p>Complete para colocar o usuário <code>joao</code> no grupo sudo sem tirá-lo dos outros grupos:</p>
+<div class="ex-code">sudo usermod <input data-answer="-aG|-a -G" aria-label="opções"> sudo joao</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Por que o arquivo se chama <code>10-seguranca.conf</code> e não <code>seguranca.conf</code>?</p>
+<label><input type="radio" name="q4"> O SSH só lê arquivos que começam com número.</label>
+<label><input type="radio" name="q4"> Para ficar mais organizado, sem efeito real.</label>
+<label><input type="radio" name="q4"> No SSH vale o primeiro valor lido, e o "10-" faz o arquivo ser lido antes de outros, como o <code>50-cloud-init.conf</code>.</label>
+<label><input type="radio" name="q4"> Para o fail2ban encontrar o arquivo.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. O que o fail2ban faz quando um IP passa do <code>maxretry</code> dentro do <code>findtime</code>?</p>
+<label><input type="radio" name="q5"> Bloqueia aquele IP no firewall durante o <code>bantime</code>.</label>
+<label><input type="radio" name="q5"> Desliga o SSH.</label>
+<label><input type="radio" name="q5"> Apaga o usuário que errou a senha.</label>
+<label><input type="radio" name="q5"> Envia um e-mail e não faz mais nada.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Servidor novo: atualize, crie um usuário com sudo, entre por chave, endureça o SSH, ligue o firewall e o fail2ban.</li>
+  <li>Configure o SSH num arquivo próprio em <code>sshd_config.d</code>; teste com <code>sshd -t</code> e confira com <code>sshd -T</code>.</li>
+  <li>Sempre teste o acesso num segundo terminal antes de fechar o primeiro.</li>
+  <li>O fail2ban bloqueia IPs que erram demais; configure-o no <code>jail.local</code>.</li>
+  <li>Revise portas abertas, bloqueios e logins com frequência.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

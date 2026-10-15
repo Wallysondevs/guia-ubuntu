@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu sudo — comandos como administrador | Guia Ubuntu</title>
+<meta name="description" content="O que é o sudo no Ubuntu, por que ele pede a sua senha, como usar sudo -i, sudo -u e sudo !!, o problema do sudo com redirecionamento e os erros mais comuns, com terminal simulado para praticar.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">sudo</span></h1>
+
+<p class="intro">Instalar programas, mudar configurações do sistema, reiniciar serviços: tudo isso exige permissão de administrador. No Ubuntu, você ganha essa permissão <strong>comando por comando</strong>, colocando <code>sudo</code> na frente. Nesta aula você vai entender o que acontece quando faz isso e como evitar os erros mais comuns.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Quem é o <strong>root</strong> e por que o Ubuntu não deixa você usá-lo direto.</li>
+  <li>O que o <code>sudo</code> faz, e por que a senha não aparece quando você digita.</li>
+  <li>As formas de usar: <code>sudo comando</code>, <code>sudo !!</code>, <code>sudo -i</code>, <code>sudo -u</code>.</li>
+  <li>Por que <code>sudo echo … &gt; arquivo</code> não funciona, e o que usar no lugar.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Root, o administrador</h2>
+<p>Todo Linux tem um usuário especial chamado <strong>root</strong> ("raiz"). Ele pode tudo: ler qualquer arquivo, apagar o sistema inteiro, mudar a senha de qualquer pessoa. Os outros usuários, como a <code>ana</code>, só mexem no que é deles, principalmente em <code>/home/ana</code>.</p>
+
+<p>Veja a diferença: a pasta pessoal do root é proibida para a ana.</p>
+
+<pre class="term">$ whoami
+ana
+$ ls /root
+ls: não é possível abrir o diretório '/root': Permissão negada</pre>
+
+<p>No Ubuntu, <strong>ninguém faz login como root</strong>. A senha dele vem bloqueada. Em vez disso, o primeiro usuário criado na instalação entra no grupo <code>sudo</code> e pode pedir poderes de root quando precisar. As vantagens:</p>
+<ul>
+  <li><strong>Menos acidentes:</strong> você trabalha como usuário comum e só vira administrador para um comando específico.</li>
+  <li><strong>Registro:</strong> cada uso do sudo fica anotado nos logs, com o nome de quem rodou o quê.</li>
+  <li><strong>Nenhuma senha compartilhada:</strong> cada administrador usa a própria senha. Para tirar o acesso de alguém, basta tirá-lo do grupo <code>sudo</code>.</li>
+</ul>
+
+<hr>
+
+<h2>Usando o sudo</h2>
+<p><code>sudo</code> vem de <em>superuser do</em>: "superusuário, faça".</p>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>"Rode o que vem depois como root."</dd>
+  <dt>ls</dt><dd>O comando que você quer rodar.</dd>
+  <dt>/root</dt><dd>O argumento desse comando, como sempre.</dd>
+</dl>
+
+<pre class="term">$ sudo ls /root
+[sudo: authenticate] Senha:                  « digite a SUA senha
+snap</pre>
+
+<p>Três coisas importantes sobre o pedido de senha:</p>
+<ol class="passo">
+  <li><strong>É a sua senha</strong>, a mesma do login. O root não tem senha no Ubuntu.</li>
+  <li><strong>Nada aparece enquanto você digita</strong>: nem letras, nem asteriscos. O teclado está funcionando. Digite e aperte <kbd>Enter</kbd>.</li>
+  <li><strong>Ela fica "lembrada" por 15 minutos</strong> naquele terminal. Os próximos <code>sudo</code> não pedem de novo.</li>
+</ol>
+
+<pre class="term">$ sudo apt update
+[sudo: authenticate] Senha:
+Atingido:1 http://br.archive.ubuntu.com/ubuntu resolute InRelease
+Obter:2 http://security.ubuntu.com/ubuntu resolute-security InRelease [126 kB]
+…
+$ sudo apt upgrade
+Lendo listas de pacotes... Pronto            « dessa vez não pediu senha</pre>
+
+<div class="note">
+<strong>sudo-rs</strong>
+<p>Desde o Ubuntu 25.10, o <code>sudo</code> padrão é o <strong>sudo-rs</strong>, uma versão reescrita em Rust por segurança. O uso é o mesmo. As diferenças que você vai notar são o pedido de senha <code>[sudo: authenticate] Senha:</code> e algumas mensagens em inglês. O sudo antigo continua disponível com o nome <code>sudo.ws</code>.</p>
+</div>
+
+<h3>O que o comando devolve</h3>
+<p>O <code>sudo</code> devolve o código de saída do comando que ele rodou. Se o comando deu certo, <code>0</code>:</p>
+<pre class="term">$ sudo mkdir /opt/meuapp
+$ echo $?
+0
+$ ls -ld /opt/meuapp
+drwxr-xr-x 2 root root 4096 Oct 15 10:31 /opt/meuapp     « dono: root</pre>
+
+<p>Repare: a pasta foi criada pelo root, então pertence ao root. Se depois você quiser trabalhar nela sem sudo, vai precisar mudar o dono (veja <a href="chown.html">chown</a>).</p>
+
+<div class="try" data-goal="dir:/opt/meuapp">
+<p class="try-task"><strong>Missão:</strong> tente criar a pasta <code>/opt/meuapp</code> sem sudo e veja o erro. Depois crie com <code>sudo</code> e confira o dono com <code>ls -ld /opt/meuapp</code>.</p>
+</div>
+
+<hr>
+
+<h2>Formas diferentes de usar</h2>
+
+<h3>Esqueceu o sudo? <code>sudo !!</code></h3>
+<p>No bash, <code>!!</code> significa "o último comando". É o atalho mais usado com o sudo:</p>
+<pre class="term">$ apt install htop
+Erro: Não foi possível abrir arquivo de trava /var/lib/dpkg/lock-frontend - open (13: Permissão negada)
+Erro: Não é possível adquirir a trava da interface do dpkg (/var/lib/dpkg/lock-frontend), você é root?
+$ sudo !!
+sudo apt install htop                        « o bash mostra o comando completo antes
+[sudo: authenticate] Senha:</pre>
+
+<h3>Um terminal inteiro como root: <code>sudo -i</code></h3>
+<p>Para fazer várias tarefas de administrador seguidas, <code>sudo -i</code> (de <em>interactive</em>, "interativo") abre um shell de root. O prompt muda de <code>$</code> para <code>#</code>, um aviso visual de que você pode tudo:</p>
+
+<pre class="term">$ sudo -i
+#> whoami
+root
+#> pwd
+/root
+#> exit
+sair                                         « o bash em português escreve "sair"
+$ whoami
+ana</pre>
+
+<div class="warning">
+<strong>Atenção: saia assim que terminar</strong>
+<p>No shell de root não existe "Permissão negada" para te proteger. Um <code>rm</code> errado apaga arquivos do sistema. Faça só o necessário e digite <code>exit</code>.</p>
+</div>
+
+<h3>Como outro usuário: <code>sudo -u</code></h3>
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Executa como outro usuário…</dd>
+  <dt>-u www-data</dt><dd>…este (<em>user</em>). Sem <code>-u</code>, o padrão é root.</dd>
+  <dt>ls /var/www</dt><dd>O comando.</dd>
+</dl>
+<p>É útil para testar se um serviço, como o servidor web (usuário <code>www-data</code>), consegue ler os arquivos dele.</p>
+
+<h3>Ver o que você pode fazer: <code>sudo -l</code></h3>
+<pre class="term">$ sudo -l
+User ana may run the following commands on notebook:
+    (ALL : ALL) ALL</pre>
+<p><code>(ALL : ALL) ALL</code> quer dizer: como qualquer usuário, de qualquer grupo, qualquer comando. Ou seja, administradora completa.</p>
+
+<h3>Esquecer a senha agora: <code>sudo -k</code></h3>
+<p>Antes de sair de perto do computador, <code>sudo -k</code> (de <em>kill</em>, "invalidar") faz o próximo sudo pedir a senha de novo.</p>
+
+<h3>Qual forma usar?</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td>sudo comando</td><td><code>sudo apt update</code></td><td>Uma tarefa de administrador. É a forma padrão.</td></tr>
+<tr><td>sudo !!</td><td><code>sudo !!</code></td><td>Você esqueceu o sudo no comando anterior.</td></tr>
+<tr><td>sudo -i</td><td><code>sudo -i</code></td><td>Várias tarefas seguidas como root (com cuidado).</td></tr>
+<tr><td>sudo -u</td><td><code>sudo -u www-data ls</code></td><td>Testar algo como outro usuário.</td></tr>
+<tr><td>sudo tee</td><td><code>echo x | sudo tee arq</code></td><td>Gravar num arquivo do sistema (veja abaixo).</td></tr>
+</table>
+</div>
+
+<div class="try" data-goal="ran:^sudo -i,ran:^exit">
+<p class="try-task"><strong>Missão:</strong> entre num shell de root com <code>sudo -i</code>, confirme com <code>whoami</code> e <code>pwd</code>, liste <code>/root</code> e saia com <code>exit</code>. Repare como o prompt muda.</p>
+</div>
+
+<hr>
+
+<h2>A armadilha do redirecionamento</h2>
+<p>Este comando parece certo, mas falha:</p>
+<pre class="term">$ sudo echo "192.168.0.50 servidor" &gt;&gt; /etc/hosts
+bash: /etc/hosts: Permissão negada</pre>
+
+<p>O motivo: quem abre o arquivo para o <code>&gt;&gt;</code> é o <strong>seu shell</strong>, que roda como ana, <strong>antes</strong> do sudo entrar em ação. O sudo só vale para o <code>echo</code>, que não precisava dele.</p>
+
+<p>A solução é o <code>tee</code>, um comando que grava num arquivo o que recebe. Como é ele quem abre o arquivo, o sudo vale na hora certa:</p>
+
+<dl class="anatomy">
+  <dt>echo "…"</dt><dd>Gera o texto (como ana, sem problema).</dd>
+  <dt>|</dt><dd>Entrega o texto ao próximo comando.</dd>
+  <dt>sudo tee</dt><dd>Grava como root…</dd>
+  <dt>-a</dt><dd>…acrescentando no fim (<em>append</em>). Sem <code>-a</code>, apaga o conteúdo antes.</dd>
+  <dt>/etc/hosts</dt><dd>O arquivo.</dd>
+</dl>
+
+<pre class="term">$ echo "192.168.0.50 servidor" | sudo tee -a /etc/hosts
+192.168.0.50 servidor</pre>
+
+<p>O <code>tee</code> também mostra na tela o que gravou. Para escondê-lo, acrescente <code>&gt; /dev/null</code> no fim. Para editar arquivos maiores, use um editor: <code>sudo nano /etc/hosts</code> (veja <a href="editores.html">nano e vim</a>).</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Senha errada</strong>
+<pre class="term">$ sudo apt update
+[sudo: authenticate] Senha:
+Authentication failed, try again.
+[sudo: authenticate] Senha:</pre>
+<p><strong>O que aconteceu:</strong> a senha digitada não confere. Como nada aparece na tela, é fácil errar uma letra.</p>
+<p><strong>Como resolver:</strong> digite devagar; confira o <kbd>Caps Lock</kbd> e o layout do teclado. Lembre que é a <strong>sua</strong> senha de login.</p>
+</div>
+
+<div class="cenario">
+<strong>Usuário sem permissão de sudo</strong>
+<pre class="term" data-user="joao">$ sudo apt update
+[sudo: authenticate] Senha:
+sudo: I'm sorry joao. I'm afraid I can't do that</pre>
+<p><strong>O que aconteceu:</strong> o usuário <code>joao</code> não está no grupo <code>sudo</code>. A mensagem é uma brincadeira dos programadores com o filme <em>2001: Uma Odisseia no Espaço</em>.</p>
+<p><strong>Como resolver:</strong> um administrador precisa adicioná-lo: <code>sudo usermod -aG sudo joao</code> (veja <a href="usuarios.html">Usuários e Grupos</a>). O joao precisa sair e entrar de novo na sessão para valer.</p>
+</div>
+
+<div class="cenario">
+<strong>"Permissão negada" mesmo com sudo</strong>
+<p><strong>O que aconteceu:</strong> quase sempre é a armadilha do redirecionamento (<code>sudo echo … &gt; arquivo</code>), explicada acima.</p>
+<p><strong>Como resolver:</strong> use <code>| sudo tee arquivo</code> ou abra o arquivo num editor com sudo.</p>
+</div>
+
+<div class="cenario">
+<strong>Arquivos da pasta pessoal viraram do root</strong>
+<pre class="term">$ ls -l ~/notas.txt
+-rw-r--r-- 1 root root 120 Oct 15 10:40 /home/ana/notas.txt
+$ echo "mais uma" &gt;&gt; ~/notas.txt
+bash: /home/ana/notas.txt: Permissão negada</pre>
+<p><strong>O que aconteceu:</strong> o arquivo foi criado com <code>sudo</code> (por exemplo, <code>sudo nano ~/notas.txt</code>), então o dono virou root.</p>
+<p><strong>Como resolver:</strong> devolva para você: <code>sudo chown ana:ana ~/notas.txt</code>. E evite usar sudo dentro da sua pasta pessoal.</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td>(nenhuma)</td><td>Roda o comando como root</td><td><code>sudo apt update</code></td></tr>
+<tr><td><code>-i</code></td><td>Abre um shell de login como root</td><td><code>sudo -i</code></td></tr>
+<tr><td><code>-s</code></td><td>Abre um shell como root, mantendo a pasta atual</td><td><code>sudo -s</code></td></tr>
+<tr><td><code>-u usuário</code></td><td>Roda como outro usuário</td><td><code>sudo -u www-data ls</code></td></tr>
+<tr><td><code>-l</code></td><td>Lista o que você pode rodar</td><td><code>sudo -l</code></td></tr>
+<tr><td><code>-k</code></td><td>Esquece a senha lembrada</td><td><code>sudo -k</code></td></tr>
+<tr><td><code>-v</code></td><td>Renova os 15 minutos sem rodar nada</td><td><code>sudo -v</code></td></tr>
+<tr><td><code>-n</code></td><td>Nunca pede senha; falha se precisar</td><td><code>sudo -n true</code></td></tr>
+</table>
+</div>
+<p>Para editar quem pode usar sudo, use sempre <code>sudo visudo</code>, que confere a sintaxe antes de salvar. Um erro em <code>/etc/sudoers</code> pode deixar todos sem sudo.</p>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Repetir com sudo</h3>
+<p>Você rodou <code>apt update</code> e esqueceu o sudo. Complete com o atalho:</p>
+<div class="ex-code">sudo <input data-answer="!!" aria-label="atalho"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Gravar num arquivo do sistema</h3>
+<p>Complete para acrescentar a linha ao <code>/etc/hosts</code>:</p>
+<div class="ex-code">echo "10.0.0.5 nas" | sudo <input data-answer="tee -a" aria-label="comando e opção"> /etc/hosts</div>
+</div>
+
+<div class="exercise">
+<h3>3. Shell de root</h3>
+<p>Complete para abrir um terminal como root:</p>
+<div class="ex-code">sudo <input data-answer="-i|-s|su -|su" aria-label="opção"></div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Que senha o <code>sudo</code> pede no Ubuntu?</p>
+<label><input type="radio" name="q4"> A senha do root.</label>
+<label><input type="radio" name="q4"> Uma senha criada só para o sudo.</label>
+<label><input type="radio" name="q4"> A sua própria senha de login.</label>
+<label><input type="radio" name="q4"> A senha do Wi-Fi.</label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. Por que <code>sudo echo "x" &gt; /etc/teste</code> dá "Permissão negada"?</p>
+<label><input type="radio" name="q5"> Porque o echo não aceita sudo.</label>
+<label><input type="radio" name="q5"> Porque o redirecionamento <code>&gt;</code> é feito pelo seu shell, sem os poderes do sudo.</label>
+<label><input type="radio" name="q5"> Porque faltou a senha.</label>
+<label><input type="radio" name="q5"> Porque <code>/etc</code> não existe.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>sudo comando</code> roda um comando como root, pedindo a <strong>sua</strong> senha, que não aparece ao digitar.</li>
+  <li>A senha fica lembrada por 15 minutos; <code>sudo -k</code> esquece.</li>
+  <li><code>sudo !!</code> repete o último comando com sudo; <code>sudo -i</code> abre um shell de root (saia com <code>exit</code>).</li>
+  <li>Para gravar em arquivo do sistema: <code>… | sudo tee -a arquivo</code>.</li>
+  <li>Use sudo só quando precisar, e nunca dentro da sua pasta pessoal.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu repositórios e PPAs — de onde vêm os programas | Guia Ubuntu</title>
+<meta name="description" content="Entenda os repositórios do Ubuntu: componentes, suites, o formato deb822, como adicionar e remover PPAs e repositórios de terceiros com segurança e como ler o apt policy.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Repositórios e PPAs</span></h1>
+
+<p class="intro">Quando você roda <code>sudo apt install htop</code>, o programa vem de um <strong>repositório</strong>: um servidor na internet que guarda milhares de pacotes prontos. O apt só encontra o que está nos repositórios configurados no seu sistema. Nesta aula você vai ler essa configuração e aprender a adicionar outros repositórios sem colocar o sistema em risco.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que são repositórios, componentes (<code>main</code>, <code>universe</code>…) e suites (<code>resolute-updates</code>…).</li>
+  <li>Como ler o arquivo <code>ubuntu.sources</code>, no formato deb822.</li>
+  <li>Como descobrir de qual repositório vem um pacote com <code>apt policy</code>.</li>
+  <li>Como adicionar e remover um PPA e um repositório de empresa.</li>
+  <li>Os riscos de cada repositório extra e como se proteger.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes do comando: como o apt sabe o que existe</h2>
+<p>Pense no repositório como uma <strong>loja</strong> e no apt como o <strong>atendente</strong>. O processo tem duas etapas:</p>
+
+<ol class="passo">
+  <li><strong><code>sudo apt update</code> baixa o catálogo.</strong> O apt visita cada repositório configurado e baixa a lista de pacotes e versões. Nada é instalado.</li>
+  <li><strong><code>sudo apt install</code> busca no catálogo.</strong> O apt procura o pacote na lista já baixada, escolhe a melhor versão e baixa o arquivo <code>.deb</code> do repositório.</li>
+</ol>
+
+<p>Por isso, depois de adicionar um repositório novo, você <strong>sempre</strong> precisa rodar <code>sudo apt update</code>: senão o catálogo dele ainda não está no seu computador.</p>
+
+<pre class="term">$ sudo apt update
+[sudo: authenticate] Senha:
+Atingido:1 http://archive.ubuntu.com/ubuntu resolute InRelease          « nada mudou desde a última vez
+Obter:2 http://security.ubuntu.com/ubuntu resolute-security InRelease [126 kB]   « baixou novidades
+Atingido:3 http://archive.ubuntu.com/ubuntu resolute-updates InRelease
+Obtidos 126 kB em 1s (98,4 kB/s)
+Todos os pacotes estão atualizados.</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Palavra na saída</th><th>Significado</th></tr>
+<tr><td><code>Atingido</code></td><td>O apt consultou o repositório e a lista não mudou (em inglês, <em>Hit</em>).</td></tr>
+<tr><td><code>Obter</code></td><td>Havia lista nova e ela foi baixada (em inglês, <em>Get</em>).</td></tr>
+<tr><td><code>Obtidos … em …</code></td><td>Total baixado e o tempo gasto.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Onde fica a configuração</h2>
+<p>Desde o Ubuntu 24.04, cada repositório fica num arquivo <code>.sources</code> dentro da pasta <code>/etc/apt/sources.list.d/</code>. Os repositórios oficiais estão em <code>ubuntu.sources</code>:</p>
+
+<pre class="term">$ ls /etc/apt/sources.list.d/
+ubuntu.sources
+$ cat /etc/apt/sources.list.d/ubuntu.sources
+Types: deb
+URIs: http://archive.ubuntu.com/ubuntu/
+Suites: resolute resolute-updates resolute-backports
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: http://security.ubuntu.com/ubuntu/                 « o servidor de segurança
+Suites: resolute-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg</pre>
+
+<p>Esse formato se chama <strong>deb822</strong>. Cada bloco (separado por linha em branco) descreve um repositório, com um campo por linha:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Campo</th><th>Significado</th><th>No exemplo</th></tr>
+<tr><td><code>Types</code></td><td><code>deb</code> = programas prontos; <code>deb-src</code> = código-fonte</td><td><code>deb</code></td></tr>
+<tr><td><code>URIs</code></td><td>Endereço do servidor</td><td><code>http://archive.ubuntu.com/ubuntu/</code></td></tr>
+<tr><td><code>Suites</code></td><td>Versão do Ubuntu e linhas de atualização</td><td><code>resolute resolute-updates…</code></td></tr>
+<tr><td><code>Components</code></td><td>Quais partes do repositório usar</td><td><code>main restricted universe multiverse</code></td></tr>
+<tr><td><code>Signed-By</code></td><td>Chave que prova que os pacotes são autênticos</td><td><code>ubuntu-archive-keyring.gpg</code></td></tr>
+<tr><td><code>Enabled</code></td><td>Opcional. <code>no</code> desliga o bloco sem apagar</td><td>(ausente = ligado)</td></tr>
+<tr><td><code>Architectures</code></td><td>Opcional. Limita a arquiteturas, como <code>amd64</code></td><td>(ausente = todas)</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>E o <code>/etc/apt/sources.list</code>?</strong>
+<p>Até o Ubuntu 22.04, os repositórios ficavam nesse arquivo, uma linha por repositório: <code>deb http://archive.ubuntu.com/ubuntu jammy main restricted</code>. No 26.04 ele só tem um comentário avisando que a configuração mudou de lugar. Muitos tutoriais ainda usam o formato antigo; o apt aceita os dois.</p>
+</div>
+
+<h3>Componentes: as "seções da loja"</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Componente</th><th>Licença</th><th>Quem mantém</th><th>Exemplos</th></tr>
+<tr><td><code>main</code></td><td>Software livre</td><td>Canonical, com suporte oficial</td><td>bash, openssh, nginx</td></tr>
+<tr><td><code>universe</code></td><td>Software livre</td><td>Comunidade</td><td>htop, tree, vlc</td></tr>
+<tr><td><code>restricted</code></td><td>Proprietário, com suporte</td><td>Canonical</td><td>Drivers da NVIDIA</td></tr>
+<tr><td><code>multiverse</code></td><td>Proprietário ou com restrições legais</td><td>Comunidade</td><td>Fontes da Microsoft, alguns codecs</td></tr>
+</table>
+</div>
+
+<h3>Suites: as "linhas de atualização"</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Suite</th><th>Conteúdo</th></tr>
+<tr><td><code>resolute</code></td><td>Os pacotes como saíram no lançamento do 26.04</td></tr>
+<tr><td><code>resolute-updates</code></td><td>Correções de bugs depois do lançamento</td></tr>
+<tr><td><code>resolute-security</code></td><td>Correções de segurança</td></tr>
+<tr><td><code>resolute-backports</code></td><td>Versões mais novas trazidas de lançamentos futuros (sem suporte oficial)</td></tr>
+</table>
+</div>
+
+<p><code>resolute</code> é o <strong>codinome</strong> do Ubuntu 26.04 (Resolute Raccoon). Cada versão tem o seu: <code>noble</code> é o 24.04 e <code>jammy</code> é o 22.04. Para ver o do seu sistema:</p>
+
+<pre class="term">$ lsb_release -cs
+resolute</pre>
+
+<div class="tip">
+<strong>Pelo modo gráfico</strong>
+<p>No desktop, abra <strong>Programas e Atualizações</strong> (<code>software-properties-gtk</code>) para ligar e desligar componentes e repositórios com caixas de seleção.</p>
+</div>
+
+<hr>
+
+<h2>De onde vem este pacote? <code>apt policy</code></h2>
+<p>Quando há mais de um repositório, o mesmo programa pode existir em várias versões. O <code>apt policy</code> mostra todas e qual o apt vai escolher.</p>
+
+<dl class="anatomy">
+  <dt>apt</dt><dd>O gerenciador de pacotes.</dd>
+  <dt>policy</dt><dd>"Política": mostra versões, origens e prioridades.</dd>
+  <dt>nano</dt><dd>O pacote a investigar.</dd>
+</dl>
+
+<pre class="term">$ apt policy nano
+
+WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+nano:
+  Instalado: 8.7.1-1ubuntu0.1                « a versão que você tem
+  Candidato: 8.7.1-1ubuntu0.1                « a versão que o apt instalaria agora
+  Tabela de versão:
+ *** 8.7.1-1ubuntu0.1 500                    « *** marca a instalada; 500 é a prioridade
+        500 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 Packages
+        500 http://security.ubuntu.com/ubuntu resolute-security/main amd64 Packages
+        100 /var/lib/dpkg/status
+     8.7.1-1 500                             « a versão original do lançamento
+        500 http://archive.ubuntu.com/ubuntu resolute/main amd64 Packages</pre>
+
+<p>O aviso em inglês ("WARNING…") só lembra que o formato do <code>apt</code> pode mudar; em scripts, use <code>apt-cache policy</code>, que mostra o mesmo sem o aviso.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Linha</th><th>O que dizer ao ler</th></tr>
+<tr><td><code>Instalado: (nenhum)</code></td><td>O pacote existe no repositório, mas não está instalado.</td></tr>
+<tr><td><code>Candidato</code> maior que <code>Instalado</code></td><td>Há atualização disponível.</td></tr>
+<tr><td>Prioridade <code>500</code></td><td>Repositório normal.</td></tr>
+<tr><td>Prioridade <code>100</code></td><td>Só o que já está instalado (<code>/var/lib/dpkg/status</code>) ou backports.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>PPAs: repositórios pessoais</h2>
+<p>Um <strong>PPA</strong> (de <em>Personal Package Archive</em>, "arquivo pessoal de pacotes") é um repositório criado por um desenvolvedor ou equipe no site Launchpad. Serve para oferecer versões mais novas do que as do Ubuntu oficial.</p>
+
+<h3>Adicionar um PPA</h3>
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Mexe na configuração do sistema.</dd>
+  <dt>add-apt-repository</dt><dd>Ferramenta que cria o arquivo <code>.sources</code> e baixa a chave do PPA.</dd>
+  <dt>ppa:git-core/ppa</dt><dd>O PPA: <code>ppa:</code> + dono + nome.</dd>
+</dl>
+
+<p>Exemplo: o PPA oficial do Git, que traz a versão estável mais recente.</p>
+
+<pre class="term">$ sudo add-apt-repository ppa:git-core/ppa
+[sudo: authenticate] Senha:
+Repository: 'Types: deb
+URIs: https://ppa.launchpadcontent.net/git-core/ppa/ubuntu/
+Suites: resolute
+Components: main
+'
+Description:
+The most current stable version of Git for Ubuntu.
+…
+Press [ENTER] to continue or Ctrl-c to cancel.        « confira antes de aceitar
+$ sudo apt install git</pre>
+
+<p>Nas versões atuais, o <code>add-apt-repository</code> já roda o <code>apt update</code> sozinho depois de adicionar. O texto acima é ilustrativo: cada PPA tem a sua descrição.</p>
+
+<h3>Remover um PPA</h3>
+<pre class="term">$ sudo add-apt-repository --remove ppa:git-core/ppa</pre>
+
+<p>Remover o PPA <strong>não</strong> volta os programas para a versão oficial: o Git do PPA continua instalado. Para voltar à versão do Ubuntu, use o <code>ppa-purge</code>:</p>
+
+<pre class="term">$ sudo apt install ppa-purge
+$ sudo ppa-purge ppa:git-core/ppa</pre>
+
+<hr>
+
+<h2>Repositórios de empresas</h2>
+<p>Empresas como Microsoft, Google e Docker mantêm repositórios próprios. Veja como fica o do VS Code, quando instalado pelo site da Microsoft:</p>
+
+<pre class="file" data-file="/etc/apt/sources.list.d/vscode.sources">Types: deb
+URIs: https://packages.microsoft.com/repos/code
+Suites: stable
+Components: main
+Architectures: amd64
+Signed-By: /usr/share/keyrings/microsoft.gpg</pre>
+
+<p>O campo <code>Signed-By</code> aponta para a chave da Microsoft. Assim, essa chave só vale para esse repositório. Mesmo que alguém roubasse a chave da Microsoft, ela não conseguiria se passar pelos repositórios oficiais do Ubuntu.</p>
+
+<h3>Passo a passo genérico</h3>
+<p>Siga sempre as instruções do site oficial do programa. A estrutura costuma ser esta:</p>
+
+<ol class="passo">
+  <li><strong>Criar a pasta das chaves</strong> (se ainda não existir).
+    <pre class="term">$ sudo install -d -m 0755 /etc/apt/keyrings</pre></li>
+  <li><strong>Baixar a chave do fornecedor</strong> e convertê-la para o formato do apt.
+    <dl class="anatomy">
+      <dt>curl -fsSL URL</dt><dd>Baixa a chave em silêncio, seguindo redirecionamentos, e falha se der erro.</dd>
+      <dt>|</dt><dd>Passa o que foi baixado para o próximo comando.</dd>
+      <dt>sudo gpg --dearmor</dt><dd>Converte a chave de texto para binário.</dd>
+      <dt>-o /etc/apt/keyrings/exemplo.gpg</dt><dd>Onde salvar.</dd>
+    </dl>
+    <pre class="term">$ curl -fsSL https://exemplo.com/chave.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/exemplo.gpg</pre></li>
+  <li><strong>Criar o arquivo do repositório</strong>, apontando para a chave:
+    <pre class="file" data-file="/etc/apt/sources.list.d/exemplo.sources">Types: deb
+URIs: https://repo.exemplo.com/apt
+Suites: stable
+Components: main
+Signed-By: /etc/apt/keyrings/exemplo.gpg</pre></li>
+  <li><strong>Atualizar o catálogo e instalar.</strong>
+    <pre class="term">$ sudo apt update
+$ sudo apt install exemplo</pre></li>
+</ol>
+
+<div class="note">
+<strong>E o <code>apt-key</code>?</strong>
+<p>Tutoriais antigos mandam usar <code>apt-key add</code>. Esse comando foi removido das versões recentes do Ubuntu, porque a chave valia para todos os repositórios. Use o método com <code>/etc/apt/keyrings</code> e <code>Signed-By</code>.</p>
+</div>
+
+<h3>Desligar um repositório sem apagar</h3>
+<p>Acrescente <code>Enabled: no</code> no bloco e rode <code>sudo apt update</code>. É útil para testar se um repositório está causando problema.</p>
+
+<h3>Formas de adicionar um repositório</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Melhor quando…</th></tr>
+<tr><td><code>sudo add-apt-repository ppa:dono/nome</code></td><td>É um PPA do Launchpad.</td></tr>
+<tr><td>Chave em <code>/etc/apt/keyrings</code> + arquivo <code>.sources</code></td><td>É o repositório de uma empresa (Docker, Microsoft…).</td></tr>
+<tr><td>Instalar o <code>.deb</code> do site</td><td>Alguns <code>.deb</code> (Chrome, VS Code) criam o repositório sozinhos, para receber atualizações.</td></tr>
+<tr><td>Programas e Atualizações</td><td>Você prefere a interface gráfica.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Riscos de cada repositório extra</h2>
+<div class="warning">
+<strong>Atenção: quem controla o repositório controla o seu computador</strong>
+<p>Pacotes são instalados como administrador. Um repositório malicioso, ou invadido, pode instalar qualquer coisa numa atualização futura, sem você perceber.</p>
+</div>
+
+<p>Antes de adicionar um PPA ou repositório de terceiros:</p>
+<ul>
+  <li>Confira se é <strong>recomendado no site oficial</strong> do programa.</li>
+  <li>Veja se o pacote não existe como <a href="snap.html">snap</a> oficial ou no <a href="flatpak.html">Flathub</a> verificado, que rodam isolados.</li>
+  <li>Prefira poucos repositórios extras. Cada um é uma porta a mais.</li>
+  <li>Remova os que você não usa mais.</li>
+</ul>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Não é possível encontrar o pacote"</strong>
+<pre class="term">$ sudo apt install programa-novo
+Erro: Não é possível encontrar o pacote programa-novo</pre>
+<p><strong>O que aconteceu:</strong> nenhum repositório configurado tem esse pacote, ou o catálogo está desatualizado.</p>
+<p><strong>Como resolver:</strong></p>
+<ol>
+  <li>Rode <code>sudo apt update</code> e tente de novo (principalmente se acabou de adicionar um repositório).</li>
+  <li>Confira o nome com <code>apt search parte-do-nome</code>.</li>
+  <li>Se o pacote está em <code>universe</code>, confira se esse componente está no <code>ubuntu.sources</code>.</li>
+</ol>
+</div>
+
+<div class="cenario">
+<strong>Erro de assinatura (NO_PUBKEY)</strong>
+<pre class="term">$ sudo apt update
+…
+Erro: As assinaturas a seguir não puderam ser verificadas devido à chave pública não estar disponível: NO_PUBKEY 1234ABCD5678EF90</pre>
+<p><strong>O que aconteceu:</strong> o apt não tem a chave daquele repositório, ou o <code>Signed-By</code> aponta para um arquivo errado. O texto exato da mensagem pode variar; o que importa é o <code>NO_PUBKEY</code>.</p>
+<p><strong>Como resolver:</strong> baixe a chave de novo seguindo o site oficial (passo 2 acima) e confira o caminho em <code>Signed-By</code>. Se não usa mais o repositório, remova o arquivo <code>.sources</code> dele.</p>
+</div>
+
+<div class="cenario">
+<strong>O PPA não tem versão para o seu Ubuntu</strong>
+<pre class="term">$ sudo apt update
+…
+Erro: O repositório 'https://ppa.launchpadcontent.net/dono/ppa/ubuntu resolute Release' não tem um arquivo Release.</pre>
+<p><strong>O que aconteceu:</strong> o PPA ainda não publicou pacotes para o 26.04 (<code>resolute</code>). É comum logo depois de um lançamento.</p>
+<p><strong>Como resolver:</strong> remova o PPA com <code>sudo add-apt-repository --remove ppa:dono/ppa</code> e procure outra forma de instalar. <strong>Não</strong> troque <code>resolute</code> por <code>noble</code> à mão: pacotes de outra versão podem quebrar dependências.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>sudo apt update</code></td><td>Baixa o catálogo de todos os repositórios</td></tr>
+<tr><td><code>apt policy pacote</code></td><td>Versões disponíveis, origem e prioridade</td></tr>
+<tr><td><code>lsb_release -cs</code></td><td>Codinome do seu Ubuntu</td></tr>
+<tr><td><code>sudo add-apt-repository ppa:dono/nome</code></td><td>Adiciona um PPA</td></tr>
+<tr><td><code>sudo add-apt-repository --remove ppa:dono/nome</code></td><td>Remove um PPA</td></tr>
+<tr><td><code>sudo ppa-purge ppa:dono/nome</code></td><td>Remove o PPA e volta os pacotes à versão oficial</td></tr>
+<tr><td><code>sudo add-apt-repository universe</code></td><td>Liga um componente oficial</td></tr>
+<tr><td><code>ls /etc/apt/sources.list.d/</code></td><td>Lista os arquivos de repositório</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Atualizar o catálogo</h3>
+<p>Você acabou de adicionar um repositório. Complete o comando que baixa a lista de pacotes dele:</p>
+<div class="ex-code">sudo apt <input data-answer="update" aria-label="subcomando"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Adicionar um PPA</h3>
+<p>Complete para adicionar o PPA <code>ppa:git-core/ppa</code>:</p>
+<div class="ex-code">sudo <input data-answer="add-apt-repository" aria-label="comando"> ppa:git-core/ppa</div>
+</div>
+
+<div class="exercise">
+<h3>3. Qual versão será instalada?</h3>
+<p>Complete para ver as versões disponíveis do pacote <code>git</code> e de qual repositório cada uma vem:</p>
+<div class="ex-code">apt <input data-answer="policy" aria-label="subcomando"> git</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Em qual componente ficam os drivers proprietários da NVIDIA?</p>
+<label><input type="radio" name="q4"> main</label>
+<label><input type="radio" name="q4"> universe</label>
+<label><input type="radio" name="q4"> restricted</label>
+<label><input type="radio" name="q4"> multiverse</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. Para que serve o campo <code>Signed-By</code>?</p>
+<label><input type="radio" name="q5"> Dizer qual chave comprova que os pacotes daquele repositório são autênticos.</label>
+<label><input type="radio" name="q5"> Dizer quem é o dono do computador.</label>
+<label><input type="radio" name="q5"> Limitar o repositório a uma arquitetura.</label>
+<label><input type="radio" name="q5"> Desligar o repositório.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Repositórios são servidores de pacotes; <code>sudo apt update</code> baixa o catálogo deles.</li>
+  <li>Os oficiais estão em <code>/etc/apt/sources.list.d/ubuntu.sources</code>, no formato deb822.</li>
+  <li>Componentes: <code>main</code>, <code>universe</code>, <code>restricted</code>, <code>multiverse</code>. Suites: lançamento, <code>-updates</code>, <code>-security</code>, <code>-backports</code>.</li>
+  <li><code>apt policy pacote</code> mostra a versão instalada, a candidata e de onde vêm.</li>
+  <li>PPA: <code>add-apt-repository</code>; remover: <code>--remove</code>; voltar à versão oficial: <code>ppa-purge</code>.</li>
+  <li>Repositórios de empresas: chave em <code>/etc/apt/keyrings</code> + <code>Signed-By</code>. Cada repositório extra é um risco.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

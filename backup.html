@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Backup — rsync, tar e restauração | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a fazer backup no Ubuntu com rsync e tar, passo a passo: cada opção explicada, teste de restauração, regra 3-2-1 e os erros que fazem um backup falhar em silêncio.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Backup</span></h1>
+
+<p class="intro">Backup é uma cópia dos seus arquivos guardada em outro lugar, para quando o disco queimar, o notebook for roubado ou você apagar algo sem querer. Nesta aula você vai copiar a pasta pessoal para um HD externo com <code>rsync</code>, empacotar com <code>tar</code> e, o mais importante, <strong>testar se dá para restaurar</strong>.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A regra 3-2-1 e o que vale a pena copiar.</li>
+  <li>O <code>rsync</code> parte por parte, incluindo a "barra final" que confunde todo mundo.</li>
+  <li>Fazer backups com data no nome usando <code>tar</code> e <code>$(date +%F)</code>.</li>
+  <li>Restaurar um arquivo e conferir se a cópia está completa.</li>
+  <li>Os erros que fazem um backup falhar em silêncio.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes dos comandos: o que é um bom backup</h2>
+<p>Um backup só existe de verdade quando você já conseguiu <strong>restaurar</strong> algo dele. Uma regra simples, usada por profissionais, é a <strong>3-2-1</strong>:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Número</th><th>Regra</th><th>Exemplo da Ana</th></tr>
+<tr><td><strong>3</strong></td><td>Tenha 3 cópias dos dados (o original + 2 backups).</td><td>Notebook + HD externo + nuvem.</td></tr>
+<tr><td><strong>2</strong></td><td>Em 2 tipos de mídia diferentes.</td><td>SSD do notebook e HD externo.</td></tr>
+<tr><td><strong>1</strong></td><td>1 cópia fora de casa.</td><td>Um serviço de nuvem ou um HD na casa de um parente.</td></tr>
+</table>
+</div>
+
+<h3>O que copiar</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>O quê</th><th>Onde fica</th><th>Precisa?</th></tr>
+<tr><td>Seus arquivos</td><td><code>/home/ana</code></td><td>Sim, é o mais importante.</td></tr>
+<tr><td>Configurações do sistema que você mudou</td><td><code>/etc</code></td><td>Em servidores, sim.</td></tr>
+<tr><td>Lista dos programas instalados</td><td>Gerada com <code>apt-mark showmanual</code></td><td>Sim; ocupa poucos KB.</td></tr>
+<tr><td>Caches</td><td><code>~/.cache</code></td><td>Não; o sistema recria sozinho.</td></tr>
+<tr><td>O próprio Ubuntu</td><td><code>/usr</code>, <code>/bin</code>…</td><td>Não; é mais rápido reinstalar.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>rsync: copiar só o que mudou</h2>
+<p><code>rsync</code> vem de <em>remote sync</em>, "sincronização remota". Ele copia arquivos de um lugar para outro, local ou por rede. A grande vantagem sobre o <code>cp</code>: na segunda vez, ele copia <strong>só o que mudou</strong>. Um backup de 50 GB que levou uma hora passa a levar segundos.</p>
+
+<dl class="anatomy">
+  <dt>rsync</dt><dd>O programa.</dd>
+  <dt>-a</dt><dd><em>Archive</em>: copia tudo (subpastas, permissões, datas, links), igual ao original.</dd>
+  <dt>-v</dt><dd><em>Verbose</em>: lista cada arquivo copiado.</dd>
+  <dt>-h</dt><dd>Tamanhos legíveis no resumo final.</dd>
+  <dt>~/Documentos/</dt><dd>A <strong>origem</strong>. A barra final importa (veja abaixo).</dd>
+  <dt>/media/ana/BACKUP/Documentos/</dt><dd>O <strong>destino</strong>: o HD externo.</dd>
+</dl>
+
+<pre class="term">$ rsync -avh ~/Documentos/ /media/ana/BACKUP/Documentos/
+sending incremental file list
+created directory /media/ana/BACKUP/Documentos           « o destino não existia; ele criou
+./
+acesso.log
+notas.txt
+relatorio.odt
+projetos/
+projetos/backup.sh
+projetos/site/
+projetos/site/index.html
+projetos/site/style.css
+
+sent 10,24K bytes  received 191 bytes  20,86K bytes/sec
+total size is 9,41K  speedup is 0,90</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Linha</th><th>Significado</th></tr>
+<tr><td><code>sending incremental file list</code></td><td>"Enviando a lista de arquivos aos poucos". O rsync responde em inglês.</td></tr>
+<tr><td>Nomes de arquivos</td><td>O que foi copiado agora.</td></tr>
+<tr><td><code>sent … received …</code></td><td>Quantos bytes foram enviados e recebidos.</td></tr>
+<tr><td><code>speedup is …</code></td><td>Quanto o rsync economizou. Na segunda execução, esse número fica bem maior que 1.</td></tr>
+</table>
+</div>
+
+<p>Agora a Ana cria um arquivo novo e roda o mesmo comando de novo:</p>
+
+<pre class="term">$ echo "reunião às 15h" &gt; ~/Documentos/lembrete.txt
+$ rsync -avh ~/Documentos/ /media/ana/BACKUP/Documentos/
+sending incremental file list
+lembrete.txt                                             « só o que mudou
+
+sent 312 bytes  received 38 bytes  700,00 bytes/sec
+total size is 9,43K  speedup is 26,94</pre>
+
+<h3>A barra final na origem</h3>
+<p>Este é o detalhe que mais confunde no <code>rsync</code>. Uma barra no fim da <strong>origem</strong> muda o resultado:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Resultado no destino</th></tr>
+<tr><td><code>rsync -a ~/Documentos/ /backup/</code></td><td>Copia o <strong>conteúdo</strong>: <code>/backup/notas.txt</code></td></tr>
+<tr><td><code>rsync -a ~/Documentos /backup/</code></td><td>Copia a <strong>pasta</strong>: <code>/backup/Documentos/notas.txt</code></td></tr>
+</table>
+</div>
+
+<p>Leia a barra como "o que está dentro de". No destino, a barra não faz diferença.</p>
+
+<h3>Ver antes de fazer: <code>-n</code></h3>
+<p>A opção <code>-n</code> (de <em>dry run</em>, "ensaio") mostra o que seria feito, sem copiar nada. Use sempre que mudar o comando:</p>
+
+<pre class="term">$ rsync -avhn ~/Documentos/ /media/ana/BACKUP/Documentos/
+sending incremental file list
+
+sent 312 bytes  received 20 bytes  664,00 bytes/sec
+total size is 9,43K  speedup is 28,40 (DRY RUN)              « (DRY RUN): nada foi copiado</pre>
+
+<h3>Espelho exato: <code>--delete</code></h3>
+<p>Por padrão, se você apaga um arquivo no notebook, ele continua no backup. Com <code>--delete</code>, o rsync apaga do destino o que não existe mais na origem, deixando um espelho exato.</p>
+
+<pre class="term">$ rm ~/Documentos/lembrete.txt
+$ rsync -avh --delete ~/Documentos/ /media/ana/BACKUP/Documentos/
+sending incremental file list
+deleting lembrete.txt                                    « apagado também do backup
+./
+
+sent 290 bytes  received 40 bytes  660,00 bytes/sec
+total size is 9,41K  speedup is 28,52</pre>
+
+<div class="warning">
+<strong>Cuidado com --delete</strong>
+<p>Se você trocar origem e destino de lugar, o <code>--delete</code> apaga os seus arquivos originais. Se você apagar algo sem querer e rodar o backup em seguida, a cópia também some. Rode antes com <code>-n</code> e mantenha mais de um backup.</p>
+</div>
+
+<h3>Deixar pastas de fora: <code>--exclude</code></h3>
+<pre class="term">$ rsync -avh --delete --exclude='.cache' --exclude='Downloads' ~/ /media/ana/BACKUP/home/</pre>
+<p>Cada <code>--exclude</code> recebe um nome ou padrão. As aspas evitam que o shell expanda curingas antes da hora.</p>
+
+<h3>Ver o progresso: <code>--progress</code></h3>
+<p>Em arquivos grandes, <code>--progress</code> (ou <code>-P</code>) mostra a porcentagem e a velocidade de cada arquivo:</p>
+<pre class="term">$ rsync -avh --progress ~/Imagens/ /media/ana/BACKUP/Imagens/
+sending incremental file list
+ferias.jpg
+          2,10M 100%   95,24MB/s    0:00:00 (xfr#1, to-chk=1/3)
+perfil.png
+        102,40K 100%    4,51MB/s    0:00:00 (xfr#2, to-chk=0/3)
+
+sent 2,20M bytes  received 57 bytes  4,40M bytes/sec
+total size is 2,20M  speedup is 1,00</pre>
+
+<hr>
+
+<h2>tar: um pacote com data no nome</h2>
+<p>O <code>rsync</code> mantém <strong>um</strong> espelho atualizado. Às vezes você quer <strong>fotografias</strong> de cada dia, para poder voltar a uma versão antiga. Para isso, empacote com <code>tar</code> e coloque a data no nome.</p>
+
+<p>Primeiro, entenda o <code>$(date +%F)</code>. O <code>date +%F</code> imprime a data no formato ano-mês-dia, e o <code>$( )</code> coloca essa saída dentro de outro comando:</p>
+
+<pre class="term">$ date +%F
+2026-10-15
+$ echo "backup-$(date +%F).tar.gz"
+backup-2026-10-15.tar.gz</pre>
+
+<dl class="anatomy">
+  <dt>tar</dt><dd>O programa que empacota (veja <a href="compactar.html">tar, zip, gzip</a>).</dd>
+  <dt>-czf</dt><dd><code>c</code> = criar, <code>z</code> = compactar com gzip, <code>f</code> = o próximo nome é o arquivo.</dd>
+  <dt>/media/ana/BACKUP/documentos-$(date +%F).tar.gz</dt><dd>O arquivo a criar, com a data de hoje no nome.</dd>
+  <dt>-C ~</dt><dd>Entra na pasta pessoal antes de empacotar, para os caminhos ficarem curtos.</dd>
+  <dt>Documentos</dt><dd>O que empacotar.</dd>
+</dl>
+
+<pre class="term">$ tar -czf /media/ana/BACKUP/documentos-$(date +%F).tar.gz -C ~ Documentos
+$ ls -lh /media/ana/BACKUP/*.tar.gz
+-rw-rw-r-- 1 ana ana 4,1K Oct 13 22:00 /media/ana/BACKUP/documentos-2026-10-13.tar.gz
+-rw-rw-r-- 1 ana ana 4,1K Oct 14 22:00 /media/ana/BACKUP/documentos-2026-10-14.tar.gz
+-rw-rw-r-- 1 ana ana 4,2K Oct 15 10:30 /media/ana/BACKUP/documentos-2026-10-15.tar.gz</pre>
+
+<p>Para ver o que tem dentro sem extrair, use <code>-t</code> (de <em>list</em>):</p>
+<pre class="term">$ tar -tzf /media/ana/BACKUP/documentos-2026-10-15.tar.gz
+Documentos/
+Documentos/acesso.log
+Documentos/notas.txt
+Documentos/relatorio.odt
+Documentos/projetos/
+Documentos/projetos/backup.sh
+Documentos/projetos/site/
+Documentos/projetos/site/index.html
+Documentos/projetos/site/style.css</pre>
+
+<div class="try" data-setup="mkdir backups" data-goal="file:~/backups/2026-10-15/notas.txt">
+<p class="try-task"><strong>Missão:</strong> o simulador não tem <code>tar</code>, mas tem <code>cp</code> e <code>$( )</code>. Copie a pasta <code>Documentos</code> para dentro de <code>backups</code>, numa pasta com o nome da data de hoje. Dica: <code>cp -r Documentos backups/$(date +%F)</code>. Depois confira com <code>ls backups/*</code>.</p>
+</div>
+
+<hr>
+
+<h2>Testar a restauração</h2>
+<p>Um backup que nunca foi restaurado é só uma esperança. Faça o teste uma vez por mês.</p>
+
+<ol class="passo">
+<li>
+<p><strong>Restaure um arquivo do espelho do rsync</strong> para uma pasta de teste, sem sobrescrever o original:</p>
+<pre class="term">$ mkdir -p ~/teste-restauracao
+$ rsync -avh /media/ana/BACKUP/Documentos/notas.txt ~/teste-restauracao/
+sending incremental file list
+notas.txt
+
+sent 191 bytes  received 35 bytes  452,00 bytes/sec
+total size is 71  speedup is 0,31
+$ cat ~/teste-restauracao/notas.txt
+Comprar café
+Ligar para o João
+Estudar Ubuntu
+Fazer backup das fotos</pre>
+</li>
+<li>
+<p><strong>Compare a pasta inteira</strong> com o original. O <code>diff -r</code> compara pastas recursivamente; se não mostrar nada, são idênticas:</p>
+<pre class="term">$ diff -r ~/Documentos /media/ana/BACKUP/Documentos
+$ echo $?
+0                                                        « 0 = idênticas</pre>
+</li>
+<li>
+<p><strong>Extraia um pacote tar</strong> numa pasta separada, com <code>-x</code> (extrair) e <code>-C</code> (onde):</p>
+<pre class="term">$ tar -xzf /media/ana/BACKUP/documentos-2026-10-14.tar.gz -C ~/teste-restauracao
+$ ls ~/teste-restauracao
+Documentos  notas.txt</pre>
+</li>
+<li><p><strong>Apague a pasta de teste</strong> quando terminar: <code>rm -r ~/teste-restauracao</code>.</p></li>
+</ol>
+
+<hr>
+
+<h2>A lista de programas instalados</h2>
+<p>Em vez de copiar os programas, guarde a <strong>lista</strong> deles. O <code>apt-mark showmanual</code> mostra os pacotes que foram instalados de propósito (e não como dependência):</p>
+
+<pre class="term">$ apt-mark showmanual &gt; /media/ana/BACKUP/pacotes.txt
+$ wc -l /media/ana/BACKUP/pacotes.txt
+157 /media/ana/BACKUP/pacotes.txt</pre>
+
+<p>Num Ubuntu novo, reinstale tudo de uma vez:</p>
+<pre class="term">$ xargs sudo apt install -y &lt; /media/ana/BACKUP/pacotes.txt</pre>
+
+<p>Para Snaps, guarde também a saída de <code>snap list</code>.</p>
+
+<hr>
+
+<h2>Formas diferentes de fazer backup</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Ferramenta</th><th>Como é</th><th>Melhor quando…</th></tr>
+<tr><td><code>rsync</code></td><td>Espelho atualizado; rápido nas próximas vezes</td><td>Backup diário da pasta pessoal para um HD ou outro computador.</td></tr>
+<tr><td><code>tar</code> + data</td><td>Um pacote por dia</td><td>Você quer voltar a versões antigas de poucos arquivos.</td></tr>
+<tr><td>App <strong>Backups</strong> (Déjà Dup)</td><td>Gráfico, agendado, com versões e criptografia</td><td>Desktop, para quem prefere clicar.</td></tr>
+<tr><td>Timeshift</td><td>"Fotografias" do sistema (não da pasta pessoal)</td><td>Voltar o sistema depois de uma atualização que deu problema.</td></tr>
+<tr><td><code>restic</code> ou <code>borg</code></td><td>Versões, deduplicação e criptografia, inclusive na nuvem</td><td>Servidores e quem quer o melhor dos dois mundos.</td></tr>
+</table>
+</div>
+
+<p>Para agendar o backup e não depender da memória, veja <a href="cron.html">Agendar Tarefas</a> e o projeto <a href="projeto-backup.html">Backup Automático</a>.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>O HD não estava conectado e o backup foi para o lugar errado</strong>
+<pre class="term">$ rsync -avh ~/Documentos/ /media/ana/BACKUP/Documentos/
+sending incremental file list
+created directory /media/ana/BACKUP/Documentos
+…</pre>
+<p><strong>O que aconteceu:</strong> o HD externo não estava montado. O rsync criou a pasta <code>/media/ana/BACKUP</code> <strong>no próprio SSD</strong> e copiou tudo para lá. O "backup" está no mesmo disco do original, e pode até enchê-lo.</p>
+<p><strong>Como confirmar:</strong> <code>findmnt /media/ana/BACKUP</code> não mostra nada.</p>
+<p><strong>Como evitar:</strong> em scripts, teste antes com <code>mountpoint</code>, que devolve 0 só se a pasta for um ponto de montagem:</p>
+<pre class="term">$ mountpoint -q /media/ana/BACKUP &amp;&amp; rsync -avh ~/Documentos/ /media/ana/BACKUP/Documentos/ || echo "HD de backup não está montado!"
+HD de backup não está montado!</pre>
+</div>
+
+<div class="cenario">
+<strong>"change_dir … failed: No such file or directory"</strong>
+<pre class="term">$ rsync -avh ~/Documento/ /media/ana/BACKUP/Documentos/
+sending incremental file list
+rsync: [sender] change_dir "/home/ana/Documento" failed: No such file or directory (2)
+
+sent 19 bytes  received 12 bytes  62,00 bytes/sec
+total size is 0  speedup is 0,00
+rsync error: some files/attrs were not transferred (see previous errors) (code 23) at main.c(1356) [sender=3.4.1]</pre>
+<p><strong>O que aconteceu:</strong> a origem foi digitada errada (faltou o "s"). Nada foi copiado e o código de saída é 23.</p>
+<p><strong>Como resolver:</strong> use <kbd>Tab</kbd> para completar os caminhos. Em scripts, confira o código de saída do rsync.</p>
+</div>
+
+<div class="cenario">
+<strong>Apareceu uma pasta dentro da outra: Documentos/Documentos</strong>
+<p><strong>O que aconteceu:</strong> você esqueceu a barra final na origem (<code>rsync -a ~/Documentos /backup/Documentos/</code>), e o rsync copiou a pasta para dentro do destino.</p>
+<p><strong>Como resolver:</strong> apague a pasta duplicada e repita com a barra: <code>~/Documentos/</code>. Use <code>-n</code> antes para conferir.</p>
+</div>
+
+<div class="cenario">
+<strong>"Permission denied" ao copiar /etc</strong>
+<p><strong>O que aconteceu:</strong> vários arquivos de <code>/etc</code> só o root pode ler. O rsync copia o resto e termina com <code>code 23</code>.</p>
+<p><strong>Como resolver:</strong> para pastas do sistema, use <code>sudo rsync -a /etc/ /media/ana/BACKUP/etc/</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Pendrive em FAT32 e arquivo maior que 4 GB</strong>
+<p><strong>O que aconteceu:</strong> o FAT32 não aceita arquivos com mais de 4 GB, e o rsync reclama ao copiar uma ISO ou um vídeo grande. Ele também não guarda permissões do Linux.</p>
+<p><strong>Como resolver:</strong> formate o disco de backup em <strong>ext4</strong> (se ele só for usado no Linux) ou <strong>exFAT</strong> (se precisar abrir no Windows). Veja <a href="particionar.html">Particionar e Formatar</a>.</p>
+</div>
+
+<hr>
+
+<h2>Referência do rsync</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-a</code></td><td>Modo arquivo: recursivo e preserva permissões, datas e links</td><td><code>rsync -a orig/ dest/</code></td></tr>
+<tr><td><code>-v</code></td><td>Lista os arquivos copiados</td><td><code>rsync -av …</code></td></tr>
+<tr><td><code>-h</code></td><td>Tamanhos legíveis</td><td><code>rsync -avh …</code></td></tr>
+<tr><td><code>-n</code></td><td>Ensaio: mostra sem fazer</td><td><code>rsync -avhn …</code></td></tr>
+<tr><td><code>-P</code> / <code>--progress</code></td><td>Mostra o progresso de cada arquivo</td><td><code>rsync -avhP …</code></td></tr>
+<tr><td><code>-z</code></td><td>Compacta durante a transferência pela rede</td><td><code>rsync -avz … servidor:</code></td></tr>
+<tr><td><code>--delete</code></td><td>Apaga do destino o que não existe mais na origem</td><td><code>rsync -a --delete …</code></td></tr>
+<tr><td><code>--exclude</code></td><td>Ignora um nome ou padrão</td><td><code>--exclude='.cache'</code></td></tr>
+<tr><td><code>-A -X</code></td><td>Preserva ACLs e atributos estendidos</td><td><code>rsync -aAX …</code></td></tr>
+</table>
+</div>
+<p>Para copiar para outro computador pela rede, veja <a href="scp-rsync.html">scp e rsync</a>.</p>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Ensaio</h3>
+<p>Complete para ver o que o rsync faria, sem copiar nada:</p>
+<div class="ex-code">rsync -avh<input data-answer="n" aria-label="opção"> ~/Documentos/ /media/ana/BACKUP/Documentos/</div>
+</div>
+
+<div class="exercise">
+<h3>2. Data no nome</h3>
+<p>Complete para o nome do arquivo ter a data de hoje no formato 2026-10-15:</p>
+<div class="ex-code">tar -czf fotos-$(date <input data-answer="+%F|+%Y-%m-%d" aria-label="formato">).tar.gz Imagens</div>
+</div>
+
+<div class="exercise">
+<h3>3. Espelho exato</h3>
+<p>Complete para o destino ficar idêntico à origem, inclusive apagando o que você apagou:</p>
+<div class="ex-code">rsync -avh <input data-answer="--delete" aria-label="opção"> ~/Documentos/ /media/ana/BACKUP/Documentos/</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Qual a diferença entre <code>rsync -a ~/Fotos/ /bk/</code> e <code>rsync -a ~/Fotos /bk/</code>?</p>
+<label><input type="radio" name="q4"> Nenhuma.</label>
+<label><input type="radio" name="q4"> O primeiro copia o conteúdo de Fotos; o segundo cria <code>/bk/Fotos</code>.</label>
+<label><input type="radio" name="q4"> O primeiro apaga a origem.</label>
+<label><input type="radio" name="q4"> O segundo dá erro.</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Quando um backup pode ser considerado confiável?</p>
+<label><input type="radio" name="q5"> Quando o rsync termina sem mensagens.</label>
+<label><input type="radio" name="q5"> Quando está num HD novo.</label>
+<label><input type="radio" name="q5"> Quando você já restaurou arquivos dele com sucesso.</label>
+<label><input type="radio" name="q5"> Quando usa <code>--delete</code>.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Regra 3-2-1: três cópias, dois tipos de mídia, uma fora de casa.</li>
+  <li><code>rsync -avh origem/ destino/</code> copia só o que mudou; a barra na origem significa "o conteúdo de".</li>
+  <li>Teste com <code>-n</code> antes; use <code>--delete</code> com cuidado.</li>
+  <li><code>tar -czf nome-$(date +%F).tar.gz pasta</code> cria uma versão por dia.</li>
+  <li>Restaure de vez em quando e compare com <code>diff -r</code>. Confira com <code>mountpoint</code> se o HD está mesmo conectado.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

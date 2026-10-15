@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Desktop — conhecendo o GNOME, atalhos e o gerenciador de arquivos | Guia Ubuntu</title>
+<meta name="description" content="As partes da tela do Ubuntu, a busca com a tecla Super, a dock, a Central de Aplicativos, as Configurações, o gerenciador de arquivos e como abrir pastas e arquivos pelo terminal.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">O Desktop</span></h1>
+
+<p class="intro">O <strong>desktop</strong> ("área de trabalho") é a parte gráfica do Ubuntu: janelas, ícones, menus e a barra lateral. O Ubuntu usa o ambiente <strong>GNOME</strong>, com alguns ajustes próprios. Nesta aula você aprende a se mover nele sem mouse e a ligar o mundo gráfico ao terminal.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O nome e a função de cada parte da tela.</li>
+  <li>Abrir qualquer coisa em segundos com a tecla <kbd>Super</kbd>.</li>
+  <li>Instalar programas pela Central de Aplicativos.</li>
+  <li>Usar o gerenciador de arquivos com atalhos.</li>
+  <li>Abrir pastas e arquivos do terminal na interface, e o terminal a partir de uma pasta.</li>
+</ul>
+</div>
+
+<div class="note">
+<strong>Usa Ubuntu Server, Multipass ou WSL?</strong>
+<p>Eles não têm desktop. Você pode pular para <a href="terminal.html">O Terminal</a>.</p>
+</div>
+
+<hr>
+
+<h2>As partes da tela</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Parte</th><th>Onde fica</th><th>Para que serve</th></tr>
+<tr><td>Barra superior</td><td>Topo da tela</td><td>Relógio, notificações e menu do sistema</td></tr>
+<tr><td>Atividades</td><td>Canto superior esquerdo</td><td>Visão geral: janelas abertas, áreas de trabalho e busca</td></tr>
+<tr><td>Relógio e calendário</td><td>Centro da barra superior</td><td>Calendário e notificações</td></tr>
+<tr><td>Menu do sistema</td><td>Canto superior direito</td><td>Wi-Fi, som, brilho, bateria, desligar e sair da sessão</td></tr>
+<tr><td>Dock</td><td>Lateral esquerda</td><td>Atalhos dos programas favoritos e dos que estão abertos</td></tr>
+<tr><td>Mostrar aplicativos</td><td>Último botão da dock</td><td>Grade com todos os programas instalados</td></tr>
+</table>
+</div>
+
+<p>O terminal também sabe qual desktop está rodando. O <code>echo</code> mostra o valor de uma <strong>variável</strong>, uma informação guardada pelo sistema (você vê mais em <a href="primeiros-comandos.html">Primeiros Comandos</a>):</p>
+
+<dl class="anatomy">
+  <dt>echo</dt><dd>Mostra na tela o que recebeu.</dd>
+  <dt>$XDG_CURRENT_DESKTOP</dt><dd>Uma variável. O <code>$</code> na frente pede o <strong>valor</strong> dela.</dd>
+</dl>
+
+<pre class="term">$ echo $XDG_CURRENT_DESKTOP
+ubuntu:GNOME                                     « GNOME com os ajustes do Ubuntu
+$ echo $XDG_SESSION_TYPE
+wayland                                          « o sistema gráfico em uso
+$ gnome-shell --version
+GNOME Shell 50.1</pre>
+
+<p><strong>Wayland</strong> é o sistema que desenha as janelas na tela. Ele substituiu o antigo <strong>X11</strong> (ou Xorg). Você só precisa saber disso quando um programa antigo, de captura de tela ou de acesso remoto, não funciona direito.</p>
+
+<hr>
+
+<h2>Abrir qualquer coisa: a tecla Super</h2>
+<p>A tecla <kbd>Super</kbd> é a que tem o logo do Windows. Ela abre a visão geral. Comece a digitar e o Ubuntu procura programas, arquivos e configurações.</p>
+
+<ol class="passo">
+  <li>Aperte <kbd>Super</kbd>.</li>
+  <li>Digite <code>calc</code>.</li>
+  <li>Aperte <kbd>Enter</kbd>: a Calculadora abre.</li>
+</ol>
+
+<div class="tip">
+<strong>Funciona com configurações também</strong>
+<p>Aperte <kbd>Super</kbd> e digite <code>wi-fi</code>, <code>tela</code> ou <code>teclado</code>: a tela de configuração certa aparece na busca.</p>
+</div>
+
+<h3>Formas diferentes de abrir um programa</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Como</th><th>Melhor quando…</th></tr>
+<tr><td>Busca</td><td><kbd>Super</kbd>, digitar o nome, <kbd>Enter</kbd></td><td>Quase sempre: é a mais rápida.</td></tr>
+<tr><td>Dock</td><td>Clicar no ícone</td><td>O programa é um dos seus favoritos.</td></tr>
+<tr><td>Grade de aplicativos</td><td><kbd>Super</kbd>+<kbd>A</kbd></td><td>Você não lembra o nome e quer ver todos.</td></tr>
+<tr><td>Atalho de número</td><td><kbd>Super</kbd>+<kbd>1</kbd>, <kbd>2</kbd>…</td><td>Abre o 1º, 2º… programa da dock.</td></tr>
+<tr><td>Terminal</td><td>Digitar o nome do programa, como <code>gnome-calculator</code></td><td>Você já está no terminal.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>A dock</h2>
+<p>A dock é a barra da lateral esquerda. Um pontinho ao lado do ícone indica que o programa está aberto.</p>
+<ul>
+  <li><strong>Clique</strong>: abre o programa ou traz a janela para frente.</li>
+  <li><strong>Botão do meio</strong>: abre uma nova janela do mesmo programa.</li>
+  <li><strong>Botão direito → Adicionar aos favoritos</strong>: fixa o ícone na dock.</li>
+  <li><strong>Arrastar</strong>: muda a ordem.</li>
+</ul>
+<p>Posição, tamanho e comportamento da dock ficam em <strong>Configurações → Ubuntu Desktop</strong>.</p>
+
+<hr>
+
+<h2>Central de Aplicativos</h2>
+<p>A <strong>Central de Aplicativos</strong> (<em>App Center</em>) é a loja de programas do Ubuntu. Tudo nela é gratuito: procure pelo nome, clique em <strong>Instalar</strong> e digite sua senha.</p>
+<p>Ela instala programas no formato snap e também pacotes <code>.deb</code>. Pelo terminal, você faz o mesmo assim:</p>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Como administrador (instalar exige).</dd>
+  <dt>snap install</dt><dd>Instala um programa no formato snap.</dd>
+  <dt>vlc</dt><dd>O nome do programa.</dd>
+</dl>
+
+<pre class="term">$ sudo snap install vlc
+[sudo: authenticate] Senha:
+vlc 3.0.21 from VideoLAN✓ installed</pre>
+
+<p>O número da versão pode ser outro no seu computador. Veja mais em <a href="apt.html">apt</a> e <a href="snap.html">Snap</a>.</p>
+
+<hr>
+
+<h2>Configurações</h2>
+<p>O aplicativo <strong>Configurações</strong> reúne quase todos os ajustes. Abra pelo menu do sistema (canto superior direito) ou com <kbd>Super</kbd> e digitando <code>configurações</code>.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Seção</th><th>O que você ajusta</th></tr>
+<tr><td>Wi-Fi / Rede</td><td>Conexões sem fio, cabo, VPN e proxy</td></tr>
+<tr><td>Bluetooth</td><td>Fones, mouses e teclados sem fio</td></tr>
+<tr><td>Telas</td><td>Resolução, escala, monitores extras e luz noturna</td></tr>
+<tr><td>Som</td><td>Saída, entrada e volume</td></tr>
+<tr><td>Energia</td><td>Economia de energia, suspensão e bateria</td></tr>
+<tr><td>Aparência</td><td>Tema claro ou escuro, cor de destaque e plano de fundo</td></tr>
+<tr><td>Ubuntu Desktop</td><td>Dock e ícones da área de trabalho</td></tr>
+<tr><td>Teclado</td><td>Layouts (ABNT2, US internacional) e atalhos</td></tr>
+<tr><td>Usuários</td><td>Criar contas, trocar senha, login automático</td></tr>
+<tr><td>Sistema</td><td>Idioma, data e hora, acesso remoto e "Sobre" (versão e hardware)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>O gerenciador de arquivos</h2>
+<p>O aplicativo <strong>Arquivos</strong> (também chamado de <strong>Nautilus</strong>) é o equivalente ao Explorador de Arquivos do Windows. Ele mostra as mesmas pastas que você vê no terminal com <code>ls</code>.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho no Arquivos</th><th>O que faz</th></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>H</kbd></td><td>Mostra ou esconde os arquivos ocultos (os que começam com ponto)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>Deixa você digitar um caminho, como <code>/etc</code></td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>Busca arquivos na pasta</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td><td>Cria uma pasta nova</td></tr>
+<tr><td><kbd>F2</kbd></td><td>Renomeia o item selecionado</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>T</kbd></td><td>Abre uma nova aba</td></tr>
+<tr><td><kbd>Delete</kbd></td><td>Manda para a lixeira (dá para recuperar)</td></tr>
+<tr><td><kbd>Shift</kbd>+<kbd>Delete</kbd></td><td>Apaga de vez, sem passar pela lixeira</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Lixeira x terminal</strong>
+<p>O Arquivos manda para a lixeira. O comando <code>rm</code> do terminal <strong>não</strong> usa lixeira: apagou, sumiu. Veja <a href="remover.html">rm e rmdir</a>.</p>
+</div>
+
+<hr>
+
+<h2>Ligando o desktop ao terminal</h2>
+<p>Os dois mundos conversam. Há formas de ir de um para o outro.</p>
+
+<h3>Do Arquivos para o terminal</h3>
+<p>Clique com o botão direito no fundo de uma pasta e escolha <strong>Abrir no Terminal</strong>. O terminal já abre dentro daquela pasta:</p>
+
+<pre class="term" data-cwd="~/Documentos/projetos">$ pwd
+/home/ana/Documentos/projetos                   « a pasta em que você clicou</pre>
+
+<h3>Do terminal para a interface: <code>xdg-open</code></h3>
+<p>O <code>xdg-open</code> abre um arquivo ou uma pasta com o programa padrão, como se você tivesse dado dois cliques.</p>
+
+<dl class="anatomy">
+  <dt>xdg-open</dt><dd>Abre com o programa padrão para aquele tipo de arquivo.</dd>
+  <dt>.</dt><dd>O ponto significa "a pasta onde estou". Abre o Arquivos nela.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/Downloads">$ xdg-open .
+$ xdg-open manual.pdf
+$ xdg-open https://ubuntu.com</pre>
+
+<p>Nada aparece no terminal: as janelas abrem na tela. O primeiro abre a pasta Downloads no Arquivos, o segundo abre o PDF no visualizador de documentos, e o terceiro abre o site no navegador padrão.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Quero abrir…</th><th>Pela interface</th><th>Pelo terminal</th></tr>
+<tr><td>A pasta atual</td><td>Arquivos → navegar até ela</td><td><code>xdg-open .</code> ou <code>nautilus .</code></td></tr>
+<tr><td>Um arquivo</td><td>Dois cliques</td><td><code>xdg-open arquivo</code></td></tr>
+<tr><td>Um texto para editar</td><td>Botão direito → Abrir com Editor de Texto</td><td><code>gnome-text-editor notas.txt</code> ou <a href="editores.html">nano</a></td></tr>
+<tr><td>O terminal numa pasta</td><td>Botão direito → Abrir no Terminal</td><td><code>cd pasta</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Atalhos de teclado do desktop</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>O que faz</th></tr>
+<tr><td><kbd>Super</kbd></td><td>Visão geral e busca</td></tr>
+<tr><td><kbd>Super</kbd>+<kbd>A</kbd></td><td>Grade de aplicativos</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd></td><td>Abre o terminal</td></tr>
+<tr><td><kbd>Alt</kbd>+<kbd>Tab</kbd></td><td>Alterna entre janelas</td></tr>
+<tr><td><kbd>Super</kbd>+<kbd>L</kbd></td><td>Bloqueia a tela</td></tr>
+<tr><td><kbd>Super</kbd>+<kbd>D</kbd></td><td>Esconde todas as janelas (mostra a área de trabalho)</td></tr>
+<tr><td><kbd>Super</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></td><td>Maximiza / restaura a janela</td></tr>
+<tr><td><kbd>Super</kbd>+<kbd>←</kbd> / <kbd>→</kbd></td><td>Encosta a janela na metade esquerda / direita</td></tr>
+<tr><td><kbd>Super</kbd>+<kbd>Page Up</kbd> / <kbd>Page Down</kbd></td><td>Troca de área de trabalho</td></tr>
+<tr><td><kbd>Print Screen</kbd></td><td>Abre a ferramenta de captura de tela</td></tr>
+<tr><td><kbd>Alt</kbd>+<kbd>F4</kbd></td><td>Fecha a janela</td></tr>
+</table>
+</div>
+
+<p>As capturas de tela ficam em <code>~/Imagens/Capturas de tela</code>. Os atalhos podem ser vistos e mudados em <strong>Configurações → Teclado → Atalhos de teclado</strong>. Extensões que organizam janelas lado a lado costumam trocar os atalhos com <kbd>Super</kbd>+setas; se algum não funcionar, confira lá.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"O programa não está respondendo"</strong>
+<p><strong>O que aconteceu:</strong> o programa travou ou está ocupado. O Ubuntu mostra uma janela com duas opções: <strong>Aguardar</strong> e <strong>Forçar saída</strong>.</p>
+<p><strong>Como resolver:</strong> espere alguns segundos. Se não voltar, clique em <strong>Forçar saída</strong>. Para encerrar pelo terminal, veja <a href="kill.html">Encerrar Programas</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>A tela inteira congelou</strong>
+<p><strong>O que aconteceu:</strong> a interface gráfica travou, mas o sistema por baixo pode estar funcionando.</p>
+<p><strong>Como resolver:</strong> existe um terminal de emergência fora da interface, que você abre com <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>. O passo a passo está em <a href="travamentos.html">Quando o Sistema Trava</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>O Ç e os acentos não funcionam</strong>
+<p><strong>O que aconteceu:</strong> o layout do teclado não corresponde ao teclado físico.</p>
+<p><strong>Como resolver:</strong> em <strong>Configurações → Teclado</strong>, adicione <strong>Português (Brasil)</strong>, que corresponde ao ABNT2. Se o seu teclado não tem Ç (padrão americano), use <strong>Inglês (EUA, internacional com teclas mortas)</strong>.</p>
+</div>
+
+<div class="cenario">
+<strong><code>xdg-open</code> abriu no programa errado</strong>
+<p><strong>O que aconteceu:</strong> o programa padrão para aquele tipo de arquivo é outro.</p>
+<p><strong>Como resolver:</strong> no Arquivos, clique com o botão direito no arquivo → <strong>Abrir com…</strong>, escolha o programa e marque para usar sempre. O <code>xdg-open</code> passa a usar a mesma escolha.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Abrir a pasta atual na interface</h3>
+<p>Complete o comando que abre o Arquivos na pasta onde você está:</p>
+<div class="ex-code"><input data-answer="xdg-open|nautilus" aria-label="comando"> .</div>
+</div>
+
+<div class="exercise">
+<h3>2. Ver o tipo de sessão</h3>
+<p>Complete para mostrar se você está em Wayland ou X11:</p>
+<div class="ex-code">echo <input data-answer="$XDG_SESSION_TYPE" aria-label="variável"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">3. Qual atalho abre o terminal?</p>
+<label><input type="radio" name="q3"> <kbd>Super</kbd>+<kbd>T</kbd></label>
+<label><input type="radio" name="q3"> <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd></label>
+<label><input type="radio" name="q3"> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></label>
+<label><input type="radio" name="q3"> <kbd>Alt</kbd>+<kbd>F2</kbd></label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">4. No Arquivos, como ver os arquivos ocultos?</p>
+<label><input type="radio" name="q4"> <kbd>Ctrl</kbd>+<kbd>O</kbd></label>
+<label><input type="radio" name="q4"> <kbd>F2</kbd></label>
+<label><input type="radio" name="q4"> <kbd>Ctrl</kbd>+<kbd>L</kbd></label>
+<label><input type="radio" name="q4"> <kbd>Ctrl</kbd>+<kbd>H</kbd></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>O Ubuntu usa o GNOME. A tecla <kbd>Super</kbd> abre a busca: é o jeito mais rápido de abrir qualquer coisa.</li>
+  <li>A Central de Aplicativos instala programas com cliques; o terminal faz o mesmo com <code>snap</code> e <code>apt</code>.</li>
+  <li>No Arquivos, <kbd>Ctrl</kbd>+<kbd>H</kbd> mostra ocultos e <kbd>Ctrl</kbd>+<kbd>L</kbd> deixa digitar um caminho.</li>
+  <li>"Abrir no Terminal" leva da pasta ao terminal; <code>xdg-open</code> leva do terminal à interface.</li>
+  <li>Se a tela travar, existe o terminal de emergência: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

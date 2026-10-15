@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu ip, ping, ss — ver a rede pelo terminal | Guia Ubuntu</title>
+<meta name="description" content="Aprenda ip a, ip -br a, ip r, ip link, ping e ss no Ubuntu: cada linha da saída explicada, formas diferentes de ver o IP, portas abertas e erros comuns.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">ip, ping, ss</span></h1>
+
+<p class="intro">Três ferramentas respondem quase todas as perguntas sobre a rede: <code>ip</code> mostra as placas, os endereços e as rotas; <code>ping</code> testa se um destino responde; <code>ss</code> lista as conexões e as portas abertas. Nesta aula você vai ler a saída de cada uma, linha por linha.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Ler a saída completa do <code>ip a</code> e a versão resumida <code>ip -br a</code>.</li>
+  <li>Ver rotas, gateway e vizinhos da rede com <code>ip r</code> e <code>ip neigh</code>.</li>
+  <li>Usar o <code>ping</code> com limite de tentativas e entender a estatística no final.</li>
+  <li>Descobrir quais portas estão abertas e qual programa está usando cada uma com <code>ss</code>.</li>
+</ul>
+</div>
+
+<p>Se ainda não leu <a href="redes.html">Conceitos de Rede</a>, comece por lá: esta aula usa IP, máscara, gateway e porta o tempo todo. Os exemplos são da máquina fictícia <strong>notebook</strong>, ligada no Wi-Fi.</p>
+
+<hr>
+
+<h2>O comando ip</h2>
+<p>O <code>ip</code> é a ferramenta oficial de rede do Linux. Ele tem <strong>subcomandos</strong>, e cada um cuida de uma parte:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Subcomando</th><th>Abreviação</th><th>Mostra</th></tr>
+<tr><td><code>ip address</code></td><td><code>ip a</code></td><td>Endereços IP de cada placa</td></tr>
+<tr><td><code>ip route</code></td><td><code>ip r</code></td><td>Rotas (por onde cada destino sai)</td></tr>
+<tr><td><code>ip link</code></td><td><code>ip l</code></td><td>As placas em si: ligadas, desligadas, endereço físico (MAC)</td></tr>
+<tr><td><code>ip neighbour</code></td><td><code>ip n</code></td><td>Vizinhos: outros aparelhos que o computador já viu na rede</td></tr>
+</table>
+</div>
+
+<p>Qualquer abreviação que não seja ambígua funciona: <code>ip a</code>, <code>ip addr</code> e <code>ip address</code> são o mesmo comando.</p>
+
+<hr>
+
+<h2>Ver os endereços: <code>ip -br a</code></h2>
+<p>Comece pela versão resumida. Ela mostra uma linha por placa:</p>
+
+<dl class="anatomy">
+  <dt>ip</dt><dd>A ferramenta de rede.</dd>
+  <dt>-br</dt><dd>Opção <em>brief</em>, "resumido": uma linha por placa.</dd>
+  <dt>a</dt><dd>Subcomando <code>address</code>: endereços.</dd>
+</dl>
+
+<pre class="term">$ ip -br a
+lo               UNKNOWN        127.0.0.1/8 ::1/128
+enp3s0           DOWN
+wlp2s0           UP             192.168.0.15/24 fe80::5a1c:3b2d:8e4f:9a10/64</pre>
+
+<p>Cada linha tem três colunas: o <strong>nome da placa</strong>, o <strong>estado</strong> e os <strong>endereços</strong>. Os nomes seguem um padrão:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Nome</th><th>O que é</th></tr>
+<tr><td><code>lo</code></td><td><em>Loopback</em>: a placa virtual que o computador usa para falar consigo mesmo. Sempre existe.</td></tr>
+<tr><td><code>enp3s0</code>, <code>eno1</code></td><td>Placa de <strong>cabo</strong> (Ethernet). O "en" vem de Ethernet.</td></tr>
+<tr><td><code>wlp2s0</code>, <code>wlx…</code></td><td>Placa <strong>Wi-Fi</strong>. O "wl" vem de <em>wireless</em>, "sem fio". Adaptadores USB costumam ter nomes como <code>wlx</code> seguido do endereço físico.</td></tr>
+<tr><td><code>docker0</code>, <code>virbr0</code>, <code>wg0</code></td><td>Placas virtuais criadas pelo Docker, por máquinas virtuais ou por VPN.</td></tr>
+</table>
+</div>
+
+<p>Na coluna de estado, <code>UP</code> quer dizer ligada e com conexão, e <code>DOWN</code> quer dizer desligada ou sem cabo. O <code>lo</code> aparece como <code>UNKNOWN</code>, o que é normal.</p>
+
+<h3>Com cores: <code>-c</code></h3>
+<p>Acrescente <code>-c</code> (de <em>color</em>) para colorir: estados em verde ou vermelho, endereços em destaque. Fica mais fácil de ler na tela:</p>
+<pre class="term">$ ip -br -c a</pre>
+
+<hr>
+
+<h2>A saída completa: <code>ip a</code></h2>
+<p>Sem o <code>-br</code>, o <code>ip a</code> mostra todos os detalhes. Assusta no começo, mas cada linha tem um significado:</p>
+
+<pre class="term">$ ip a
+1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000    « placa 1: loopback
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo                                                         « IPv4 do localhost
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host noprefixroute
+       valid_lft forever preferred_lft forever
+2: enp3s0: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc fq_codel state DOWN group default qlen 1000   « NO-CARRIER: sem cabo
+    link/ether 3c:a9:f4:12:ab:cd brd ff:ff:ff:ff:ff:ff                                     « endereço físico (MAC)
+3: wlp2s0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default qlen 1000   « Wi-Fi ligado
+    link/ether 7c:b2:7d:44:19:e5 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.0.15/24 brd 192.168.0.255 scope global dynamic noprefixroute wlp2s0       « o seu IPv4
+       valid_lft 3178sec preferred_lft 3178sec                                             « o empréstimo do IP vence em ~53 min
+    inet6 fe80::5a1c:3b2d:8e4f:9a10/64 scope link noprefixroute                            « IPv6 local
+       valid_lft forever preferred_lft forever</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Pedaço</th><th>Significado</th></tr>
+<tr><td><code>3: wlp2s0:</code></td><td>Número e nome da placa.</td></tr>
+<tr><td><code>&lt;…UP,LOWER_UP&gt;</code></td><td>Sinais de estado. <code>UP</code>: a placa foi ligada pelo sistema. <code>LOWER_UP</code>: há conexão física (cabo ou Wi-Fi associado). <code>NO-CARRIER</code>: ligada, mas sem cabo ou sinal.</td></tr>
+<tr><td><code>mtu 1500</code></td><td>Tamanho máximo de cada pacote, em bytes. 1500 é o padrão.</td></tr>
+<tr><td><code>state UP</code></td><td>Estado geral: <code>UP</code> funcionando, <code>DOWN</code> parada.</td></tr>
+<tr><td><code>link/ether 7c:b2:…</code></td><td>Endereço <strong>MAC</strong>: a "placa do carro" da interface, gravada pelo fabricante.</td></tr>
+<tr><td><code>inet 192.168.0.15/24</code></td><td>O endereço IPv4 e a máscara.</td></tr>
+<tr><td><code>brd 192.168.0.255</code></td><td>Endereço de <em>broadcast</em>: mensagem para todos do bairro.</td></tr>
+<tr><td><code>dynamic</code></td><td>O IP veio do DHCP, entregue pelo roteador. Um IP fixo não tem essa palavra.</td></tr>
+<tr><td><code>valid_lft 3178sec</code></td><td>Por quanto tempo o IP emprestado ainda vale. O sistema renova sozinho antes de vencer.</td></tr>
+<tr><td><code>inet6 …</code></td><td>Endereço IPv6. <code>scope link</code> (começa com <code>fe80:</code>) só vale na rede local.</td></tr>
+</table>
+</div>
+
+<h3>Só uma placa</h3>
+<p>Para ver só uma placa, coloque <code>show</code> e o nome no final:</p>
+<pre class="term">$ ip a show wlp2s0
+$ ip -br a show wlp2s0
+wlp2s0           UP             192.168.0.15/24 fe80::5a1c:3b2d:8e4f:9a10/64</pre>
+
+<hr>
+
+<h2>Formas diferentes de ver o seu IP</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Comando</th><th>Quando usar</th></tr>
+<tr><td>Só os números</td><td><code>hostname -I</code></td><td>Para copiar o IP rápido, ou usar num script</td></tr>
+<tr><td>Resumo por placa</td><td><code>ip -br a</code></td><td>No dia a dia: mostra estado e IP de cada placa</td></tr>
+<tr><td>Detalhes completos</td><td><code>ip a</code></td><td>Para investigar: MAC, validade do DHCP, flags</td></tr>
+<tr><td>Pelo NetworkManager</td><td><code>nmcli device show wlp2s0</code></td><td>Quando quer IP, gateway e DNS juntos</td></tr>
+<tr><td>Pela interface gráfica</td><td>Configurações → Wi-Fi → engrenagem</td><td>Quando não quer abrir o terminal</td></tr>
+</table>
+</div>
+
+<pre class="term">$ hostname -I
+192.168.0.15 2804:14c:5b80:8a1f::1a2b</pre>
+
+<hr>
+
+<h2>Rotas e gateway: <code>ip r</code></h2>
+<p>A tabela de rotas diz por onde cada destino sai. A linha que importa no dia a dia é a <code>default</code>: o caminho para a internet.</p>
+
+<pre class="term">$ ip r
+default via 192.168.0.1 dev wlp2s0 proto dhcp src 192.168.0.15 metric 600      « saída para a internet: o roteador
+192.168.0.0/24 dev wlp2s0 proto kernel scope link src 192.168.0.15 metric 600   « a rede local: entrega direto</pre>
+
+<p>Leia a primeira linha assim: "<strong>para qualquer destino</strong> (<code>default</code>), mande <strong>pelo</strong> <code>192.168.0.1</code>, usando a placa <code>wlp2s0</code>". A explicação de cada pedaço está em <a href="redes.html">Conceitos de Rede</a>.</p>
+
+<h3>Por onde sai um destino específico?</h3>
+<p><code>ip r get</code> responde qual rota seria usada para chegar a um endereço:</p>
+<pre class="term">$ ip r get 8.8.8.8
+8.8.8.8 via 192.168.0.1 dev wlp2s0 src 192.168.0.15 uid 1000
+    cache</pre>
+
+<hr>
+
+<h2>Placas e vizinhos: <code>ip link</code> e <code>ip neigh</code></h2>
+<p><code>ip -br link</code> mostra as placas com o endereço físico (MAC), sem os IPs:</p>
+<pre class="term">$ ip -br link
+lo               UNKNOWN        00:00:00:00:00:00 &lt;LOOPBACK,UP,LOWER_UP&gt;
+enp3s0           DOWN           3c:a9:f4:12:ab:cd &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt;
+wlp2s0           UP             7c:b2:7d:44:19:e5 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt;</pre>
+
+<p><code>ip neigh</code> mostra os aparelhos da rede local com os quais o computador já conversou, com o MAC de cada um:</p>
+<pre class="term">$ ip neigh
+192.168.0.1 dev wlp2s0 lladdr a4:91:b1:0c:22:7e REACHABLE       « o roteador, respondendo agora
+192.168.0.31 dev wlp2s0 lladdr d8:3a:dd:51:90:04 STALE          « um aparelho visto há algum tempo</pre>
+
+<h3>Ligar e desligar uma placa</h3>
+<p>Dá para desligar e ligar uma placa com <code>ip link set</code>. Isso exige <code>sudo</code>:</p>
+<pre class="term">$ sudo ip link set wlp2s0 down
+$ sudo ip link set wlp2s0 up</pre>
+
+<div class="warning">
+<strong>Cuidado em acesso remoto</strong>
+<p>Se você está conectado por SSH através de uma placa e a desliga, perde a conexão na hora e não consegue religá-la remotamente. No desktop, prefira desligar e ligar o Wi-Fi pelo menu do sistema ou com <code>nmcli</code> (veja <a href="configurar-rede.html">Configurar a Rede</a>). Mudanças feitas com <code>ip</code> se perdem ao reiniciar.</p>
+</div>
+
+<hr>
+
+<h2>ping: o destino responde?</h2>
+<p>O <code>ping</code> envia um pacote pequeno e espera a resposta, como bater na porta e esperar alguém dizer "oi". Ele mede se o destino responde e quanto tempo leva.</p>
+
+<dl class="anatomy">
+  <dt>ping</dt><dd>O programa.</dd>
+  <dt>-c 3</dt><dd><em>count</em>, "contagem": envia 3 pacotes e para. Sem isso, o ping roda até você apertar <kbd>Ctrl</kbd>+<kbd>C</kbd>.</dd>
+  <dt>192.168.0.1</dt><dd>O destino: um IP ou um nome.</dd>
+</dl>
+
+<pre class="term">$ ping -c 3 192.168.0.1
+PING 192.168.0.1 (192.168.0.1) 56(84) bytes of data.
+64 bytes from 192.168.0.1: icmp_seq=1 ttl=64 time=3.12 ms       « resposta 1, em 3 milissegundos
+64 bytes from 192.168.0.1: icmp_seq=2 ttl=64 time=2.87 ms
+64 bytes from 192.168.0.1: icmp_seq=3 ttl=64 time=4.05 ms
+
+--- 192.168.0.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2003ms  « enviados, recebidos, perda
+rtt min/avg/max/mdev = 2.870/3.346/4.050/0.507 ms               « tempo mínimo/médio/máximo</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Pedaço</th><th>Significado</th></tr>
+<tr><td><code>icmp_seq=1</code></td><td>Número do pacote. Se pular números, pacotes se perderam no caminho.</td></tr>
+<tr><td><code>ttl=64</code></td><td>"Tempo de vida": quantos roteadores o pacote ainda podia atravessar.</td></tr>
+<tr><td><code>time=3.12 ms</code></td><td>Tempo de ida e volta. Na rede de casa: poucos ms. Até a internet: 10 a 100 ms.</td></tr>
+<tr><td><code>0% packet loss</code></td><td>Nenhum pacote perdido. Perda constante indica Wi-Fi fraco ou rede congestionada.</td></tr>
+</table>
+</div>
+
+<h3>O que o ping devolve</h3>
+<p>O código de saída diz o resultado, o que é útil em scripts:</p>
+<pre class="term">$ ping -c 1 192.168.0.1 &gt; /dev/null; echo $?
+0                                            « respondeu
+$ ping -c 1 -W 1 192.168.0.250 &gt; /dev/null; echo $?
+1                                            « ninguém respondeu
+$ ping -c 1 servidro.local; echo $?
+ping: servidro.local: Nome ou serviço desconhecido
+2                                            « nem achou o nome</pre>
+
+<h3>Opções úteis do ping</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Faz</th><th>Exemplo</th></tr>
+<tr><td><code>-c N</code></td><td>Envia N pacotes e para</td><td><code>ping -c 5 ubuntu.com</code></td></tr>
+<tr><td><code>-i S</code></td><td>Intervalo entre pacotes, em segundos</td><td><code>ping -i 0.5 192.168.0.1</code></td></tr>
+<tr><td><code>-W S</code></td><td>Quanto tempo esperar cada resposta</td><td><code>ping -c 1 -W 1 192.168.0.9</code></td></tr>
+<tr><td><code>-4</code> / <code>-6</code></td><td>Força IPv4 ou IPv6</td><td><code>ping -4 ubuntu.com</code></td></tr>
+<tr><td><code>-q</code></td><td>Mostra só o resumo final</td><td><code>ping -q -c 10 8.8.8.8</code></td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Ping sem resposta não quer dizer "fora do ar"</strong>
+<p>Muitos servidores e firewalls ignoram o ping de propósito. Para testar um site, use <code>curl -I</code>; para testar uma porta, use <code>nc -zv</code> (as duas formas estão abaixo).</p>
+</div>
+
+<hr>
+
+<h2>ss: conexões e portas abertas</h2>
+<p>O <code>ss</code> (de <em>socket statistics</em>, "estatísticas de sockets") lista as conexões de rede. Um <em>socket</em> é a "tomada" que um programa usa para falar pela rede. A pergunta mais comum é "quais portas estão abertas esperando conexão?":</p>
+
+<dl class="anatomy">
+  <dt>ss</dt><dd>O programa.</dd>
+  <dt>-t</dt><dd>Conexões <strong>TCP</strong>.</dd>
+  <dt>-u</dt><dd>Conexões <strong>UDP</strong>.</dd>
+  <dt>-l</dt><dd>Só as que estão <em>listening</em>, "escutando": portas abertas esperando alguém.</dd>
+  <dt>-n</dt><dd>Mostra números (<code>22</code>), em vez de nomes (<code>ssh</code>).</dd>
+  <dt>-p</dt><dd>Mostra o <em>process</em>, o programa dono de cada porta.</dd>
+</dl>
+
+<pre class="term">$ sudo ss -tulpn
+Netid State  Recv-Q Send-Q  Local Address:Port  Peer Address:Port Process
+udp   UNCONN 0      0       127.0.0.54:53           0.0.0.0:*    users:(("systemd-resolve",pid=612,fd=16))   « DNS local
+udp   UNCONN 0      0       127.0.0.53%lo:53        0.0.0.0:*    users:(("systemd-resolve",pid=612,fd=14))
+udp   UNCONN 0      0       0.0.0.0:5353            0.0.0.0:*    users:(("avahi-daemon",pid=790,fd=12))
+tcp   LISTEN 0      4096    127.0.0.53%lo:53        0.0.0.0:*    users:(("systemd-resolve",pid=612,fd=15))
+tcp   LISTEN 0      4096    127.0.0.1:631           0.0.0.0:*    users:(("cupsd",pid=845,fd=7))             « impressão, só local
+tcp   LISTEN 0      4096    0.0.0.0:22              0.0.0.0:*    users:(("sshd",pid=1102,fd=3))             « SSH aberto para a rede
+tcp   LISTEN 0      4096    [::]:22                 [::]:*       users:(("sshd",pid=1102,fd=4))</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Significado</th></tr>
+<tr><td><code>Netid</code></td><td>Tipo: <code>tcp</code> ou <code>udp</code>.</td></tr>
+<tr><td><code>State</code></td><td><code>LISTEN</code>: porta TCP esperando conexão. <code>UNCONN</code>: socket UDP aberto (UDP não "conecta").</td></tr>
+<tr><td><code>Local Address:Port</code></td><td>Em qual endereço e porta o programa escuta. Veja a tabela abaixo.</td></tr>
+<tr><td><code>Peer Address:Port</code></td><td>Quem está do outro lado. <code>*</code> = qualquer um.</td></tr>
+<tr><td><code>Process</code></td><td>Programa, PID e descritor. Só aparece para todos os programas com <code>sudo</code>.</td></tr>
+</table>
+</div>
+
+<p>O endereço local diz <strong>quem</strong> pode se conectar:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Endereço local</th><th>Quem alcança</th></tr>
+<tr><td><code>127.0.0.1:631</code></td><td>Só o próprio computador. Seguro.</td></tr>
+<tr><td><code>0.0.0.0:22</code></td><td>Qualquer máquina da rede (todas as placas IPv4).</td></tr>
+<tr><td><code>[::]:22</code></td><td>Qualquer máquina, pelo IPv6.</td></tr>
+<tr><td><code>192.168.0.15:8080</code></td><td>Só quem chega por essa placa específica.</td></tr>
+</table>
+</div>
+
+<h3>Conexões ativas agora</h3>
+<p>Sem o <code>-l</code>, e filtrando pelo estado <code>established</code>, você vê as conexões abertas neste momento:</p>
+<pre class="term">$ ss -tn state established
+Recv-Q Send-Q   Local Address:Port      Peer Address:Port
+0      0         192.168.0.15:49822   185.125.190.20:443       « o navegador falando com ubuntu.com
+0      0         192.168.0.15:41736     140.82.112.25:443</pre>
+
+<h3>Quem está usando a porta 8080?</h3>
+<p>Filtros do <code>ss</code> seguem a forma <code>'sport = :PORTA'</code> (<em>source port</em>, porta de origem):</p>
+<pre class="term">$ sudo ss -tlpn 'sport = :8080'
+State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process
+LISTEN 0      5            0.0.0.0:8080      0.0.0.0:*    users:(("python3",pid=4410,fd=3))</pre>
+
+<div class="tip">
+<strong>Outra forma: <code>ss | grep</code></strong>
+<p><code>sudo ss -tulpn | grep 8080</code> dá o mesmo resultado e é mais fácil de lembrar. O <code>grep</code> filtra as linhas que contêm o texto (veja <a href="grep.html">grep</a>).</p>
+</div>
+
+<h3>Testar uma porta de outra máquina: <code>nc -zv</code></h3>
+<p>O <code>ss</code> mostra as portas da <strong>sua</strong> máquina. Para saber se a porta de <strong>outra</strong> máquina está acessível, use o <code>nc</code> (<em>netcat</em>). <code>-z</code> só testa, sem enviar dados, e <code>-v</code> mostra o resultado:</p>
+<pre class="term">$ nc -zv 192.168.0.50 22
+Connection to 192.168.0.50 22 port [tcp/ssh] succeeded!          « porta aberta
+$ nc -zv 192.168.0.50 3306
+nc: connect to 192.168.0.50 port 3306 (tcp) failed: Connection refused   « ninguém escutando ali</pre>
+
+<div class="note">
+<strong>E o netstat?</strong>
+<p>Tutoriais antigos usam <code>netstat -tulpn</code> e <code>ifconfig</code>. Eles são do pacote <code>net-tools</code>, que é antigo e não vem instalado. Use <code>ss</code> e <code>ip</code>: as opções do <code>ss</code> são quase as mesmas do <code>netstat</code>.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>A placa aparece, mas sem IP</strong>
+<pre class="term">$ ip -br a
+lo               UNKNOWN        127.0.0.1/8 ::1/128
+enp3s0           DOWN
+wlp2s0           DOWN</pre>
+<p><strong>O que aconteceu:</strong> o Wi-Fi está desligado ou não conectou a nenhuma rede. Se a placa de cabo aparece como <code>NO-CARRIER</code> no <code>ip a</code>, o cabo está solto ou com defeito.</p>
+<p><strong>Como resolver:</strong> ligue o Wi-Fi e escolha a rede pelo menu do canto superior direito, ou com <code>nmcli device wifi connect</code> (veja <a href="configurar-rede.html">Configurar a Rede</a>).</p>
+</div>
+
+<div class="cenario">
+<strong>O ss não mostra a coluna Process</strong>
+<pre class="term">$ ss -tlpn
+State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process
+LISTEN 0      4096   0.0.0.0:22              0.0.0.0:*                       « Process vazio
+LISTEN 0      4096   127.0.0.1:631           0.0.0.0:*</pre>
+<p><strong>O que aconteceu:</strong> por segurança, um usuário comum só vê o nome dos <strong>próprios</strong> programas. Os serviços do sistema pertencem ao root.</p>
+<p><strong>Como resolver:</strong> rode com <code>sudo ss -tlpn</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Ping com 100% de perda</strong>
+<pre class="term">$ ping -c 3 192.168.0.50
+PING 192.168.0.50 (192.168.0.50) 56(84) bytes of data.
+From 192.168.0.15 icmp_seq=1 Destination Host Unreachable      « ninguém com esse IP na rede
+From 192.168.0.15 icmp_seq=2 Destination Host Unreachable
+From 192.168.0.15 icmp_seq=3 Destination Host Unreachable
+
+--- 192.168.0.50 ping statistics ---
+3 packets transmitted, 0 received, +3 errors, 100% packet loss, time 2036ms</pre>
+<p><strong>O que aconteceu:</strong> "<em>Destination Host Unreachable</em>" significa que nenhum aparelho da rede local respondeu por esse IP: ele está desligado, mudou de IP ou o número está errado. Se não aparece nenhuma mensagem e só o resumo com 100%, o aparelho pode existir mas bloquear o ping.</p>
+<p><strong>Como confirmar:</strong> veja se o aparelho aparece em <code>ip neigh</code> e confira o IP dele no próprio aparelho.</p>
+</div>
+
+<div class="cenario">
+<strong>"Comando 'ifconfig' não encontrado"</strong>
+<p><strong>O que aconteceu:</strong> o <code>ifconfig</code> é antigo e não vem mais instalado no Ubuntu.</p>
+<p><strong>Como resolver:</strong> use <code>ip a</code>. Se precisar dele por causa de um tutorial antigo, instale com <code>sudo apt install net-tools</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<h3>ip</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Descrição</th></tr>
+<tr><td><code>ip a</code> / <code>ip -br a</code></td><td>Endereços, completo ou resumido</td></tr>
+<tr><td><code>ip -br -c a</code></td><td>Resumido e colorido</td></tr>
+<tr><td><code>ip a show PLACA</code></td><td>Só uma placa</td></tr>
+<tr><td><code>ip -4 a</code> / <code>ip -6 a</code></td><td>Só IPv4 / só IPv6</td></tr>
+<tr><td><code>ip r</code></td><td>Tabela de rotas</td></tr>
+<tr><td><code>ip r get IP</code></td><td>Qual rota seria usada para um destino</td></tr>
+<tr><td><code>ip -br link</code></td><td>Placas e MAC</td></tr>
+<tr><td><code>ip neigh</code></td><td>Vizinhos da rede local</td></tr>
+<tr><td><code>sudo ip link set PLACA up|down</code></td><td>Liga ou desliga uma placa (temporário)</td></tr>
+</table>
+</div>
+<h3>ss</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th></tr>
+<tr><td><code>-t</code> / <code>-u</code></td><td>TCP / UDP</td></tr>
+<tr><td><code>-l</code></td><td>Só portas escutando</td></tr>
+<tr><td><code>-n</code></td><td>Números em vez de nomes</td></tr>
+<tr><td><code>-p</code></td><td>Mostra o programa (use com <code>sudo</code>)</td></tr>
+<tr><td><code>-a</code></td><td>Todas: escutando e conectadas</td></tr>
+<tr><td><code>-s</code></td><td>Resumo com totais</td></tr>
+<tr><td><code>state established</code></td><td>Só conexões ativas</td></tr>
+<tr><td><code>'sport = :80'</code></td><td>Filtra pela porta local</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. IP resumido</h3>
+<p>Complete para ver uma linha por placa, com o IP de cada uma:</p>
+<div class="ex-code">ip <input data-answer="-br a|-br addr|-br address|-brief a|-br -c a|-c -br a" aria-label="opções e subcomando"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Portas abertas</h3>
+<p>Complete para listar as portas TCP e UDP que estão escutando, com números e o nome do programa:</p>
+<div class="ex-code">sudo ss <input data-answer="-tulpn|-tulnp|-tlupn|-ltunp|-lntup|-tunlp|-ntlup|-plunt|-lptun" aria-label="opções"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Cinco pings</h3>
+<p>Complete para enviar exatamente 5 pings ao <code>8.8.8.8</code>:</p>
+<div class="ex-code">ping <input data-answer="-c 5|-c5" aria-label="opção"> 8.8.8.8</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Na saída do <code>ss</code>, uma porta aparece como <code>127.0.0.1:631</code>. Quem consegue se conectar a ela?</p>
+<label><input type="radio" name="q4"> Qualquer máquina da internet.</label>
+<label><input type="radio" name="q4"> Só o próprio computador.</label>
+<label><input type="radio" name="q4"> Só as máquinas da rede local.</label>
+<label><input type="radio" name="q4"> Ninguém: a porta está fechada.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. No <code>ip a</code>, a placa de cabo mostra <code>NO-CARRIER</code>. O que isso indica?</p>
+<label><input type="radio" name="q5"> Que ela tem IP fixo.</label>
+<label><input type="radio" name="q5"> Que o DNS falhou.</label>
+<label><input type="radio" name="q5"> Que o gateway está errado.</label>
+<label><input type="radio" name="q5"> Que não há cabo conectado ou sinal.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>ip -br a</code> mostra placas e IPs; <code>ip a</code> mostra todos os detalhes; <code>ip r</code> mostra o gateway.</li>
+  <li><code>UP,LOWER_UP</code> = ligada e conectada; <code>NO-CARRIER</code> = sem cabo ou sinal.</li>
+  <li><code>ping -c N</code> testa se um destino responde; código 0 = respondeu, 1 = sem resposta, 2 = erro (como nome inexistente).</li>
+  <li><code>sudo ss -tulpn</code> lista as portas abertas e o programa dono de cada uma; <code>127.0.0.1</code> = só local, <code>0.0.0.0</code> = toda a rede.</li>
+  <li>Para testar a porta de outra máquina: <code>nc -zv IP PORTA</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

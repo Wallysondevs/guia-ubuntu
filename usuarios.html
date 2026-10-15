@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Usuários e Grupos — id, adduser, usermod | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a gerenciar usuários e grupos no Ubuntu: entender id e /etc/passwd, criar contas com adduser, colocar em grupos com usermod -aG, trocar senhas, remover contas e resolver erros reais.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Usuários e Grupos</span></h1>
+
+<p class="intro">O Linux foi feito para várias pessoas usarem a mesma máquina. Cada pessoa tem um <strong>usuário</strong>, com sua pasta e seus arquivos. Os <strong>grupos</strong> juntam usuários que precisam das mesmas permissões, como "quem pode administrar" ou "quem pode ler os logs".</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A ler a saída do <code>id</code> e descobrir de quais grupos você faz parte.</li>
+  <li>Onde o sistema guarda contas e grupos (<code>/etc/passwd</code>, <code>/etc/group</code>, <code>/etc/shadow</code>).</li>
+  <li>A criar, alterar e remover usuários e grupos, com mais de uma forma para cada tarefa.</li>
+  <li>O erro que pode tirar seu acesso de administrador: <code>usermod -G</code> sem o <code>-a</code>.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Usuário, UID e grupo</h2>
+<p>Para você, um usuário é um nome, como <code>ana</code>. Para o sistema, é um <strong>número</strong>, o UID (<em>user ID</em>). O nome existe só para facilitar a vida das pessoas.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tipo</th><th>UID</th><th>Exemplos</th><th>Para quê</th></tr>
+<tr><td>Superusuário</td><td><code>0</code></td><td><code>root</code></td><td>Administrador com poder total. No Ubuntu, ninguém faz login direto com ele; usa-se o <a href="sudo.html">sudo</a>.</td></tr>
+<tr><td>Usuários de sistema</td><td><code>1</code> a <code>999</code></td><td><code>www-data</code>, <code>syslog</code></td><td>Rodam serviços. Não são pessoas e não fazem login.</td></tr>
+<tr><td>Usuários comuns</td><td><code>1000</code> em diante</td><td><code>ana</code>, <code>joao</code></td><td>Pessoas. Quem instalou o Ubuntu ganhou o UID 1000.</td></tr>
+</table>
+</div>
+
+<p>Todo usuário tem um <strong>grupo principal</strong>. No Ubuntu, ele tem o mesmo nome do usuário. Além disso, o usuário pode participar de vários <strong>grupos extras</strong>.</p>
+
+<hr>
+
+<h2>Quem sou eu? <code>whoami</code>, <code>id</code> e <code>groups</code></h2>
+
+<pre class="term">$ whoami
+ana
+$ groups
+ana adm cdrom sudo dip plugdev users lpadmin</pre>
+
+<p>O <code>whoami</code> (<em>who am I</em>, "quem sou eu") mostra o seu usuário. O <code>groups</code> lista os seus grupos. O <code>id</code> mostra tudo isso com os números:</p>
+
+<pre class="term">$ id
+uid=1000(ana) gid=1000(ana) groups=1000(ana),4(adm),24(cdrom),27(sudo),30(dip),46(plugdev),100(users),114(lpadmin)</pre>
+
+<dl class="anatomy">
+  <dt>uid=1000(ana)</dt><dd>Seu número de usuário e, entre parênteses, o nome.</dd>
+  <dt>gid=1000(ana)</dt><dd>Seu grupo principal (<em>group ID</em>).</dd>
+  <dt>groups=…</dt><dd>Todos os grupos de que você participa, com número e nome.</dd>
+</dl>
+
+<p>O que alguns desses grupos permitem:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Grupo</th><th>Quem está nele pode…</th></tr>
+<tr><td><code>sudo</code></td><td>Usar o <code>sudo</code>, ou seja, administrar a máquina.</td></tr>
+<tr><td><code>adm</code></td><td>Ler os logs do sistema em <code>/var/log</code>.</td></tr>
+<tr><td><code>lpadmin</code></td><td>Instalar e configurar impressoras.</td></tr>
+<tr><td><code>plugdev</code></td><td>Usar alguns dispositivos removíveis.</td></tr>
+<tr><td><code>cdrom</code>, <code>dip</code></td><td>Usar o drive de CD e conexões discadas (herança antiga).</td></tr>
+</table>
+</div>
+
+<div class="try" data-goal="ran:^id,ran:^groups">
+<p class="try-task"><strong>Missão:</strong> descubra quem você é nesta máquina fictícia com <code>whoami</code>, <code>id</code> e <code>groups</code>. A Ana pode usar sudo? Qual é o UID dela?</p>
+</div>
+
+<hr>
+
+<h2>Onde ficam as contas</h2>
+
+<h3><code>/etc/passwd</code>: a lista de usuários</h3>
+<p>Apesar do nome, ele não guarda senhas. Tem uma linha por usuário, com 7 campos separados por <code>:</code>.</p>
+
+<pre class="term">$ grep ana /etc/passwd
+ana:x:1000:1000:Ana:/home/ana:/bin/bash</pre>
+
+<dl class="anatomy">
+  <dt>ana</dt><dd>1. Nome de login.</dd>
+  <dt>x</dt><dd>2. Senha: o "x" diz que ela fica em <code>/etc/shadow</code>.</dd>
+  <dt>1000</dt><dd>3. UID.</dd>
+  <dt>1000</dt><dd>4. GID do grupo principal.</dd>
+  <dt>Ana</dt><dd>5. Nome completo e informações (campo "GECOS").</dd>
+  <dt>/home/ana</dt><dd>6. Pasta pessoal.</dd>
+  <dt>/bin/bash</dt><dd>7. Shell do login. <code>/usr/sbin/nologin</code> impede o login.</dd>
+</dl>
+
+<h3><code>/etc/group</code>: a lista de grupos</h3>
+<pre class="term">$ grep sudo /etc/group
+sudo:x:27:ana</pre>
+<p>Os campos são: nome do grupo, senha (não usada), GID e os membros, separados por vírgula.</p>
+
+<h3><code>/etc/shadow</code>: as senhas</h3>
+<p>Guarda as senhas na forma de <strong>hash</strong>, uma "impressão digital" que não pode ser revertida para a senha. Só o root lê esse arquivo:</p>
+
+<pre class="term">$ cat /etc/shadow
+cat: /etc/shadow: Permission denied</pre>
+
+<div class="warning">
+<strong>Não edite esses arquivos à mão</strong>
+<p>Um caractere errado em <code>/etc/passwd</code>, <code>/etc/group</code> ou <code>/etc/shadow</code> pode impedir todo mundo de entrar no sistema. Use os comandos desta página.</p>
+</div>
+
+<div class="try" data-goal="ran:passwd">
+<p class="try-task"><strong>Missão:</strong> use <code>grep</code> para ver a linha da <code>ana</code> e a do <code>www-data</code> em <code>/etc/passwd</code>. Qual shell o <code>www-data</code> usa? Depois tente ler o <code>/etc/shadow</code> e veja o que acontece.</p>
+</div>
+
+<hr>
+
+<h2>Quem está usando a máquina: <code>w</code></h2>
+<pre class="term">$ w
+ 10:30:00 up  2:31,  1 user,  load average: 0,42, 0,38, 0,35
+USUARIO  TTY      DE               LOGIN@   IDLE   JCPU   PCPU  WHAT
+ana      tty2     -                08:00    2:30m  0.06s  0.06s /usr/libexec/gnome-session-init-worker ubuntu</pre>
+
+<p>A primeira linha diz há quanto tempo a máquina está ligada e quantos usuários estão conectados. Embaixo, cada sessão: o usuário, o terminal (<code>tty2</code> é a tela gráfica) e o que está rodando. Num servidor, aparecem também as conexões por SSH, com o IP de origem na coluna <code>DE</code>.</p>
+
+<hr>
+
+<h2>Criar um usuário</h2>
+<p>Daqui em diante, os comandos mudam o sistema e precisam de <code>sudo</code>. Eles não funcionam no simulador.</p>
+
+<h3>Forma recomendada: <code>adduser</code></h3>
+<p>O <code>adduser</code> é um assistente do Debian e do Ubuntu. Ele cria o usuário, o grupo e a pasta pessoal, copia os arquivos iniciais de <code>/etc/skel</code> e pede a senha.</p>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Criar contas é tarefa de administrador.</dd>
+  <dt>adduser</dt><dd>O assistente.</dd>
+  <dt>joao</dt><dd>O nome de login: minúsculas, sem espaços e sem acentos.</dd>
+</dl>
+
+<pre class="term">$ sudo adduser joao
+[sudo: authenticate] Senha:
+info: Adicionando usuário 'joao' ...
+info: Selecionando UID/GID da faixa 1000 a 59999 ...
+info: Adicionando novo grupo 'joao' (1001) ...
+info: Adicionando novo usuário 'joao' (1001) com grupo 'joao (1001)' ...
+info: Criando diretório pessoal '/home/joao' ...
+info: Copiando arquivos de '/etc/skel' ...
+Nova senha:                                       « a senha não aparece enquanto você digita
+Redigite a nova senha:
+passwd: password updated successfully
+Modificando as informações de usuário para joao
+Enter the new value, or press ENTER for the default
+	Nome Completo []: João Lima
+	Número da Sala []:
+	Fone de Trabalho []:
+	Fone Residencial []:
+	Outro []:
+A informação está correta? [S/n] s
+info: Adicionando novo usuário 'joao' a grupos suplementares / extras 'users' ...
+info: Adicionando usuário 'joao' ao grupo 'users' ...</pre>
+
+<p>Os campos de telefone e sala podem ficar em branco: aperte <kbd>Enter</kbd>. Para não ser perguntado, informe o nome já no comando: <code>sudo adduser --comment "João Lima" joao</code>.</p>
+
+<h3>Forma "crua": <code>useradd</code></h3>
+<p>O <code>useradd</code> existe em todo Linux, mas por padrão faz o mínimo: não cria a pasta, não define shell nem senha. É usado em scripts, com as opções certas:</p>
+
+<pre class="term">$ sudo useradd -m -s /bin/bash -c "Maria Silva" maria
+$ sudo passwd maria
+Nova senha:
+Redigite a nova senha:
+passwd: password updated successfully</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th><code>adduser joao</code></th><th><code>useradd joao</code></th></tr>
+<tr><td>Cria a pasta pessoal</td><td>Sim</td><td>Só com <code>-m</code></td></tr>
+<tr><td>Shell bash</td><td>Sim</td><td>Só com <code>-s /bin/bash</code></td></tr>
+<tr><td>Pede a senha</td><td>Sim</td><td>Não; use <code>passwd</code> depois</td></tr>
+<tr><td>Onde existe</td><td>Debian e Ubuntu</td><td>Todo Linux</td></tr>
+<tr><td>Melhor para</td><td>Uso manual</td><td>Scripts</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Grupos: criar e colocar pessoas</h2>
+
+<pre class="term">$ sudo groupadd financeiro
+$ grep financeiro /etc/group
+financeiro:x:1002:                « ainda sem membros</pre>
+
+<h3>Colocar um usuário num grupo: <code>usermod -aG</code></h3>
+
+<dl class="anatomy">
+  <dt>sudo usermod</dt><dd>Modifica um usuário (<em>user modify</em>).</dd>
+  <dt>-a</dt><dd><em>Append</em>: <strong>acrescenta</strong> aos grupos que ele já tem.</dd>
+  <dt>-G financeiro</dt><dd>Os grupos extras. Para vários, separe com vírgula: <code>-G financeiro,adm</code>.</dd>
+  <dt>joao</dt><dd>O usuário.</dd>
+</dl>
+
+<pre class="term">$ sudo usermod -aG financeiro joao
+$ groups joao
+joao : joao users financeiro</pre>
+
+<div class="warning">
+<strong>Nunca esqueça o <code>-a</code></strong>
+<p>Sem o <code>-a</code>, <code>usermod -G financeiro ana</code> <strong>substitui</strong> todos os grupos extras da ana por "financeiro". Ela sai do grupo <code>sudo</code> e perde o acesso de administrador. Se ela era a única administradora, ninguém mais consegue usar sudo, e a correção exige o <a href="recuperacao.html">modo de recuperação</a>.</p>
+</div>
+
+<h3>Três formas de pôr alguém num grupo</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Observação</th></tr>
+<tr><td><code>sudo usermod -aG grupo usuario</code></td><td>Funciona em todo Linux. Cuidado com o <code>-a</code>.</td></tr>
+<tr><td><code>sudo gpasswd -a usuario grupo</code></td><td>Adiciona a um grupo só; não tem o risco do <code>-a</code>.</td></tr>
+<tr><td><code>sudo adduser usuario grupo</code></td><td>Do Debian/Ubuntu. Com dois nomes, o adduser não cria conta: adiciona ao grupo.</td></tr>
+</table>
+</div>
+
+<p>Para <strong>tirar</strong> alguém de um grupo: <code>sudo gpasswd -d joao financeiro</code> ou <code>sudo deluser joao financeiro</code>.</p>
+
+<div class="note">
+<strong>A mudança só vale no próximo login</strong>
+<p>Os grupos são lidos quando a pessoa entra no sistema. Depois de entrar num grupo novo, ela precisa sair da sessão e entrar de novo. Para testar no terminal atual, use <code>newgrp financeiro</code>.</p>
+</div>
+
+<hr>
+
+<h2>Senhas</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>passwd</code></td><td>Troca a <strong>sua</strong> senha (pede a atual primeiro).</td></tr>
+<tr><td><code>sudo passwd joao</code></td><td>Define a senha de outro usuário, sem precisar da antiga.</td></tr>
+<tr><td><code>sudo passwd -l joao</code></td><td>Bloqueia a senha (<em>lock</em>). A conta continua existindo.</td></tr>
+<tr><td><code>sudo passwd -u joao</code></td><td>Desbloqueia (<em>unlock</em>).</td></tr>
+<tr><td><code>sudo passwd -e joao</code></td><td>Obriga a trocar a senha no próximo login.</td></tr>
+<tr><td><code>chage -l joao</code></td><td>Mostra a validade da senha.</td></tr>
+</table>
+</div>
+
+<pre class="term">$ chage -l ana
+Última mudança de senha					: mar 26, 2026
+Senha expira					: nunca
+Senha inativa					: nunca
+…</pre>
+
+<hr>
+
+<h2>Remover um usuário</h2>
+
+<pre class="term">$ sudo deluser --remove-home joao
+$ id joao
+id: 'joao': não existe tal usuário          « a conta sumiu</pre>
+
+<p>O <code>deluser</code> mostra algumas linhas de "info:" enquanto trabalha. Sem <code>--remove-home</code>, a pasta <code>/home/joao</code> continua lá, com os arquivos. Isso é útil quando você quer guardar os dados. O equivalente "cru" é <code>sudo userdel -r joao</code>.</p>
+
+<div class="warning">
+<strong>A pasta pessoal some de vez</strong>
+<p>Antes de usar <code>--remove-home</code>, confira se não há nada importante: <code>sudo ls -la /home/joao</code>. Se houver, faça um backup com <code>sudo tar -czf joao.tar.gz /home/joao</code>.</p>
+</div>
+
+<hr>
+
+<h2>Trocar de usuário</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Senha pedida</th></tr>
+<tr><td><code>su - joao</code></td><td>Abre um shell como joao, com o ambiente dele</td><td>A do joao</td></tr>
+<tr><td><code>sudo -u joao comando</code></td><td>Roda um comando como joao</td><td>A sua</td></tr>
+<tr><td><code>sudo -iu joao</code></td><td>Abre um shell como joao</td><td>A sua</td></tr>
+<tr><td><code>sudo -i</code></td><td>Abre um shell como root</td><td>A sua</td></tr>
+<tr><td><code>exit</code></td><td>Volta ao seu usuário</td><td>—</td></tr>
+</table>
+</div>
+
+<pre class="term">$ sudo -u joao whoami
+[sudo: authenticate] Senha:
+joao                              « o comando rodou como joao</pre>
+
+<p>O hífen em <code>su - joao</code> é importante: sem ele, você vira o joao mas continua com as variáveis e a pasta do usuário anterior.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Permission denied" no usermod ou groupadd</strong>
+<pre class="term">$ usermod -aG financeiro joao
+usermod: Permission denied.
+usermod: não foi possível travar /etc/passwd; tente novamente mais tarde.</pre>
+<p><strong>O que aconteceu:</strong> faltou o <code>sudo</code>. Mudar contas exige ser administrador. A segunda linha só confirma que ele não conseguiu abrir o arquivo de contas.</p>
+<p><strong>Como resolver:</strong> <code>sudo usermod -aG financeiro joao</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Coloquei no grupo, mas não funcionou</strong>
+<pre class="term">$ sudo usermod -aG docker ana
+$ groups
+ana adm cdrom sudo dip plugdev users lpadmin       « "docker" ainda não aparece</pre>
+<p><strong>O que aconteceu:</strong> a sessão atual foi aberta antes da mudança.</p>
+<p><strong>Como confirmar:</strong> <code>groups ana</code>, com o nome, lê a configuração nova e mostra o grupo.</p>
+<p><strong>Como resolver:</strong> saia da sessão e entre de novo, ou rode <code>newgrp docker</code> neste terminal.</p>
+</div>
+
+<div class="cenario">
+<strong>"não existe tal usuário"</strong>
+<pre class="term">$ id joaoo
+id: 'joaoo': não existe tal usuário
+$ groups joaoo
+groups: 'joaoo': usuário não existente</pre>
+<p><strong>O que aconteceu:</strong> o nome está errado, ou a conta ainda não foi criada.</p>
+<p><strong>Como resolver:</strong> confira a lista de usuários comuns: <code>awk -F: '$3 &gt;= 1000 &amp;&amp; $3 &lt; 60000 {print $1}' /etc/passwd</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"is not in the sudoers file" depois de um usermod</strong>
+<p><strong>O que aconteceu:</strong> provavelmente rodaram <code>usermod -G</code> sem o <code>-a</code>, e o usuário saiu do grupo <code>sudo</code>.</p>
+<p><strong>Como resolver:</strong> se houver outro administrador, ele roda <code>sudo usermod -aG sudo ana</code>. Se não houver, entre no modo de recuperação e rode o mesmo comando como root. Veja <a href="recuperacao.html">Recuperar um Sistema</a>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>whoami</code> / <code>id</code> / <code>groups [usuario]</code></td><td>Quem sou eu, números e grupos</td></tr>
+<tr><td><code>w</code></td><td>Quem está logado e o que está fazendo</td></tr>
+<tr><td><code>getent passwd usuario</code></td><td>Mostra a linha da conta</td></tr>
+<tr><td><code>sudo adduser usuario</code></td><td>Cria usuário (assistente)</td></tr>
+<tr><td><code>sudo useradd -m -s /bin/bash usuario</code></td><td>Cria usuário (modo cru)</td></tr>
+<tr><td><code>sudo usermod -aG grupo usuario</code></td><td>Acrescenta a um grupo</td></tr>
+<tr><td><code>sudo usermod -s /bin/bash usuario</code></td><td>Muda o shell</td></tr>
+<tr><td><code>sudo usermod -l novo antigo</code></td><td>Renomeia o login</td></tr>
+<tr><td><code>sudo usermod -L</code> / <code>-U usuario</code></td><td>Bloqueia / desbloqueia a conta</td></tr>
+<tr><td><code>sudo groupadd grupo</code> / <code>groupdel grupo</code></td><td>Cria / apaga grupo</td></tr>
+<tr><td><code>sudo gpasswd -a</code> / <code>-d usuario grupo</code></td><td>Põe / tira de um grupo</td></tr>
+<tr><td><code>passwd</code> / <code>sudo passwd usuario</code></td><td>Troca senha</td></tr>
+<tr><td><code>sudo deluser --remove-home usuario</code></td><td>Remove usuário e pasta</td></tr>
+<tr><td><code>su - usuario</code> / <code>sudo -iu usuario</code></td><td>Vira outro usuário</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Acrescentar a um grupo</h3>
+<p>Complete para colocar a <code>bia</code> no grupo <code>adm</code>, <strong>sem</strong> tirá-la dos outros grupos:</p>
+<div class="ex-code">sudo usermod <input data-answer="-aG|-a -G" aria-label="opções"> adm bia</div>
+</div>
+
+<div class="exercise">
+<h3>2. Remover com a pasta</h3>
+<p>Complete para apagar a conta <code>teste</code> junto com a pasta pessoal:</p>
+<div class="ex-code">sudo deluser <input data-answer="--remove-home" aria-label="opção"> teste</div>
+</div>
+
+<div class="exercise">
+<h3>3. Rodar como outro usuário</h3>
+<p>Complete para rodar <code>whoami</code> como o usuário <code>joao</code>, usando a sua própria senha:</p>
+<div class="ex-code">sudo <input data-answer="-u joao|-u=joao|--user=joao" aria-label="opção e usuário"> whoami</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Na linha <code>www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin</code>, o que significa <code>/usr/sbin/nologin</code>?</p>
+<label><input type="radio" name="q4"> Que a senha está bloqueada.</label>
+<label><input type="radio" name="q4"> Que a pasta pessoal não existe.</label>
+<label><input type="radio" name="q4"> Que esse usuário não pode abrir um shell para fazer login.</label>
+<label><input type="radio" name="q4"> Que é um usuário comum.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. A ana rodou <code>sudo usermod -G financeiro ana</code>. O que acontece?</p>
+<label><input type="radio" name="q5"> Ela fica só no grupo financeiro (além do principal) e perde o grupo sudo.</label>
+<label><input type="radio" name="q5"> Ela é acrescentada ao financeiro e mantém os outros grupos.</label>
+<label><input type="radio" name="q5"> Dá erro, porque falta o <code>-a</code>.</label>
+<label><input type="radio" name="q5"> O grupo financeiro é criado.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Usuários e grupos são números (UID, GID); <code>id</code> mostra os dois.</li>
+  <li>Contas ficam em <code>/etc/passwd</code>, grupos em <code>/etc/group</code>, senhas em <code>/etc/shadow</code>. Não edite à mão.</li>
+  <li><code>sudo adduser nome</code> cria uma conta completa; <code>useradd</code> é a versão crua, para scripts.</li>
+  <li><code>usermod -aG grupo usuario</code>: o <code>-a</code> é obrigatório para não perder os outros grupos.</li>
+  <li>Mudanças de grupo valem no próximo login.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

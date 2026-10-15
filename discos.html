@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu lsblk, df, du — ver discos e espaço livre | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a ver discos, partições e espaço livre no Ubuntu com lsblk, df e du: cada parte explicada, saídas comentadas, como achar o que está enchendo o disco.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">lsblk, df e du</span></h1>
+
+<p class="intro">Três comandos respondem às perguntas mais comuns sobre armazenamento. <code>lsblk</code> diz <strong>quais discos existem</strong>, <code>df</code> diz <strong>quanto espaço livre sobrou</strong> e <code>du</code> diz <strong>quem está ocupando o espaço</strong>. Nenhum deles altera nada, então você pode usá-los à vontade.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Como o Linux dá nome aos discos e às partições (<code>nvme0n1p2</code>, <code>sda1</code>…).</li>
+  <li>A ler cada coluna do <code>lsblk</code>, do <code>df</code> e do <code>du</code>.</li>
+  <li>Três formas de descobrir o que está enchendo o disco.</li>
+  <li>O que fazer quando aparece "No space left on device".</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes dos comandos: disco, partição e sistema de arquivos</h2>
+<p>Pense num armário. O <strong>disco</strong> é o armário inteiro (SSD, HD ou pendrive). As <strong>partições</strong> são as prateleiras: o disco é dividido em pedaços independentes. O <strong>sistema de arquivos</strong> é a forma como cada prateleira é organizada por dentro (ext4, FAT32, NTFS…).</p>
+
+<p>No Linux, cada disco aparece como um arquivo especial dentro de <code>/dev</code> (de <em>devices</em>, "dispositivos"):</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Nome</th><th>O que é</th></tr>
+<tr><td><code>/dev/nvme0n1</code></td><td>O primeiro SSD NVMe (o tipo mais comum em notebooks novos).</td></tr>
+<tr><td><code>/dev/nvme0n1p1</code></td><td>A partição 1 desse SSD (<code>p</code> de <em>partition</em>).</td></tr>
+<tr><td><code>/dev/sda</code></td><td>O primeiro disco SATA ou USB (HD, SSD SATA, pendrive). O segundo é <code>sdb</code>, depois <code>sdc</code>…</td></tr>
+<tr><td><code>/dev/sda1</code></td><td>A partição 1 do disco <code>sda</code>.</td></tr>
+<tr><td><code>/dev/loop0</code>…</td><td>"Discos virtuais" usados pelos pacotes Snap. Não são discos de verdade.</td></tr>
+</table>
+</div>
+
+<p>Para usar uma partição, o Linux a <strong>monta</strong> numa pasta, chamada <strong>ponto de montagem</strong>. A partição principal fica montada em <code>/</code>, e um pendrive costuma aparecer em <code>/media/ana/NOME</code>. Você vai aprender a montar em <a href="montar.html">mount e fstab</a>.</p>
+
+<hr>
+
+<h2>lsblk: quais discos existem</h2>
+<p><code>lsblk</code> vem de <em>list block devices</em>, "listar dispositivos de bloco". Dispositivo de bloco é qualquer coisa que guarda dados em blocos: discos, partições, pendrives.</p>
+
+<dl class="anatomy">
+  <dt>lsblk</dt><dd>O programa. Sem opções, mostra todos os discos e partições em forma de árvore.</dd>
+</dl>
+
+<pre class="term">$ lsblk
+NAME        MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+loop0         7:0    0     4K  1 loop /snap/bare/5          « discos virtuais do Snap
+loop1         7:1    0  73,9M  1 loop /snap/core22/2045
+sda           8:0    1  29,3G  0 disk                       « o pendrive (RM = 1: removível)
+└─sda1        8:1    1  29,3G  0 part /media/ana/PENDRIVE
+nvme0n1     259:0    0 476,9G  0 disk                       « o SSD do notebook
+├─nvme0n1p1 259:1    0     1G  0 part /boot/efi
+└─nvme0n1p2 259:2    0 475,9G  0 part /                     « a partição do sistema</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Significado</th></tr>
+<tr><td><code>NAME</code></td><td>Nome do dispositivo. Os traços <code>├─</code> e <code>└─</code> mostram que a partição pertence ao disco de cima.</td></tr>
+<tr><td><code>MAJ:MIN</code></td><td>Números internos do kernel. O <code>7</code> identifica os loops; você raramente vai precisar disso.</td></tr>
+<tr><td><code>RM</code></td><td><em>Removable</em>: <code>1</code> se é removível (pendrive, cartão).</td></tr>
+<tr><td><code>SIZE</code></td><td>Tamanho total.</td></tr>
+<tr><td><code>RO</code></td><td><em>Read-only</em>: <code>1</code> se for somente leitura.</td></tr>
+<tr><td><code>TYPE</code></td><td><code>disk</code> (disco), <code>part</code> (partição), <code>loop</code> (virtual).</td></tr>
+<tr><td><code>MOUNTPOINTS</code></td><td>Onde está montado. Vazio = não montado.</td></tr>
+</table>
+</div>
+
+<h3>Esconder os loops do Snap: <code>-e7</code></h3>
+<p>Num Ubuntu com vários Snaps, a lista de <code>loop</code> fica enorme. A opção <code>-e</code> (de <em>exclude</em>, "excluir") esconde um tipo pelo número; os loops são o tipo <code>7</code>.</p>
+
+<dl class="anatomy">
+  <dt>lsblk</dt><dd>O programa.</dd>
+  <dt>-e7</dt><dd>Exclui os dispositivos de número 7 (os loops).</dd>
+</dl>
+
+<pre class="term">$ lsblk -e7
+NAME        MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+sda           8:0    1  29,3G  0 disk
+└─sda1        8:1    1  29,3G  0 part /media/ana/PENDRIVE
+nvme0n1     259:0    0 476,9G  0 disk
+├─nvme0n1p1 259:1    0     1G  0 part /boot/efi
+└─nvme0n1p2 259:2    0 475,9G  0 part /</pre>
+
+<h3>Ver o sistema de arquivos e o UUID: <code>-f</code></h3>
+<p>Com <code>-f</code> (de <em>filesystems</em>), o <code>lsblk</code> mostra o tipo de cada partição, o rótulo (<code>LABEL</code>) e o <strong>UUID</strong>, um código único que identifica a partição. O UUID é o que você usa no <code>/etc/fstab</code>.</p>
+
+<pre class="term">$ lsblk -f -e7
+NAME        FSTYPE FSVER LABEL    UUID                                 FSAVAIL FSUSE% MOUNTPOINTS
+sda
+└─sda1      vfat   FAT32 PENDRIVE 4A1B-2C3D                              21,7G    26% /media/ana/PENDRIVE
+nvme0n1
+├─nvme0n1p1 vfat   FAT32          8E3F-1A2B                                 1G     1% /boot/efi
+└─nvme0n1p2 ext4   1.0            3f6c1e2a-9b7d-4c1e-8a5f-2d4b6c8e0f12   324G    26% /</pre>
+
+<p><code>FSAVAIL</code> é o espaço livre e <code>FSUSE%</code> é quanto já foi usado. Só aparecem nas partições montadas.</p>
+
+<h3>Escolher as colunas: <code>-o</code></h3>
+<p>Com <code>-o</code> (de <em>output</em>, "saída") você escolhe só as colunas que quer, na ordem que quiser:</p>
+
+<pre class="term">$ lsblk -e7 -o NAME,SIZE,FSTYPE,MOUNTPOINTS
+NAME          SIZE FSTYPE MOUNTPOINTS
+sda          29,3G
+└─sda1       29,3G vfat   /media/ana/PENDRIVE
+nvme0n1     476,9G
+├─nvme0n1p1     1G vfat   /boot/efi
+└─nvme0n1p2 475,9G ext4   /</pre>
+
+<div class="tip">
+<strong>Descobrir qual é o pendrive</strong>
+<p>Rode <code>lsblk</code>, conecte o pendrive e rode de novo. O dispositivo que apareceu é ele. Faça isso <strong>sempre</strong> antes de formatar ou gravar uma ISO: errar o nome apaga o disco errado.</p>
+</div>
+
+<p>Outro comando parecido é o <code>blkid</code>, que mostra só os UUIDs e tipos. Ele precisa de <code>sudo</code> para ler tudo: <code>sudo blkid</code>.</p>
+
+<hr>
+
+<h2>df: quanto espaço livre sobrou</h2>
+<p><code>df</code> vem de <em>disk free</em>, "disco livre". Ele mostra, para cada sistema de arquivos montado, o tamanho, quanto foi usado e quanto sobra.</p>
+
+<dl class="anatomy">
+  <dt>df</dt><dd>O programa.</dd>
+  <dt>-h</dt><dd><em>Human-readable</em>: tamanhos em K, M, G em vez de blocos de 1 KB.</dd>
+</dl>
+
+<pre class="term">$ df -h
+Sist. Arq.      Tam. Usado Disp. Uso% Montado em
+tmpfs           1,6G  2,3M  1,6G   1% /run
+/dev/nvme0n1p2  468G  121G  324G  28% /                  « o que importa
+tmpfs           7,7G     0  7,7G   0% /dev/shm
+/dev/nvme0n1p1  1,1G  6,2M  1,1G   1% /boot/efi
+tmpfs           1,6G  132K  1,6G   1% /run/user/1000</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Significado</th></tr>
+<tr><td><code>Sist. Arq.</code></td><td>Qual partição (ou sistema virtual, como <code>tmpfs</code>).</td></tr>
+<tr><td><code>Tam.</code></td><td>Tamanho total.</td></tr>
+<tr><td><code>Usado</code> / <code>Disp.</code></td><td>Usado e disponível.</td></tr>
+<tr><td><code>Uso%</code></td><td>Porcentagem usada. Acima de 90%, comece a limpar.</td></tr>
+<tr><td><code>Montado em</code></td><td>A pasta onde a partição aparece.</td></tr>
+</table>
+</div>
+
+<p><code>tmpfs</code> é um "disco" que mora na memória RAM e some ao desligar. Você pode ignorá-lo quando a pergunta for "meu disco está cheio?".</p>
+
+<div class="note">
+<strong>Por que Usado + Disp. não dá o Tam.?</strong>
+<p>Na linha do <code>/</code>, 121G + 324G = 445G, e não 468G. O ext4 reserva cerca de 5% do espaço para o administrador. Assim o sistema ainda consegue funcionar quando um usuário enche o disco.</p>
+</div>
+
+<h3>Formas diferentes de perguntar a mesma coisa</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que mostra</th></tr>
+<tr><td><code>df -h /</code></td><td>Só a partição onde está a pasta <code>/</code>. Funciona com qualquer pasta: <code>df -h ~</code>.</td></tr>
+<tr><td><code>df -hT</code></td><td>Acrescenta a coluna <code>Tipo</code> (ext4, vfat…).</td></tr>
+<tr><td><code>df -h -x tmpfs -x squashfs</code></td><td>Esconde os sistemas virtuais e os Snaps.</td></tr>
+<tr><td><code>df -i</code></td><td>Mostra <strong>inodes</strong> em vez de bytes (veja "Quando não funciona").</td></tr>
+<tr><td>App <strong>Analisador de uso de disco</strong></td><td>A versão gráfica (pacote <code>baobab</code>).</td></tr>
+</table>
+</div>
+
+<pre class="term">$ df -hT /
+Sist. Arq.     Tipo Tam. Usado Disp. Uso% Montado em
+/dev/nvme0n1p2 ext4 468G  121G  324G  28% /</pre>
+
+<div class="try" data-goal="ran:^df,ran:^free">
+<p class="try-task"><strong>Missão:</strong> rode <code>df -h</code> e descubra quanto espaço livre a partição <code>/</code> da máquina fictícia tem. Depois rode <code>free -h</code> e compare: o <code>free</code> fala da memória RAM, não do disco.</p>
+</div>
+
+<hr>
+
+<h2>du: quem está ocupando espaço</h2>
+<p><code>df</code> diz que o disco está cheio; <code>du</code> (de <em>disk usage</em>, "uso de disco") diz <strong>onde</strong>. Ele soma o tamanho dos arquivos de uma pasta.</p>
+
+<dl class="anatomy">
+  <dt>du</dt><dd>O programa.</dd>
+  <dt>-s</dt><dd><em>Summarize</em>: mostra só o total, em vez de cada subpasta.</dd>
+  <dt>-h</dt><dd>Tamanhos legíveis.</dd>
+  <dt>~/Downloads</dt><dd>A pasta a medir.</dd>
+</dl>
+
+<pre class="term">$ du -sh ~/Downloads
+6,0G	/home/ana/Downloads</pre>
+
+<p>Sem o <code>-s</code>, o <code>du</code> lista todas as subpastas, uma por linha, o que pode ser muito longo.</p>
+
+<h3>Um nível de cada vez: <code>-d 1</code></h3>
+<p>A opção <code>-d</code> (de <em>depth</em>, "profundidade") limita quantos níveis de pastas o <code>du</code> mostra. Com <code>-d 1</code>, ele mostra só as pastas de primeiro nível e o total.</p>
+
+<pre class="term">$ du -h -d 1 ~
+4,0K	/home/ana/Modelos
+2,1G	/home/ana/Imagens
+6,0G	/home/ana/Downloads
+1,3G	/home/ana/.cache                « oculta, mas ocupa espaço
+84M	/home/ana/Documentos
+9,6G	/home/ana                       « total da pasta pessoal</pre>
+
+<h3>Ordenar pelo tamanho: <code>| sort -h</code></h3>
+<p>A saída do <code>du</code> vem fora de ordem. Mandando-a para o <code>sort -h</code> (que entende K, M e G), o maior fica por último:</p>
+
+<dl class="anatomy">
+  <dt>du -h -d 1 ~</dt><dd>Tamanho de cada pasta de primeiro nível.</dd>
+  <dt>|</dt><dd>O <strong>pipe</strong>: entrega a saída para o próximo comando (veja <a href="pipes.html">Pipes</a>).</dd>
+  <dt>sort -h</dt><dd>Ordena tamanhos legíveis, do menor para o maior.</dd>
+  <dt>| tail -5</dt><dd>Mostra só as 5 últimas linhas: as maiores.</dd>
+</dl>
+
+<pre class="term">$ du -h -d 1 ~ | sort -h | tail -5
+84M	/home/ana/Documentos
+1,3G	/home/ana/.cache
+2,1G	/home/ana/Imagens
+6,0G	/home/ana/Downloads
+9,6G	/home/ana</pre>
+
+<p>Agora a Ana sabe: o culpado é <code>Downloads</code>. Ela pode repetir o comando dentro dela para descer mais um nível.</p>
+
+<hr>
+
+<h2>Três formas de achar o que enche o disco</h2>
+
+<h3>Forma 1: du + sort, descendo pasta por pasta</h3>
+<p>É o método acima. Funciona em qualquer Ubuntu, inclusive em servidor sem interface gráfica.</p>
+
+<h3>Forma 2: ncdu, interativo</h3>
+<p>O <code>ncdu</code> (<em>NCurses Disk Usage</em>) mostra as pastas ordenadas e deixa você navegar com as setas. Instale com <code>sudo apt install ncdu</code>.</p>
+
+<pre class="term">$ ncdu ~
+--- /home/ana -----------------------------------------
+    6,0 GiB [##########] /Downloads
+    2,1 GiB [###       ] /Imagens
+    1,3 GiB [##        ] /.cache
+   84,0 MiB [          ] /Documentos
+ Total disk usage:   9,6 GiB  Apparent size:   9,5 GiB  Items: 1834</pre>
+
+<p>Use <kbd>↑</kbd> <kbd>↓</kbd> para escolher, <kbd>Enter</kbd> para entrar na pasta, <kbd>d</kbd> para apagar (pede confirmação) e <kbd>q</kbd> para sair. A saída acima é ilustrativa.</p>
+
+<h3>Forma 3: arquivos grandes com find</h3>
+<p>Às vezes o problema é um arquivo enorme escondido. O <code>find</code> procura por tamanho:</p>
+
+<pre class="term">$ find ~ -type f -size +1G
+/home/ana/Downloads/ubuntu-26.04-desktop-amd64.iso</pre>
+
+<p>Veja mais em <a href="find.html">find e locate</a>.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Melhor quando…</th></tr>
+<tr><td><code>du -h -d 1 | sort -h</code></td><td>Você quer saber qual pasta cresceu. Funciona em qualquer lugar.</td></tr>
+<tr><td><code>ncdu</code></td><td>Você vai investigar e limpar várias pastas.</td></tr>
+<tr><td><code>find -size +1G</code></td><td>Você suspeita de poucos arquivos gigantes.</td></tr>
+<tr><td>Analisador de uso de disco</td><td>Você está no desktop e prefere gráficos.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"No space left on device"</strong>
+<pre class="term">$ cp video.mp4 ~/Vídeos/
+cp: erro de escrita de '/home/ana/Vídeos/video.mp4': Não há espaço disponível no dispositivo</pre>
+<p><strong>O que aconteceu:</strong> a partição encheu. Programas podem travar e o sistema pode não conseguir salvar configurações.</p>
+<p><strong>Como confirmar:</strong> <code>df -h /</code> mostra <code>Uso%</code> perto de 100%.</p>
+<p><strong>Como resolver:</strong> ache o culpado com <code>du -h -d 1 ~ | sort -h</code>. Lugares que costumam crescer: <code>~/Downloads</code>, <code>~/.cache</code>, a lixeira (<code>~/.local/share/Trash</code>), os logs (<code>sudo journalctl --vacuum-size=200M</code>) e o cache do apt (<code>sudo apt clean</code>). Veja <a href="manutencao.html">Manutenção</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>df diz que há espaço, mas nada pode ser criado</strong>
+<pre class="term">$ df -h /srv
+Sist. Arq.     Tam. Usado Disp. Uso% Montado em
+/dev/sdb1       20G  9,1G  9,9G  48% /srv
+$ df -i /srv
+Sist. Arq.      Inodes  IUsado IDisp. IUso% Montado em
+/dev/sdb1      1310720 1310720      0  100% /srv          « os inodes acabaram</pre>
+<p><strong>O que aconteceu:</strong> cada arquivo gasta um <strong>inode</strong> (uma "ficha" que guarda suas informações). Milhões de arquivos pequenos, como caches e sessões, esgotam as fichas antes do espaço.</p>
+<p><strong>Como resolver:</strong> ache a pasta com mais arquivos e apague o que não serve. Saída ilustrativa.</p>
+</div>
+
+<div class="cenario">
+<strong>du mostra "Permission denied"</strong>
+<pre class="term">$ du -sh /etc
+du: cannot read directory '/etc/cups/ssl': Permission denied
+17M	/etc</pre>
+<p><strong>O que aconteceu:</strong> algumas pastas só o root pode ler. O total mostrado fica <strong>menor</strong> que o real. Repare que, no Ubuntu 26.04, essa mensagem do <code>du</code> aparece em inglês.</p>
+<p><strong>Como resolver:</strong> para medir pastas do sistema, use <code>sudo du -sh /etc</code>. Para só esconder os avisos: <code>du -sh /etc 2&gt;/dev/null</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Apaguei um arquivo grande e o espaço não voltou</strong>
+<p><strong>O que aconteceu:</strong> se um programa ainda está com o arquivo aberto (por exemplo, um log que um serviço continua escrevendo), o espaço só é liberado quando o programa fecha o arquivo. Outra possibilidade: o arquivo foi para a lixeira.</p>
+<p><strong>Como resolver:</strong> esvazie a lixeira, ou reinicie o serviço que usava o arquivo. Para listar arquivos apagados que ainda estão abertos: <code>sudo lsof +L1</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<h3>lsblk</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-f</code></td><td>Mostra tipo, rótulo, UUID e espaço livre</td><td><code>lsblk -f</code></td></tr>
+<tr><td><code>-e7</code></td><td>Esconde os loops do Snap</td><td><code>lsblk -e7</code></td></tr>
+<tr><td><code>-o</code></td><td>Escolhe as colunas</td><td><code>lsblk -o NAME,SIZE,MOUNTPOINTS</code></td></tr>
+<tr><td><code>-d</code></td><td>Só os discos, sem as partições</td><td><code>lsblk -d</code></td></tr>
+<tr><td><code>-p</code></td><td>Mostra o caminho completo (<code>/dev/sda1</code>)</td><td><code>lsblk -p</code></td></tr>
+</table>
+</div>
+<h3>df</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-h</code></td><td>Tamanhos legíveis</td><td><code>df -h</code></td></tr>
+<tr><td><code>-T</code></td><td>Mostra o tipo do sistema de arquivos</td><td><code>df -hT</code></td></tr>
+<tr><td><code>-x TIPO</code></td><td>Esconde um tipo</td><td><code>df -h -x tmpfs</code></td></tr>
+<tr><td><code>-i</code></td><td>Mostra inodes</td><td><code>df -i</code></td></tr>
+<tr><td><code>--total</code></td><td>Acrescenta uma linha de total</td><td><code>df -h --total</code></td></tr>
+</table>
+</div>
+<h3>du</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-s</code></td><td>Só o total</td><td><code>du -sh pasta</code></td></tr>
+<tr><td><code>-h</code></td><td>Tamanhos legíveis</td><td><code>du -h</code></td></tr>
+<tr><td><code>-d N</code></td><td>Mostra até N níveis</td><td><code>du -h -d 1</code></td></tr>
+<tr><td><code>-a</code></td><td>Inclui arquivos, não só pastas</td><td><code>du -ah pasta</code></td></tr>
+<tr><td><code>-c</code></td><td>Acrescenta uma linha de total</td><td><code>du -ch *.iso</code></td></tr>
+<tr><td><code>--exclude</code></td><td>Ignora um padrão</td><td><code>du -sh --exclude=.cache ~</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Discos sem os loops</h3>
+<p>Complete para listar os discos escondendo os dispositivos do Snap:</p>
+<div class="ex-code">lsblk <input data-answer="-e7|-e 7" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Total de uma pasta</h3>
+<p>Complete para ver só o tamanho total da pasta Imagens, em formato legível:</p>
+<div class="ex-code">du <input data-answer="-sh|-hs|-s -h|-h -s" aria-label="opções"> ~/Imagens</div>
+</div>
+
+<div class="exercise">
+<h3>3. As maiores pastas</h3>
+<p>Complete para ordenar o resultado do <code>du</code> pelo tamanho:</p>
+<div class="ex-code">du -h -d 1 ~ | sort <input data-answer="-h" aria-label="opção"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. O sistema diz "Não há espaço disponível no dispositivo". Qual comando você roda primeiro?</p>
+<label><input type="radio" name="q4"> <code>lsblk</code></label>
+<label><input type="radio" name="q4"> <code>df -h</code></label>
+<label><input type="radio" name="q4"> <code>free -h</code></label>
+<label><input type="radio" name="q4"> <code>mount</code></label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. No <code>lsblk</code>, o que é <code>nvme0n1p2</code>?</p>
+<label><input type="radio" name="q5"> O segundo SSD do computador.</label>
+<label><input type="radio" name="q5"> Um disco virtual do Snap.</label>
+<label><input type="radio" name="q5"> Um pendrive.</label>
+<label><input type="radio" name="q5"> A partição 2 do primeiro SSD NVMe.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>lsblk</code> lista discos e partições; <code>-f</code> mostra tipo e UUID; <code>-e7</code> esconde os Snaps.</li>
+  <li><code>df -h</code> mostra o espaço livre de cada partição montada.</li>
+  <li><code>du -sh pasta</code> mede uma pasta; <code>du -h -d 1 | sort -h</code> acha a maior.</li>
+  <li>Disco "cheio" com <code>df</code> mostrando espaço livre: confira os inodes com <code>df -i</code>.</li>
+  <li>Nenhum dos três altera nada: use sem medo.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

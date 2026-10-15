@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Funções — organizar scripts Bash em funções | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a criar funções no Bash: definir, chamar, passar argumentos, local, return x echo, bibliotecas com source e limpeza com trap, com um script completo testado.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Funções</span></h1>
+
+<p class="intro">Uma <strong>função</strong> é um bloco de comandos com nome. Você escreve uma vez e chama quantas vezes quiser, como se fosse um comando novo. Funções deixam scripts grandes organizados em partes pequenas, cada uma com um trabalho só.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Como definir e chamar uma função, e passar argumentos para ela.</li>
+  <li>A diferença entre <code>return</code> (código de saída) e <code>echo</code> (resultado).</li>
+  <li>Por que usar <code>local</code> nas variáveis da função.</li>
+  <li>Como reaproveitar funções com <code>source</code> e fazer limpeza automática com <code>trap</code>.</li>
+  <li>Como organizar um script real inteiro em funções.</li>
+</ul>
+</div>
+
+<p>Antes, leia <a href="script-condicionais.html">Condicionais</a> e <a href="script-lacos.html">Laços</a>. Os exemplos rodam na máquina fictícia <strong>notebook</strong>, com a usuária <strong>ana</strong>.</p>
+
+<hr>
+
+<h2>Definir e chamar</h2>
+
+<pre class="syntax">nome_da_funcao() {
+  comandos
+}
+
+nome_da_funcao arg1 arg2</pre>
+
+<dl class="anatomy">
+  <dt>saudar()</dt><dd>O nome da função. Os parênteses vazios dizem "isto é uma função". Nunca se coloca nada dentro deles.</dd>
+  <dt>{</dt><dd>Abre o corpo da função.</dd>
+  <dt>echo "Olá, $1!"</dt><dd>O que a função faz. <code>$1</code> é o primeiro argumento que ela recebeu.</dd>
+  <dt>}</dt><dd>Fecha o corpo.</dd>
+</dl>
+
+<pre class="file" data-file="saudar.sh">#!/usr/bin/env bash
+saudar() {
+  echo "Olá, $1!"
+}
+
+saudar "Ana"
+saudar "Bruno"</pre>
+
+<pre class="term">$ ./saudar.sh
+Olá, Ana!
+Olá, Bruno!</pre>
+
+<ul>
+  <li>Definir a função <strong>não executa nada</strong>. Ela só roda quando é chamada.</li>
+  <li>A função precisa estar <strong>definida antes</strong> da linha que a chama, ou seja, mais acima no arquivo.</li>
+  <li>Para chamar, escreva o nome como um comando, <strong>sem parênteses</strong>: <code>saudar "Ana"</code>.</li>
+</ul>
+
+<h3>Também funciona no terminal</h3>
+<p>Funções não são só para scripts. Você pode criar uma direto no terminal e ver como o Bash a enxerga:</p>
+<pre class="term">$ diga_oi() { echo "oi"; }
+$ diga_oi
+oi
+$ type diga_oi
+diga_oi é uma função
+diga_oi ()
+{
+    echo "oi"
+}</pre>
+<p>Ela dura até você fechar o terminal. Para ter sempre, coloque no <code>~/.bashrc</code> (veja <a href="bashrc.html">.bashrc, alias, PATH</a>).</p>
+
+<div class="note">
+<strong>Outra forma de escrever</strong>
+<p>O Bash também aceita <code>function saudar { … }</code>. Funciona igual, mas a forma <code>saudar() { … }</code> é a mais comum e também roda em outros shells.</p>
+</div>
+
+<hr>
+
+<h2>Argumentos dentro da função</h2>
+<p>Dentro da função, <code>$1</code>, <code>$2</code>, <code>$@</code> e <code>$#</code> são os argumentos <strong>da função</strong>, não os do script. Cada função recebe os seus.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Variável</th><th>Dentro da função significa</th></tr>
+<tr><td><code>$1</code>, <code>$2</code>…</td><td>1º, 2º… argumento passado à função</td></tr>
+<tr><td><code>$@</code></td><td>Todos os argumentos (use <code>"$@"</code>, entre aspas)</td></tr>
+<tr><td><code>$#</code></td><td>Quantos argumentos a função recebeu</td></tr>
+<tr><td><code>$0</code></td><td>Continua sendo o nome do script</td></tr>
+</table>
+</div>
+
+<pre class="file" data-file="argumentos.sh">#!/usr/bin/env bash
+mostrar() {
+  echo "Recebi $# argumento(s): $@"
+}
+
+mostrar um dois três
+mostrar "uma frase só"</pre>
+
+<pre class="term">$ ./argumentos.sh
+Recebi 3 argumento(s): um dois três
+Recebi 1 argumento(s): uma frase só          « com aspas, a frase é um argumento só</pre>
+
+<hr>
+
+<h2>O que a função devolve: echo ou return</h2>
+<p>Esta é a parte que mais confunde. Uma função pode devolver duas coisas diferentes:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th><code>echo</code> (saída)</th><th><code>return</code> (código)</th></tr>
+<tr><td>O que é</td><td>Texto escrito na tela</td><td>Número de 0 a 255, o código de saída</td></tr>
+<tr><td>Para quê</td><td>Devolver um resultado (um nome, uma soma)</td><td>Dizer se deu certo (0) ou errado (outro)</td></tr>
+<tr><td>Como pegar</td><td><code>valor=$(funcao)</code></td><td><code>if funcao; then</code> ou <code>$?</code></td></tr>
+</table>
+</div>
+
+<h3>Devolver um resultado com echo</h3>
+<pre class="file" data-file="soma.sh">#!/usr/bin/env bash
+somar() {
+  local resultado=$(( $1 + $2 ))
+  echo "$resultado"
+}
+
+total=$(somar 7 5)
+echo "O total é $total"</pre>
+
+<dl class="anatomy">
+  <dt>total=</dt><dd>Guarda na variável <code>total</code>…</dd>
+  <dt>$(</dt><dd>…a saída (o que seria escrito na tela) do que está dentro…</dd>
+  <dt>somar 7 5</dt><dd>…da chamada da função.</dd>
+  <dt>)</dt><dd>Fecha a captura.</dd>
+</dl>
+
+<pre class="term">$ ./soma.sh
+O total é 12</pre>
+
+<h3>Responder "sim ou não" com o código</h3>
+<p>Uma função que só testa algo pode usar o código do último comando. Aqui, o código do <code>[ -d ]</code> vira o código da função:</p>
+
+<pre class="file" data-file="existe.sh">#!/usr/bin/env bash
+pasta_existe() {
+  [ -d "$1" ]
+}
+
+if pasta_existe "Downloads"; then
+  echo "Downloads existe"
+fi
+
+pasta_existe "Videos"
+echo "Código devolvido para Videos: $?"</pre>
+
+<pre class="term">$ ./existe.sh
+Downloads existe
+Código devolvido para Videos: 1</pre>
+
+<p>Com <code>return</code>, você escolhe o código explicitamente: <code>return 0</code> (sucesso) ou <code>return 1</code> (falha). Sem <code>return</code>, a função devolve o código do último comando que rodou.</p>
+
+<div class="warning">
+<strong>return não devolve texto nem números grandes</strong>
+<p><code>return 300</code> não devolve 300: o código só vai de 0 a 255, e 300 vira 44. Para devolver um valor, use <code>echo</code>.</p>
+<pre class="term">$ f() { return 300; }
+$ f; echo $?
+44</pre>
+</div>
+
+<hr>
+
+<h2>Variáveis locais: <code>local</code></h2>
+<p>Por padrão, uma variável criada dentro da função vale <strong>no script inteiro</strong>. Isso pode estragar uma variável de mesmo nome usada em outro lugar. Com <code>local</code>, ela só existe dentro da função.</p>
+
+<pre class="file" data-file="local.sh">#!/usr/bin/env bash
+nome="global"
+
+sem_local() { nome="mudei"; }
+com_local() { local nome="só aqui dentro"; echo "dentro: $nome"; }
+
+com_local
+echo "depois de com_local: $nome"
+sem_local
+echo "depois de sem_local: $nome"</pre>
+
+<pre class="term">$ ./local.sh
+dentro: só aqui dentro
+depois de com_local: global                « o local não vazou
+depois de sem_local: mudei                 « sem local, a variável de fora foi alterada</pre>
+
+<div class="tip">
+<strong>Regra prática</strong>
+<p>Toda variável criada dentro de uma função leva <code>local</code>, a não ser que você queira mesmo mudar uma variável do script.</p>
+</div>
+
+<hr>
+
+<h2>Reaproveitar funções: <code>source</code></h2>
+<p>Funções que você usa em vários scripts podem morar num arquivo separado, uma "biblioteca". O <code>source</code> (ou o atalho <code>.</code>) carrega esse arquivo dentro do script atual.</p>
+
+<pre class="file" data-file="lib.sh"># lib.sh — funções reaproveitáveis (não precisa de shebang nem chmod +x)
+info() { echo "[INFO] $*"; }
+erro() { echo "[ERRO] $*" &gt;&amp;2; }</pre>
+
+<pre class="file" data-file="usa-lib.sh">#!/usr/bin/env bash
+source "$(dirname "$0")/lib.sh"
+
+info "Começando o trabalho"
+erro "Algo deu errado"</pre>
+
+<dl class="anatomy">
+  <dt>source</dt><dd>Lê o arquivo e executa no script atual, como se o conteúdo estivesse colado ali.</dd>
+  <dt>"$(dirname "$0")</dt><dd>A pasta onde o script está. Assim ele acha a <code>lib.sh</code> de qualquer lugar de onde for chamado.</dd>
+  <dt>/lib.sh"</dt><dd>O arquivo da biblioteca.</dd>
+</dl>
+
+<pre class="term">$ ./usa-lib.sh
+[INFO] Começando o trabalho
+[ERRO] Algo deu errado</pre>
+
+<hr>
+
+<h2>Limpeza automática: <code>trap</code></h2>
+<p>Scripts às vezes criam arquivos temporários. O <code>trap</code> ("armadilha") registra uma função para rodar quando o script termina, mesmo que termine por erro ou por <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
+
+<pre class="file" data-file="temporario.sh">#!/usr/bin/env bash
+tmp=$(mktemp -d)
+
+limpar() {
+  rm -rf "$tmp"
+  echo "Pasta temporária apagada."
+}
+trap limpar EXIT
+
+echo "Trabalhando em $tmp"
+touch "$tmp/rascunho.txt"
+exit 0</pre>
+
+<dl class="anatomy">
+  <dt>trap</dt><dd>Registra o que fazer quando algo acontecer.</dd>
+  <dt>limpar</dt><dd>A função que será chamada.</dd>
+  <dt>EXIT</dt><dd>Quando: na saída do script, por qualquer motivo.</dd>
+</dl>
+
+<pre class="term">$ ./temporario.sh
+Trabalhando em /tmp/tmp.k3Q9xLmA2c
+Pasta temporária apagada.</pre>
+
+<p>O <code>mktemp -d</code> cria uma pasta com nome aleatório em <code>/tmp</code>, então o nome muda a cada execução.</p>
+
+<hr>
+
+<h2>Exemplo completo: organizar a pasta Downloads</h2>
+<p>Este script separa os arquivos de uma pasta em subpastas por tipo. Cada função tem um trabalho: <code>uso</code> explica como usar, <code>categoria</code> decide o tipo, <code>mover</code> move um arquivo e <code>main</code> coordena tudo.</p>
+
+<pre class="file" data-file="organizar.sh">#!/usr/bin/env bash
+# organizar.sh — separa os arquivos de uma pasta em subpastas por tipo
+# Uso: ./organizar.sh [PASTA]   (padrão: ~/Downloads)
+
+set -euo pipefail
+
+pasta="${1:-$HOME/Downloads}"
+
+uso() {
+  echo "Uso: $0 [PASTA]" &gt;&amp;2
+  exit 1
+}
+
+categoria() {
+  case "${1,,}" in
+    *.pdf|*.txt|*.odt|*.docx) echo "Documentos" ;;
+    *.jpg|*.jpeg|*.png|*.gif) echo "Imagens" ;;
+    *.mp3|*.ogg|*.flac)       echo "Musicas" ;;
+    *.deb|*.zip|*.tar.gz)     echo "Instaladores" ;;
+    *)                        echo "Outros" ;;
+  esac
+}
+
+mover() {
+  local arquivo="$1"
+  local destino
+  destino="$pasta/$(categoria "$arquivo")"
+  mkdir -p "$destino"
+  mv -n "$arquivo" "$destino/"
+  echo "$(basename "$arquivo") -&gt; $(basename "$destino")/"
+}
+
+main() {
+  [ -d "$pasta" ] || uso
+  local total=0
+  for arquivo in "$pasta"/*; do
+    [ -f "$arquivo" ] || continue
+    mover "$arquivo"
+    total=$((total + 1))
+  done
+  echo "Pronto: $total arquivo(s) organizados."
+}
+
+main</pre>
+
+<p>Os detalhes novos:</p>
+<ul>
+  <li><code>set -euo pipefail</code> faz o script parar no primeiro erro (veja <a href="script-intro.html">Primeiro Script</a>).</li>
+  <li><code>${1:-$HOME/Downloads}</code> usa o primeiro argumento ou, se não houver, a pasta Downloads.</li>
+  <li><code>${1,,}</code> é o nome em letras minúsculas, para <code>FOTO.JPG</code> também cair em Imagens.</li>
+  <li><code>mv -n</code> nunca sobrescreve um arquivo que já esteja no destino.</li>
+  <li><code>main</code> no fim é a única linha "solta": todo o resto está em funções.</li>
+</ul>
+
+<pre class="term">$ ls Downloads
+LEIAME      foto.jpg    musica.mp3  relatorio.pdf
+ferias.png  manual.pdf  notas.txt   setup.deb
+$ ./organizar.sh
+ferias.png -&gt; Imagens/
+foto.jpg -&gt; Imagens/
+LEIAME -&gt; Outros/
+manual.pdf -&gt; Documentos/
+musica.mp3 -&gt; Musicas/
+notas.txt -&gt; Documentos/
+relatorio.pdf -&gt; Documentos/
+setup.deb -&gt; Instaladores/
+Pronto: 8 arquivo(s) organizados.
+$ ls Downloads
+Documentos  Imagens  Instaladores  Musicas  Outros
+$ ./organizar.sh pasta-que-nao-existe
+Uso: ./organizar.sh [PASTA]</pre>
+
+<div class="note">
+<strong>Por que a ordem mudou?</strong>
+<p>O <code>ls</code> do Ubuntu 26.04 coloca maiúsculas antes (<code>LEIAME</code> primeiro). Já o curinga <code>*</code> do Bash segue a ordem do idioma português, sem separar maiúsculas, por isso <code>LEIAME</code> aparece entre <code>foto.jpg</code> e <code>manual.pdf</code>.</p>
+</div>
+
+<hr>
+
+<h2>Formas diferentes de reaproveitar comandos</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td>Alias</td><td><code>alias ll='ls -alF'</code></td><td>É só um atalho para um comando com opções fixas.</td></tr>
+<tr><td>Função no .bashrc</td><td><code>mkcd() { mkdir -p "$1" &amp;&amp; cd "$1"; }</code></td><td>Precisa de argumentos ou de mais de um comando, no seu terminal.</td></tr>
+<tr><td>Função no script</td><td><code>mover() { … }</code></td><td>Uma parte do script que se repete ou merece um nome.</td></tr>
+<tr><td>Biblioteca com source</td><td><code>source lib.sh</code></td><td>As mesmas funções em vários scripts.</td></tr>
+<tr><td>Script separado</td><td><code>~/.local/bin/organizar</code></td><td>É uma ferramenta completa, usada de qualquer lugar.</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Uma função muito útil para o seu .bashrc</strong>
+<p><code>mkcd() { mkdir -p "$1" &amp;&amp; cd "$1"; }</code> cria uma pasta e já entra nela: <code>mkcd projeto/novo</code>. Um alias não conseguiria fazer isso, porque precisa usar o argumento duas vezes.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"comando não encontrado" ao chamar a função</strong>
+<pre class="term">$ ./saudar.sh
+./saudar.sh: linha 2: saudar: comando não encontrado</pre>
+<p><strong>O que aconteceu:</strong> a chamada <code>saudar "Ana"</code> está <strong>acima</strong> da definição no arquivo. O Bash lê de cima para baixo e ainda não conhecia a função.</p>
+<p><strong>Como resolver:</strong> mova as definições para o topo e as chamadas para o fim. Ou use o padrão <code>main</code> no fim do arquivo.</p>
+</div>
+
+<div class="cenario">
+<strong>O terminal mostra <code>&gt;</code> depois de definir a função</strong>
+<pre class="term">$ f() { echo oi }
+&gt;</pre>
+<p><strong>O que aconteceu:</strong> numa linha só, o último comando antes do <code>}</code> precisa de <code>;</code>. Sem ele, o Bash acha que o <code>}</code> é um argumento do <code>echo</code> e continua esperando o fechamento.</p>
+<p><strong>Como resolver:</strong> <kbd>Ctrl</kbd>+<kbd>C</kbd> e escreva <code>f() { echo oi; }</code>, com <code>;</code> e espaço depois do <code>{</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"local: somente pode ser usado em uma função"</strong>
+<pre class="term">$ local x=1
+bash: local: somente pode ser usado em uma função</pre>
+<p><strong>O que aconteceu:</strong> <code>local</code> só existe dentro de funções.</p>
+<p><strong>Como resolver:</strong> fora de funções, crie a variável normalmente: <code>x=1</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"return: possível retornar … apenas de uma função"</strong>
+<pre class="term">$ return 1
+bash: return: possível retornar (`return') apenas de uma função ou script carregado (com `source')</pre>
+<p><strong>O que aconteceu:</strong> <code>return</code> sai de uma função. Para encerrar o script inteiro, o comando é outro.</p>
+<p><strong>Como resolver:</strong> no corpo principal do script, use <code>exit 1</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência rápida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Item</th><th>Sintaxe</th></tr>
+<tr><td>Definir</td><td><code>nome() { comandos; }</code></td></tr>
+<tr><td>Chamar</td><td><code>nome arg1 arg2</code></td></tr>
+<tr><td>Argumentos</td><td><code>$1 $2 "$@" $#</code></td></tr>
+<tr><td>Variável local</td><td><code>local var=valor</code></td></tr>
+<tr><td>Devolver valor</td><td><code>echo "$resultado"</code> + <code>x=$(nome)</code></td></tr>
+<tr><td>Devolver código</td><td><code>return 0</code> / <code>return 1</code></td></tr>
+<tr><td>Carregar biblioteca</td><td><code>source arquivo.sh</code> ou <code>. arquivo.sh</code></td></tr>
+<tr><td>Limpeza na saída</td><td><code>trap funcao EXIT</code></td></tr>
+<tr><td>Ver a definição</td><td><code>type nome</code></td></tr>
+<tr><td>Apagar a função</td><td><code>unset -f nome</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Definir</h3>
+<p>Complete a definição da função <code>ola</code>:</p>
+<div class="ex-code">ola<input data-answer="()" aria-label="parênteses"> { echo "Olá!"; }</div>
+</div>
+
+<div class="exercise">
+<h3>2. Capturar o resultado</h3>
+<p>Complete para guardar a saída de <code>somar 2 3</code> na variável <code>r</code>:</p>
+<div class="ex-code">r=<input data-answer="$(somar 2 3)|`somar 2 3`" aria-label="captura"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Variável só da função</h3>
+<p>Complete para que <code>contador</code> exista só dentro da função:</p>
+<div class="ex-code">contar() { <input data-answer="local" aria-label="palavra-chave"> contador=0; }</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Qual a forma certa de uma função devolver o texto "Ubuntu" para quem a chamou?</p>
+<label><input type="radio" name="q4"> <code>return "Ubuntu"</code></label>
+<label><input type="radio" name="q4"> <code>echo "Ubuntu"</code>, e quem chama usa <code>$(funcao)</code></label>
+<label><input type="radio" name="q4"> <code>exit "Ubuntu"</code></label>
+<label><input type="radio" name="q4"> <code>local "Ubuntu"</code></label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Para que serve <code>trap limpar EXIT</code>?</p>
+<label><input type="radio" name="q5"> Para impedir que o script seja encerrado.</label>
+<label><input type="radio" name="q5"> Para chamar <code>limpar</code> a cada linha do script.</label>
+<label><input type="radio" name="q5"> Para chamar <code>limpar</code> quando o script terminar, por qualquer motivo.</label>
+<label><input type="radio" name="q5"> Para apagar a função <code>limpar</code>.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Defina com <code>nome() { …; }</code> antes de chamar; chame como um comando, sem parênteses.</li>
+  <li><code>$1</code>, <code>$@</code> e <code>$#</code> dentro da função são os argumentos dela.</li>
+  <li><code>echo</code> devolve resultados (pegue com <code>$(…)</code>); <code>return</code> devolve só o código de 0 a 255.</li>
+  <li>Use <code>local</code> em toda variável da função.</li>
+  <li><code>source</code> reaproveita bibliotecas; <code>trap … EXIT</code> garante a limpeza.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Introdução — o que é Linux, o que é Ubuntu e qual versão usar | Guia Ubuntu</title>
+<meta name="description" content="Entenda o que é um sistema operacional, o kernel Linux, as distribuições, o Ubuntu, as versões LTS e como descobrir a versão instalada no seu computador.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Introdução</span></h1>
+
+<p class="intro">O Ubuntu é um sistema operacional gratuito, feito a partir do Linux. Ele roda em notebooks, computadores de mesa, servidores e na nuvem. Nesta aula você entende o que é cada uma dessas palavras e descobre, pelo terminal, qual versão está usando.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que é um sistema operacional, o kernel Linux e uma distribuição.</li>
+  <li>De onde vem o Ubuntu e por que ele é tão usado.</li>
+  <li>Como ler o número da versão (26.04, 24.04…) e o que significa LTS.</li>
+  <li>Quatro formas de descobrir a versão instalada no seu computador.</li>
+  <li>A diferença entre Ubuntu Desktop, Ubuntu Server e os "sabores".</li>
+</ul>
+</div>
+
+<p>Os exemplos acontecem numa máquina fictícia chamada <strong>notebook</strong>, com a usuária <strong>ana</strong>. Não se preocupe se ainda não sabe usar o terminal: aqui você só vai ler os comandos e as respostas. Você aprende a digitar na aula <a href="terminal.html">O Terminal</a>.</p>
+
+<hr>
+
+<h2>O que é um sistema operacional?</h2>
+<p>O <strong>sistema operacional</strong> é o programa que controla o computador. Ele liga o hardware (processador, memória, disco, rede, tela) aos programas que você usa (navegador, editor de texto, jogos).</p>
+<p>Sem ele, cada programa teria de saber falar com cada modelo de placa de vídeo ou de Wi-Fi. Com ele, o navegador só pede "mande estes dados pela rede", e o sistema cuida do resto.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Sistema operacional</th><th>Onde costuma rodar</th></tr>
+<tr><td>Windows</td><td>Computadores pessoais</td></tr>
+<tr><td>macOS</td><td>Computadores da Apple</td></tr>
+<tr><td>Android</td><td>Celulares (por baixo, usa o kernel Linux)</td></tr>
+<tr><td>Ubuntu</td><td>Computadores pessoais, servidores, nuvem</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>O que é Linux?</h2>
+<p>A palavra "Linux" tem dois sentidos, e vale separar:</p>
+<ul>
+  <li><strong>O kernel Linux.</strong> Kernel quer dizer "núcleo". É a parte central do sistema, que conversa diretamente com o hardware. Foi criado por Linus Torvalds em 1991.</li>
+  <li><strong>Um sistema Linux.</strong> O kernel junto com centenas de outros programas (terminal, utilitários, interface gráfica, instalador de programas), formando um sistema completo. O Ubuntu é um deles.</li>
+</ul>
+
+<p>Você pode perguntar ao computador qual kernel ele está usando. O comando é o <code>uname</code>, de <em>unix name</em>, "nome do sistema":</p>
+
+<dl class="anatomy">
+  <dt>uname</dt><dd>O programa: mostra informações sobre o sistema.</dd>
+  <dt>-r</dt><dd>Opção de <em>release</em>, "versão": mostra só a versão do kernel.</dd>
+</dl>
+
+<pre class="term">$ uname -r
+7.0.0-38-generic</pre>
+
+<p>A resposta tem três partes:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Parte</th><th>Significado</th></tr>
+<tr><td><code>7.0.0</code></td><td>A versão do kernel Linux.</td></tr>
+<tr><td><code>38</code></td><td>A revisão feita pelo Ubuntu. Cada atualização de segurança do kernel aumenta esse número.</td></tr>
+<tr><td><code>generic</code></td><td>O tipo de kernel. <code>generic</code> é o padrão, que serve para quase todo computador.</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Não precisa decorar</strong>
+<p>Você não precisa saber a versão do kernel no dia a dia. Ela é útil quando você pede ajuda num fórum ou quando um hardware novo não funciona.</p>
+</div>
+
+<hr>
+
+<h2>O que é uma distribuição?</h2>
+<p>Uma <strong>distribuição</strong> (ou <em>distro</em>) é um pacote pronto para usar: kernel Linux, programas, instalador e um jeito de receber atualizações. Cada distribuição faz escolhas diferentes, mas todas usam o mesmo kernel.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Distribuição</th><th>Baseada em</th><th>Característica</th></tr>
+<tr><td>Ubuntu</td><td>Debian</td><td>Fácil de usar, lançamentos previsíveis, muito material de ajuda</td></tr>
+<tr><td>Debian</td><td>—</td><td>Muito estável; é a base de várias outras</td></tr>
+<tr><td>Linux Mint</td><td>Ubuntu</td><td>Visual parecido com o do Windows</td></tr>
+<tr><td>Pop!_OS</td><td>Ubuntu</td><td>Voltada a desenvolvedores e jogos</td></tr>
+<tr><td>Fedora</td><td>—</td><td>Novidades rápidas; patrocinada pela Red Hat</td></tr>
+<tr><td>Arch Linux</td><td>—</td><td>Montada peça por peça pelo próprio usuário</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Vale para outras distribuições</strong>
+<p>Quase tudo neste guia também funciona no Debian, no Linux Mint e no Pop!_OS, porque eles usam a mesma base.</p>
+</div>
+
+<hr>
+
+<h2>O que é o Ubuntu?</h2>
+<p>O Ubuntu foi lançado em 2004 pela empresa <strong>Canonical</strong>, fundada por Mark Shuttleworth. Ele é baseado no Debian. O nome vem de uma palavra das línguas zulu e xhosa, da África do Sul, que costuma ser traduzida como "humanidade para com os outros".</p>
+<p>Por que ele é tão usado:</p>
+<ul>
+  <li><strong>Gratuito:</strong> você pode baixar, instalar e usar em quantos computadores quiser.</li>
+  <li><strong>Previsível:</strong> sai uma versão nova a cada 6 meses, sempre em abril e outubro.</li>
+  <li><strong>Seguro:</strong> recebe correções de segurança com frequência.</li>
+  <li><strong>Comunidade grande:</strong> quase todo erro que você encontrar já foi resolvido por alguém na internet.</li>
+  <li><strong>Padrão na nuvem:</strong> é um dos sistemas mais usados em servidores (AWS, Azure, Google Cloud).</li>
+</ul>
+
+<hr>
+
+<h2>Como ler o número da versão</h2>
+<p>A versão do Ubuntu é sempre <strong>ano.mês</strong> do lançamento. Cada versão também ganha um <strong>codinome</strong>: um adjetivo e um animal que começam com a mesma letra.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Versão</th><th>Lançamento</th><th>Codinome</th><th>Tipo</th></tr>
+<tr><td>26.04</td><td>abril de 2026</td><td>Resolute Raccoon</td><td>LTS</td></tr>
+<tr><td>25.10</td><td>outubro de 2025</td><td>Questing Quokka</td><td>Intermediária</td></tr>
+<tr><td>24.04</td><td>abril de 2024</td><td>Noble Numbat</td><td>LTS</td></tr>
+<tr><td>22.04</td><td>abril de 2022</td><td>Jammy Jellyfish</td><td>LTS</td></tr>
+</table>
+</div>
+
+<p>Quando aparece um terceiro número, como em <strong>26.04.1</strong>, ele indica uma <strong>revisão de manutenção</strong>. A revisão junta as atualizações publicadas desde o lançamento, para quem instala hoje não precisar baixar tudo de novo.</p>
+
+<h3>LTS ou intermediária?</h3>
+<p><strong>LTS</strong> significa <em>Long Term Support</em>, "suporte de longo prazo". Sai uma LTS a cada 2 anos, sempre em abril dos anos pares.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>LTS (ex.: 26.04)</th><th>Intermediária (ex.: 25.10)</th></tr>
+<tr><td>Frequência</td><td>A cada 2 anos</td><td>A cada 6 meses</td></tr>
+<tr><td>Atualizações de segurança</td><td>5 anos (até 10 com Ubuntu Pro)</td><td>9 meses</td></tr>
+<tr><td>Ideal para</td><td>Uso diário, trabalho, servidores</td><td>Quem quer testar novidades</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Ubuntu Pro</strong>
+<p>O Ubuntu Pro estende as atualizações de segurança de uma LTS. É gratuito para uso pessoal em até 5 máquinas. Você vê como ativar em <a href="atualizacoes.html">Atualizações</a>.</p>
+</div>
+
+<div class="tip">
+<strong>Recomendação para iniciantes</strong>
+<p>Use sempre a LTS mais recente. Este guia usa o <strong>Ubuntu 26.04 LTS</strong>.</p>
+</div>
+
+<hr>
+
+<h2>Descobrir a versão instalada: <code>lsb_release</code></h2>
+<p>O comando <code>lsb_release</code> mostra a versão do Ubuntu. O nome vem de <em>Linux Standard Base</em>, um padrão antigo para identificar distribuições.</p>
+
+<dl class="anatomy">
+  <dt>lsb_release</dt><dd>O programa: informa qual distribuição e qual versão estão instaladas.</dd>
+  <dt>-a</dt><dd>Opção de <em>all</em>, "tudo": mostra todas as informações.</dd>
+</dl>
+
+<pre class="term">$ lsb_release -a
+Distributor ID:	Ubuntu                    « a distribuição
+Description:	Ubuntu 26.04.1 LTS        « nome completo, com a revisão
+Release:	26.04                       « a versão
+Codename:	resolute                    « o codinome, só a primeira palavra</pre>
+
+<p>O codinome aparece em minúsculas e só com a primeira palavra (<code>resolute</code>, de Resolute Raccoon). É assim que ele aparece nos endereços dos repositórios de programas, que você verá em <a href="apt.html">apt</a>.</p>
+
+<h3>Só o número da versão</h3>
+<p>As opções se combinam. <code>-r</code> pede só a versão e <code>-s</code> (de <em>short</em>, "curto") tira o rótulo da frente:</p>
+
+<dl class="anatomy">
+  <dt>lsb_release</dt><dd>O programa.</dd>
+  <dt>-rs</dt><dd>Duas opções juntas: <code>-r</code> (versão) e <code>-s</code> (sem rótulo).</dd>
+</dl>
+
+<pre class="term">$ lsb_release -r
+Release:	26.04
+$ lsb_release -rs
+26.04                                           « só o número, bom para scripts</pre>
+
+<hr>
+
+<h2>Formas diferentes de descobrir a versão</h2>
+<p>O <code>lsb_release</code> é o mais conhecido, mas não é o único. Cada forma tem uma vantagem.</p>
+
+<h3>Forma 1: o arquivo <code>/etc/os-release</code></h3>
+<p>Esse arquivo existe em praticamente todas as distribuições Linux, inclusive nas versões mínimas usadas em containers. O comando <code>cat</code> mostra o conteúdo de um arquivo (veja <a href="ver-arquivos.html">cat, less, head, tail</a>).</p>
+
+<pre class="term">$ cat /etc/os-release
+PRETTY_NAME="Ubuntu 26.04.1 LTS"
+NAME="Ubuntu"
+VERSION_ID="26.04"
+VERSION="26.04.1 LTS (Resolute Raccoon)"           « aqui aparece o codinome completo
+VERSION_CODENAME=resolute
+ID=ubuntu
+ID_LIKE=debian                                    « o Ubuntu é "parecido com" o Debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=resolute
+LOGO=ubuntu-logo</pre>
+
+<h3>Forma 2: <code>hostnamectl</code></h3>
+<p>Mostra a versão do Ubuntu, o kernel e o computador numa tela só:</p>
+
+<pre class="term">$ hostnamectl
+ Static hostname: notebook
+       Icon name: computer-laptop
+         Chassis: laptop 💻
+      Machine ID: 0e326348b23f46278827fb3f607dba88
+         Boot ID: a24bc39a819e4383bb915613ee653a2f
+Operating System: Ubuntu 26.04.1 LTS                « a versão
+          Kernel: Linux 7.0.0-38-generic             « o kernel
+    Architecture: x86-64                             « tipo de processador</pre>
+
+<h3>Forma 3: <code>uname -a</code></h3>
+<p>Com <code>-a</code> (<em>all</em>), o <code>uname</code> mostra tudo sobre o kernel, inclusive a arquitetura do processador:</p>
+
+<pre class="term">$ uname -a
+Linux notebook 7.0.0-38-generic #38-Ubuntu SMP PREEMPT_DYNAMIC Fri Sep  4 09:10:14 UTC 2026 x86_64 GNU/Linux</pre>
+
+<p>Ele diz que é um Ubuntu (<code>#38-Ubuntu</code>), mas não diz qual versão. Por isso o <code>uname</code> serve para o kernel, e não para a versão do sistema.</p>
+
+<h3>Forma 4: pela interface gráfica</h3>
+<p>No Ubuntu Desktop, abra <strong>Configurações → Sistema → Sobre</strong>. Lá aparecem a versão, o processador, a memória e o disco.</p>
+
+<h3>Qual forma usar?</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Mostra</th><th>Melhor quando…</th></tr>
+<tr><td><code>lsb_release -a</code></td><td>Versão e codinome</td><td>Você só quer saber a versão.</td></tr>
+<tr><td><code>cat /etc/os-release</code></td><td>Versão, codinome, base</td><td>Está num container ou numa distribuição mínima.</td></tr>
+<tr><td><code>hostnamectl</code></td><td>Versão, kernel, computador</td><td>Vai pedir ajuda e quer tudo de uma vez.</td></tr>
+<tr><td><code>uname -r</code></td><td>Só o kernel</td><td>O problema é de hardware ou driver.</td></tr>
+<tr><td>Configurações → Sobre</td><td>Versão e hardware</td><td>Prefere clicar.</td></tr>
+</table>
+</div>
+
+<div class="try" data-goal="ran:lsb_release|os-release,ran:uname">
+<p class="try-task"><strong>Missão:</strong> nesta máquina fictícia, descubra a versão do Ubuntu (use <code>lsb_release -a</code> ou <code>cat /etc/os-release</code>) e depois a versão do kernel (<code>uname -r</code>).</p>
+</div>
+
+<hr>
+
+<h2>Ubuntu Desktop x Ubuntu Server</h2>
+<p>O Ubuntu tem duas edições principais. Por baixo, as duas são o mesmo sistema; o que muda é o que vem instalado.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>Ubuntu Desktop</th><th>Ubuntu Server</th></tr>
+<tr><td>Interface gráfica</td><td>Sim (GNOME)</td><td>Não, só terminal</td></tr>
+<tr><td>Uso típico</td><td>Notebook e computador pessoal</td><td>Sites, bancos de dados, APIs, nuvem</td></tr>
+<tr><td>Programas incluídos</td><td>Navegador, escritório, multimídia</td><td>Só o essencial; SSH opcional na instalação</td></tr>
+<tr><td>Consumo de memória</td><td>Maior</td><td>Bem menor</td></tr>
+<tr><td>Rede configurada por</td><td>NetworkManager</td><td>Netplan</td></tr>
+</table>
+</div>
+
+<p>Os comandos deste guia funcionam nas duas edições. Quando algo for de uma só, o texto avisa. Nos exemplos de servidor, a máquina fictícia se chama <strong>servidor</strong>:</p>
+
+<pre class="term" data-host="servidor">$ lsb_release -ds
+Ubuntu 26.04.1 LTS</pre>
+
+<h2>Sabores do Ubuntu</h2>
+<p>Os <strong>sabores</strong> (<em>flavors</em>) são versões oficiais do Ubuntu com outra interface gráfica. Os programas e os comandos de terminal são os mesmos.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Sabor</th><th>Interface</th><th>Indicado para</th></tr>
+<tr><td>Kubuntu</td><td>KDE Plasma</td><td>Quem gosta de personalizar tudo</td></tr>
+<tr><td>Xubuntu</td><td>Xfce</td><td>Computadores mais simples</td></tr>
+<tr><td>Lubuntu</td><td>LXQt</td><td>Computadores antigos, com pouca memória</td></tr>
+<tr><td>Ubuntu MATE</td><td>MATE</td><td>Visual clássico</td></tr>
+<tr><td>Ubuntu Budgie</td><td>Budgie</td><td>Visual moderno e simples</td></tr>
+<tr><td>Ubuntu Studio</td><td>KDE Plasma</td><td>Edição de áudio, vídeo e imagem</td></tr>
+</table>
+</div>
+
+<h2>Software livre</h2>
+<p>O Ubuntu é formado principalmente por <strong>software livre</strong>: qualquer pessoa pode usar, estudar, alterar e redistribuir o código. Por isso não há licença para comprar. Os programas que você instala vêm dos <strong>repositórios</strong> oficiais, uma espécie de loja gratuita e verificada (veja <a href="apt.html">apt</a>).</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"lsb_release: command not found" num container</strong>
+<pre class="term" data-user="root" data-host="a1b2c3d4e5f6">#> lsb_release -a
+bash: lsb_release: command not found</pre>
+<p><strong>O que aconteceu:</strong> imagens mínimas, como as do Docker, não trazem o pacote <code>lsb-release</code>. Repare que a mensagem está em inglês: containers costumam vir sem o idioma português instalado.</p>
+<p><strong>Como resolver:</strong> use <code>cat /etc/os-release</code>, que existe em praticamente qualquer Linux.</p>
+</div>
+
+<div class="cenario">
+<strong>"Minha versão é 24.04. Preciso trocar?"</strong>
+<pre class="term">$ lsb_release -rs
+24.04</pre>
+<p><strong>O que significa:</strong> a 24.04 é LTS e recebe atualizações de segurança até 2029. Ela continua segura.</p>
+<p><strong>Como decidir:</strong> se tudo funciona, pode continuar nela. Para ir para a 26.04, veja <a href="atualizacoes.html">Atualizações</a>. O <code>do-release-upgrade</code> só oferece a nova LTS depois da revisão 26.04.1.</p>
+</div>
+
+<div class="cenario">
+<strong>"Description" diz algo diferente de Ubuntu</strong>
+<pre class="term">$ lsb_release -ds
+Linux Mint 22.2</pre>
+<p><strong>O que significa:</strong> você está numa distribuição derivada do Ubuntu. Quase tudo deste guia funciona igual; para saber em qual Ubuntu ela se baseia, veja a linha <code>UBUNTU_CODENAME</code> em <code>/etc/os-release</code>.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Versão do kernel</h3>
+<p>Complete o comando que mostra só a versão do kernel:</p>
+<div class="ex-code">uname <input data-answer="-r|--kernel-release" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Versão do Ubuntu, sem rótulo</h3>
+<p>Complete para mostrar só <code>26.04</code>:</p>
+<div class="ex-code">lsb_release <input data-answer="-rs|-sr|-r -s|-s -r" aria-label="opções"></div>
+</div>
+
+<div class="exercise">
+<h3>3. O arquivo que existe em todo Linux</h3>
+<p>Complete para ver as informações da distribuição:</p>
+<div class="ex-code">cat <input data-answer="/etc/os-release" aria-label="arquivo"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Qual destas versões é LTS?</p>
+<label><input type="radio" name="q4"> 25.10</label>
+<label><input type="radio" name="q4"> 24.04</label>
+<label><input type="radio" name="q4"> 23.10</label>
+<label><input type="radio" name="q4"> 25.04</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. O que é o kernel?</p>
+<label><input type="radio" name="q5"> O programa que mostra janelas e ícones.</label>
+<label><input type="radio" name="q5"> A loja de programas do Ubuntu.</label>
+<label><input type="radio" name="q5"> O terminal onde você digita comandos.</label>
+<label><input type="radio" name="q5"> O núcleo do sistema, que conversa com o hardware.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Linux é o kernel (núcleo); o Ubuntu é uma distribuição completa feita com ele.</li>
+  <li>A versão é <strong>ano.mês</strong>: 26.04 = abril de 2026. LTS sai a cada 2 anos e tem 5 anos de segurança.</li>
+  <li><code>lsb_release -a</code> e <code>cat /etc/os-release</code> mostram a versão; <code>uname -r</code> mostra o kernel.</li>
+  <li>Desktop tem interface gráfica; Server é só terminal. Os comandos são os mesmos.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

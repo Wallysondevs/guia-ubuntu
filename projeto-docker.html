@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projeto: App com Docker | Guia Ubuntu</title>
+<meta name="description" content="Laboratório passo a passo: suba o Uptime Kuma e um site nginx com Docker Compose no Ubuntu, com volume persistente, logs, atualização da imagem e backup do volume.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Projeto <span class="hl">App com Docker</span></h1>
+
+<p class="intro">Neste laboratório você coloca no ar duas aplicações com <strong>Docker Compose</strong>: o <strong>Uptime Kuma</strong>, um painel que vigia se sites estão no ar, e um pequeno site servido pelo nginx. Tudo descrito num único arquivo, que liga, desliga, atualiza e recria as aplicações com um comando.</p>
+
+<div class="tip">
+<strong>Ao terminar você terá</strong>
+<ul>
+  <li>O Docker instalado e o seu usuário autorizado a usá-lo.</li>
+  <li>Um arquivo <code>compose.yaml</code> com dois serviços, portas e volumes.</li>
+  <li>Os dados do Uptime Kuma num <strong>volume</strong>, que sobrevive à recriação dos containers.</li>
+  <li>Um procedimento testado de atualização e de backup do volume.</li>
+</ul>
+</div>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Item</th><th>Detalhe</th></tr>
+<tr><td>Tempo estimado</td><td>1h</td></tr>
+<tr><td>Pré-requisitos</td><td><a href="projetos.html">Como Usar os Projetos</a>, <a href="docker.html">Docker</a>, <a href="docker-compose.html">Docker Compose</a>, <a href="compactar.html">tar</a></td></tr>
+<tr><td>Onde roda</td><td>VM <code>lab</code> (servidor) + navegador do notebook</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Saídas ilustrativas</strong>
+<p>As versões das imagens e do Docker mudam com frequência. Os números nas saídas abaixo são exemplos; o formato é o que importa.</p>
+</div>
+
+<hr>
+
+<h2>As etapas</h2>
+
+<ol class="passo">
+
+<li>
+<h3>Preparar a VM</h3>
+<pre class="term">$ multipass launch 26.04 --name lab --disk 15G --memory 2G
+Launched: lab
+$ multipass list
+Name                    State             IPv4             Image
+lab                     Running           10.85.140.27     Ubuntu 26.04 LTS
+$ multipass shell lab</pre>
+<p>Usamos 15 GB de disco porque imagens de containers ocupam espaço.</p>
+</li>
+
+<li>
+<h3>Instalar o Docker</h3>
+<p><strong>O que vamos fazer e por quê:</strong> o Ubuntu traz o Docker nos repositórios oficiais: <code>docker.io</code> é o motor e <code>docker-compose-v2</code> adiciona o comando <code>docker compose</code>. Depois, colocamos o usuário no grupo <code>docker</code>, para não precisar de <code>sudo</code> em todo comando.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo apt update &amp;&amp; sudo apt install -y docker.io docker-compose-v2
+…
+$ sudo usermod -aG docker ubuntu
+$ exit</pre>
+<p>Saia e entre de novo para o grupo novo valer:</p>
+<pre class="term">$ multipass shell lab</pre>
+<pre class="term" data-user="ubuntu" data-host="lab">$ docker run --rm hello-world
+Unable to find image 'hello-world:latest' locally
+latest: Pulling from library/hello-world
+…
+Hello from Docker!                                « funcionou
+This message shows that your installation appears to be working correctly.
+…</pre>
+
+<div class="warning">
+<strong>O grupo docker equivale a root</strong>
+<p>Quem está no grupo <code>docker</code> consegue montar qualquer pasta do sistema dentro de um container e alterá-la. Só coloque nele quem já poderia ter <code>sudo</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Se deu errado: "permission denied while trying to connect to the Docker daemon socket"</strong>
+<pre class="term" data-user="ubuntu" data-host="lab">$ docker ps
+permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock: …</pre>
+<p><strong>O que aconteceu:</strong> você não saiu e entrou de novo depois do <code>usermod</code>, então a sessão ainda não tem o grupo <code>docker</code>.</p>
+<p><strong>Como confirmar:</strong> <code>groups</code> não mostra <code>docker</code>.</p>
+<p><strong>Como resolver:</strong> <code>exit</code> e <code>multipass shell lab</code>.</p>
+</div>
+</li>
+
+<li>
+<h3>Escrever o compose.yaml</h3>
+<p><strong>O que vamos fazer e por quê:</strong> em vez de lembrar comandos <code>docker run</code> longos, descrevemos as aplicações num arquivo. Ele vira a "receita" do servidor: dá para versionar no <a href="git.html">Git</a> e recriar tudo em outra máquina.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ mkdir -p ~/monitor/site &amp;&amp; cd ~/monitor
+$ echo '&lt;h1&gt;Site no container&lt;/h1&gt;' &gt; site/index.html
+$ nano compose.yaml</pre>
+
+<pre class="file" data-file="~/monitor/compose.yaml">services:
+  kuma:                                  # nome do serviço
+    image: louislam/uptime-kuma:1        # imagem e versão (tag)
+    container_name: kuma
+    restart: unless-stopped              # volta sozinho após reboot ou falha
+    ports:
+      - "3001:3001"                      # porta da VM : porta do container
+    volumes:
+      - kuma-dados:/app/data             # volume nomeado: dados persistentes
+
+  site:
+    image: nginx:alpine
+    container_name: site
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./site:/usr/share/nginx/html:ro  # pasta da VM, só leitura (ro)
+
+volumes:
+  kuma-dados:                            # declara o volume usado acima</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Conceito</th><th>No arquivo</th><th>Significado</th></tr>
+<tr><td>Imagem</td><td><code>image: nginx:alpine</code></td><td>O "molde" do container. O que vem depois do <code>:</code> é a versão (tag).</td></tr>
+<tr><td>Porta</td><td><code>"8080:80"</code></td><td>Quem acessar a VM na porta 8080 chega na porta 80 do container. Sempre <strong>fora:dentro</strong>.</td></tr>
+<tr><td>Volume nomeado</td><td><code>kuma-dados:/app/data</code></td><td>Uma área de dados gerenciada pelo Docker. Sobrevive quando o container é apagado.</td></tr>
+<tr><td>Bind mount</td><td><code>./site:/usr/…/html:ro</code></td><td>Uma pasta da VM aparece dentro do container. Você edita os arquivos direto na VM.</td></tr>
+<tr><td>restart</td><td><code>unless-stopped</code></td><td>Reinicia sempre, a não ser que você pare o container de propósito.</td></tr>
+</table>
+</div>
+
+<p><strong>Confira se deu certo:</strong> o próprio Compose valida o arquivo. Se houver erro de indentação, ele diz a linha:</p>
+<pre class="term" data-user="ubuntu" data-host="lab" data-cwd="~/monitor">$ docker compose config --quiet &amp;&amp; echo "arquivo válido"
+arquivo válido</pre>
+</li>
+
+<li>
+<h3>Subir as aplicações</h3>
+<dl class="anatomy">
+  <dt>docker compose</dt><dd>A ferramenta que lê o <code>compose.yaml</code> da pasta atual.</dd>
+  <dt>up</dt><dd>Cria e liga tudo o que está descrito.</dd>
+  <dt>-d</dt><dd><em>Detached</em>: roda em segundo plano e devolve o terminal.</dd>
+</dl>
+<pre class="term" data-user="ubuntu" data-host="lab" data-cwd="~/monitor">$ docker compose up -d
+[+] Running 4/4
+ ✔ Network monitor_default        Created
+ ✔ Volume "monitor_kuma-dados"    Created           « o nome ganha o prefixo da pasta
+ ✔ Container site                 Started
+ ✔ Container kuma                 Started
+$ docker compose ps
+NAME   IMAGE                    COMMAND                  SERVICE   CREATED          STATUS                    PORTS
+kuma   louislam/uptime-kuma:1   "/usr/bin/dumb-init …"   kuma      40 seconds ago   Up 39 seconds (healthy)   0.0.0.0:3001-&gt;3001/tcp, [::]:3001-&gt;3001/tcp
+site   nginx:alpine             "/docker-entrypoint.…"   site      40 seconds ago   Up 39 seconds             0.0.0.0:8080-&gt;80/tcp, [::]:8080-&gt;80/tcp</pre>
+<p>Na primeira vez, antes dessas linhas, aparece o download (<em>pull</em>) das imagens. A coluna <code>STATUS</code> com <code>Up</code> significa rodando; <code>(healthy)</code> significa que o teste de saúde da própria imagem passou.</p>
+
+<p><strong>Confira se deu certo:</strong> do notebook:</p>
+<pre class="term">$ curl http://10.85.140.27:8080
+&lt;h1&gt;Site no container&lt;/h1&gt;</pre>
+<p>E abra <code>http://10.85.140.27:3001</code> no navegador: o Uptime Kuma pede para criar um usuário administrador.</p>
+
+<div class="cenario">
+<strong>Se deu errado: "port is already allocated"</strong>
+<p><strong>O que aconteceu:</strong> outra coisa já usa a porta 8080 ou 3001 na VM.</p>
+<p><strong>Como confirmar:</strong> <code>sudo ss -tlnp | grep -E ':8080|:3001'</code>.</p>
+<p><strong>Como resolver:</strong> mude o número da esquerda, por exemplo <code>"8081:80"</code>, e rode <code>docker compose up -d</code> de novo.</p>
+</div>
+</li>
+
+<li>
+<h3>Containers conversam pelo nome</h3>
+<p><strong>O que vamos fazer e por quê:</strong> o Compose cria uma rede própria (<code>monitor_default</code>), onde cada serviço é encontrado pelo nome. No Uptime Kuma, crie um monitor do tipo <strong>HTTP(s)</strong> com a URL <code>http://site</code>. Ele vai acessar o container do nginx pela rede interna, sem passar pela porta 8080.</p>
+<p><strong>Confira pelo terminal:</strong></p>
+<pre class="term" data-user="ubuntu" data-host="lab" data-cwd="~/monitor">$ docker run --rm --network monitor_default alpine wget -qO- http://site
+&lt;h1&gt;Site no container&lt;/h1&gt;                       « "site" virou um endereço dentro da rede</pre>
+<p>Esse comando liga um container descartável (<code>alpine</code>) na mesma rede do projeto e pede a página ao endereço <code>site</code>.</p>
+</li>
+
+<li>
+<h3>Ler os logs</h3>
+<pre class="term" data-user="ubuntu" data-host="lab" data-cwd="~/monitor">$ docker compose logs --tail 3 site
+site  | 10.85.140.1 - - [15/Oct/2026:15:02:11 +0000] "GET / HTTP/1.1" 200 30 "-" "curl/8.14.1" "-"
+site  | 172.18.0.3 - - [15/Oct/2026:15:04:40 +0000] "GET / HTTP/1.1" 200 30 "-" "Uptime-Kuma/1.23.16" "-"
+site  | 172.18.0.3 - - [15/Oct/2026:15:05:40 +0000] "GET / HTTP/1.1" 200 30 "-" "Uptime-Kuma/1.23.16" "-"</pre>
+<p>A primeira linha veio do notebook; as outras, do Kuma vigiando o site a cada 60 segundos, pelo IP interno <code>172.18.0.3</code>. Use <code>docker compose logs -f</code> para acompanhar ao vivo (<kbd>Ctrl</kbd>+<kbd>C</kbd> para sair).</p>
+</li>
+
+<li>
+<h3>Provar que os dados persistem</h3>
+<p><strong>O que vamos fazer e por quê:</strong> containers são descartáveis; dados não podem ser. Vamos <strong>apagar</strong> os containers e recriá-los. O usuário e o monitor que você criou no Kuma precisam continuar lá.</p>
+<pre class="term" data-user="ubuntu" data-host="lab" data-cwd="~/monitor">$ docker compose down
+[+] Running 3/3
+ ✔ Container kuma                 Removed
+ ✔ Container site                 Removed
+ ✔ Network monitor_default        Removed
+$ docker volume ls
+DRIVER    VOLUME NAME
+local     monitor_kuma-dados                        « o volume NÃO foi apagado
+$ docker compose up -d
+…</pre>
+<p><strong>Confira se deu certo:</strong> abra o Kuma no navegador: o login e o monitor continuam lá.</p>
+
+<div class="warning">
+<strong><code>down -v</code> apaga os volumes</strong>
+<p><code>docker compose down -v</code> remove também os volumes, ou seja, <strong>os dados</strong>. Só use quando quiser zerar tudo de propósito.</p>
+</div>
+</li>
+
+<li>
+<h3>Atualizar a aplicação</h3>
+<p><strong>O que vamos fazer e por quê:</strong> atualizar um container é trocar a imagem por uma mais nova e recriá-lo. Como os dados estão no volume, nada se perde.</p>
+<pre class="term" data-user="ubuntu" data-host="lab" data-cwd="~/monitor">$ docker compose pull
+[+] Pulling 2/2
+ ✔ kuma Pulled
+ ✔ site Pulled
+$ docker compose up -d
+[+] Running 2/2
+ ✔ Container site  Running                         « imagem igual: nada muda
+ ✔ Container kuma  Started                         « imagem nova: container recriado
+$ docker image prune -f
+Total reclaimed space: 0B</pre>
+<p>O <code>image prune</code> apaga imagens antigas que nenhum container usa mais, liberando disco. A tag <code>:1</code> no <code>compose.yaml</code> garante que você recebe atualizações da versão 1, sem pular sozinho para uma versão nova que poderia ser incompatível.</p>
+</li>
+
+<li>
+<h3>Backup e restauração do volume</h3>
+<p><strong>O que vamos fazer e por quê:</strong> um volume é uma pasta gerenciada pelo Docker. Para fazer backup, ligamos um container descartável (<code>alpine</code>) com o volume e uma pasta da VM, e usamos o <code>tar</code> para empacotar.</p>
+<pre class="term" data-user="ubuntu" data-host="lab" data-cwd="~/monitor">$ docker compose stop kuma
+« parar evita copiar o banco no meio de uma escrita
+$ docker run --rm -v monitor_kuma-dados:/dados:ro -v "$PWD":/backup alpine \
+    tar czf /backup/kuma-$(date +%F).tar.gz -C /dados .
+$ docker compose start kuma
+$ ls -lh kuma-*.tar.gz
+-rw-r--r-- 1 root root 1.2M Oct 15 15:20 kuma-2026-10-15.tar.gz</pre>
+
+<dl class="anatomy">
+  <dt>docker run --rm</dt><dd>Roda um container e apaga-o ao terminar.</dd>
+  <dt>-v monitor_kuma-dados:/dados:ro</dt><dd>O volume aparece em <code>/dados</code>, só leitura.</dd>
+  <dt>-v "$PWD":/backup</dt><dd>A pasta atual da VM aparece em <code>/backup</code>.</dd>
+  <dt>alpine</dt><dd>Uma imagem Linux minúscula, só para ter o <code>tar</code>.</dd>
+  <dt>tar czf … -C /dados .</dt><dd>Compacta o conteúdo de <code>/dados</code> num <code>.tar.gz</code>.</dd>
+</dl>
+
+<p><strong>Teste a restauração</strong> num volume novo, sem tocar no original:</p>
+<pre class="term" data-user="ubuntu" data-host="lab" data-cwd="~/monitor">$ docker volume create kuma-teste
+kuma-teste
+$ docker run --rm -v kuma-teste:/dados -v "$PWD":/backup alpine \
+    tar xzf /backup/kuma-2026-10-15.tar.gz -C /dados
+$ docker run --rm -v kuma-teste:/dados alpine ls /dados
+docker
+kuma.db                                           « o banco de dados do Kuma está lá
+screenshots
+upload
+$ docker volume rm kuma-teste</pre>
+<p>Para restaurar de verdade: <code>docker compose down</code>, apague e recrie o volume <code>monitor_kuma-dados</code>, extraia o backup nele e rode <code>docker compose up -d</code>. A lista exata de arquivos dentro do volume pode variar com a versão do Kuma.</p>
+</li>
+
+<li>
+<h3>Cuidado: o Docker passa por cima do ufw</h3>
+<p><strong>O que vamos fazer e por quê:</strong> o Docker cria regras de firewall próprias para as portas publicadas, que valem <strong>antes</strong> das regras do ufw. Vamos ver isso acontecer.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo ufw allow OpenSSH &amp;&amp; sudo ufw --force enable
+…
+Firewall is active and enabled on system startup
+$ sudo ufw status
+Status: active
+
+To                         Action      From
+--                         ------      ----
+OpenSSH                    ALLOW       Anywhere
+OpenSSH (v6)               ALLOW       Anywhere (v6)</pre>
+<pre class="term">$ curl http://10.85.140.27:8080
+&lt;h1&gt;Site no container&lt;/h1&gt;                       « continua acessível, mesmo sem regra no ufw!</pre>
+<p><strong>Como proteger:</strong> publique a porta só no próprio servidor, trocando <code>"8080:80"</code> por <code>"127.0.0.1:8080:80"</code>. Assim, só o próprio servidor acessa, e você expõe a aplicação por um nginx na frente (proxy reverso, com HTTPS). Veja <a href="nginx.html">Servidor Web (nginx)</a>.</p>
+</li>
+
+</ol>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>O container fica reiniciando</strong>
+<pre class="term" data-user="ubuntu" data-host="lab" data-cwd="~/monitor">$ docker compose ps
+NAME   IMAGE                    …   STATUS
+kuma   louislam/uptime-kuma:1   …   Restarting (1) 5 seconds ago</pre>
+<p><strong>O que aconteceu:</strong> o programa dentro do container está terminando com erro.</p>
+<p><strong>Como confirmar:</strong> <code>docker compose logs --tail 30 kuma</code> mostra o motivo, por exemplo uma permissão ou um volume errado.</p>
+</div>
+
+<div class="cenario">
+<strong>"no configuration file provided: not found"</strong>
+<p><strong>O que aconteceu:</strong> você rodou <code>docker compose</code> fora da pasta do projeto.</p>
+<p><strong>Como resolver:</strong> <code>cd ~/monitor</code>, ou use <code>docker compose -f ~/monitor/compose.yaml …</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O disco encheu depois de várias atualizações</strong>
+<p><strong>Como confirmar:</strong> <code>docker system df</code> mostra quanto ocupam imagens, containers e volumes.</p>
+<p><strong>Como resolver:</strong> <code>docker image prune -a</code> apaga as imagens que nenhum container usa. Volumes nunca são apagados por esse comando.</p>
+</div>
+
+<hr>
+
+<h2>O que você aprendeu</h2>
+<ul>
+  <li>Instalar o Docker pelos repositórios do Ubuntu e os riscos do grupo <code>docker</code>.</li>
+  <li>Descrever aplicações em <code>compose.yaml</code>: imagem, portas, volumes e <code>restart</code>.</li>
+  <li><code>up -d</code>, <code>ps</code>, <code>logs</code>, <code>exec</code>, <code>down</code>, <code>pull</code>.</li>
+  <li>A diferença entre volume nomeado e bind mount, e que <code>down -v</code> apaga dados.</li>
+  <li>Fazer e testar o backup de um volume com um container descartável.</li>
+  <li>Que portas publicadas pelo Docker ignoram o ufw.</li>
+</ul>
+
+<h2>Desafios extras</h2>
+<ol>
+  <li>Coloque um nginx na frente do Kuma como proxy reverso em <code>http://kuma.lab</code>, e publique a porta 3001 só em <code>127.0.0.1</code>.</li>
+  <li>Automatize o backup do volume com o script e o timer do <a href="projeto-backup.html">Backup Automático</a>.</li>
+  <li>Guarde a pasta <code>~/monitor</code> num repositório <a href="git.html">Git</a> e recrie tudo numa VM nova só com <code>git clone</code> e <code>docker compose up -d</code>.</li>
+</ol>
+
+<h2>Desfazer e limpar</h2>
+<pre class="term" data-user="ubuntu" data-host="lab" data-cwd="~/monitor">$ docker compose down -v
+« aqui sim: apaga containers E volumes
+$ exit</pre>
+<pre class="term">$ multipass delete --purge lab</pre>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Subir em segundo plano</h3>
+<p>Complete o comando que cria e liga tudo, devolvendo o terminal:</p>
+<div class="ex-code">docker compose up <input data-answer="-d|--detach" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Porta</h3>
+<p>Complete para que a porta 9000 da VM leve à porta 80 do container:</p>
+<div class="ex-code">ports:
+  - "<input data-answer="9000:80" aria-label="mapeamento">"</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">3. Você rodou <code>docker compose down</code>. O que aconteceu com o volume <code>monitor_kuma-dados</code>?</p>
+<label><input type="radio" name="q3"> Foi apagado junto com os containers.</label>
+<label><input type="radio" name="q3"> Foi compactado num .tar.gz.</label>
+<label><input type="radio" name="q3"> Continua existindo; só <code>down -v</code> apaga volumes.</label>
+<label><input type="radio" name="q3"> Foi movido para a pasta do projeto.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">4. O ufw só libera SSH, mas a porta 8080 de um container continua acessível. Por quê?</p>
+<label><input type="radio" name="q4"> O Docker cria regras de firewall próprias, que valem antes das do ufw.</label>
+<label><input type="radio" name="q4"> O ufw não funciona em VMs.</label>
+<label><input type="radio" name="q4"> A porta 8080 é sempre liberada pelo Ubuntu.</label>
+<label><input type="radio" name="q4"> O nginx desliga o firewall.</label>
+</div>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

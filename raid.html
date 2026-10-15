@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu RAID com mdadm — espelhar discos e trocar disco com defeito | Guia Ubuntu</title>
+<meta name="description" content="Aprenda RAID por software no Ubuntu com mdadm: níveis 0, 1, 5 e 10, criar um espelho, ler o /proc/mdstat, salvar a configuração, simular falha e trocar o disco.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">RAID (mdadm)</span></h1>
+
+<p class="intro"><strong>RAID</strong> (<em>Redundant Array of Independent Disks</em>, "conjunto redundante de discos independentes") combina vários discos para ganhar <strong>segurança</strong> (o servidor continua funcionando se um disco quebrar), <strong>velocidade</strong> ou as duas coisas. No Ubuntu, o RAID por software é feito com o <code>mdadm</code>.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que cada nível de RAID (0, 1, 5, 10) oferece e quanto espaço você perde.</li>
+  <li>Criar um espelho (RAID 1) com <code>mdadm</code> num laboratório seguro.</li>
+  <li>Ler o <code>/proc/mdstat</code> e saber se o RAID está saudável.</li>
+  <li>Salvar a configuração para o RAID voltar após reiniciar.</li>
+  <li>Simular a quebra de um disco e trocá-lo sem desligar nada.</li>
+</ul>
+</div>
+
+<div class="warning">
+<strong>RAID não é backup</strong>
+<p>RAID protege contra <strong>disco quebrado</strong>. Ele não protege contra arquivo apagado, vírus, erro de comando ou incêndio: um <code>rm</code> errado apaga nos dois discos ao mesmo tempo. Mantenha backups (veja <a href="backup.html">Backup</a>).</p>
+</div>
+
+<hr>
+
+<h2>Conceito: os níveis de RAID</h2>
+<p>Cada nível é uma forma diferente de distribuir os dados entre os discos. Na tabela, considere discos de 1 TB:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Nível</th><th>Como funciona</th><th>Discos mín.</th><th>Espaço útil (4 × 1 TB)</th><th>Aguenta perder</th><th>Bom para</th></tr>
+<tr><td><strong>RAID 0</strong></td><td>Divide cada arquivo em pedaços, um em cada disco (<em>striping</em>)</td><td>2</td><td>4 TB</td><td><strong>Nenhum</strong> disco</td><td>Velocidade em dados descartáveis</td></tr>
+<tr><td><strong>RAID 1</strong></td><td>Cópia idêntica em todos os discos (<em>espelho</em>)</td><td>2</td><td>1 TB</td><td>Todos menos um</td><td>Sistema e dados importantes em 2 discos</td></tr>
+<tr><td><strong>RAID 5</strong></td><td>Dados + informação de paridade espalhada</td><td>3</td><td>3 TB</td><td>1 disco</td><td>Arquivos grandes, muito espaço</td></tr>
+<tr><td><strong>RAID 6</strong></td><td>Como o 5, com paridade dupla</td><td>4</td><td>2 TB</td><td>2 discos</td><td>Muitos discos grandes</td></tr>
+<tr><td><strong>RAID 10</strong></td><td>Espelhos (RAID 1) combinados em striping (RAID 0)</td><td>4</td><td>2 TB</td><td>1 por espelho</td><td>Bancos de dados: rápido e seguro</td></tr>
+</table>
+</div>
+
+<p><strong>Paridade</strong> é uma conta feita sobre os dados que permite reconstruir o pedaço de um disco que sumiu, a partir dos outros. É o mesmo princípio de saber que, se a + b = 10 e a = 3, então b = 7.</p>
+
+<div class="tip">
+<strong>Na dúvida, RAID 1</strong>
+<p>Para quem está começando, o espelho com dois discos iguais é o mais simples de entender, de montar e de consertar. É ele que você vai montar nesta aula.</p>
+</div>
+
+<hr>
+
+<h2>Laboratório seguro</h2>
+<p>Crie três "discos" com arquivos e <code>losetup</code> (explicado em <a href="lvm.html">LVM</a>). Dois formam o espelho; o terceiro será o "disco novo" da troca.</p>
+
+<pre class="term" data-host="servidor" data-cwd="~/lab">$ sudo apt install mdadm
+$ truncate -s 1G r1.img r2.img r3.img
+$ for f in r1.img r2.img r3.img; do sudo losetup -f --show $f; done
+/dev/loop20
+/dev/loop21
+/dev/loop22</pre>
+
+<p>Nos exemplos, <code>/dev/sdb</code>, <code>/dev/sdc</code> e <code>/dev/sdd</code> correspondem a <code>/dev/loop20</code>, <code>loop21</code> e <code>loop22</code>. Use <strong>discos do mesmo tamanho</strong>: o RAID usa o tamanho do menor.</p>
+
+<hr>
+
+<h2>Criar um espelho (RAID 1)</h2>
+
+<dl class="anatomy">
+  <dt>sudo mdadm</dt><dd>"<em>multiple device admin</em>": administra os dispositivos RAID (<code>/dev/md…</code>).</dd>
+  <dt>--create /dev/md0</dt><dd>Cria um RAID novo chamado <code>/dev/md0</code>.</dd>
+  <dt>--level=1</dt><dd>O nível: 1 = espelho.</dd>
+  <dt>--raid-devices=2</dt><dd>Quantos discos participam.</dd>
+  <dt>/dev/sdb /dev/sdc</dt><dd>Os discos (ou partições).</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sdb /dev/sdc
+mdadm: Note: this array has metadata at the start and
+    may not be suitable as a boot device.  If you plan to
+    store '/boot' on this device please ensure that
+    your boot-loader understands md/v1.x metadata, or use
+    --metadata=0.90
+Continue creating array? y                                  « digite y e Enter
+mdadm: Defaulting to version 1.2 metadata
+mdadm: array /dev/md0 started.</pre>
+
+<p>O aviso fala de usar o RAID para dar <em>boot</em>; para dados, pode ignorar. O RAID já está funcionando, mas os discos ainda estão sendo sincronizados em segundo plano.</p>
+
+<h2>Ler o estado: <code>/proc/mdstat</code></h2>
+<p>O <code>/proc/mdstat</code> é um "arquivo" que o kernel mantém com o estado de todos os RAIDs. É o primeiro lugar a olhar.</p>
+
+<pre class="term" data-host="servidor">$ cat /proc/mdstat
+Personalities : [raid1] [linear] [raid0] [raid6] [raid5] [raid4] [raid10]
+md0 : active raid1 sdc[1] sdb[0]                                     « nome, estado, nível e discos
+      52395008 blocks super 1.2 [2/2] [UU]                           « 2 de 2 discos, os dois "Up"
+      [=====&gt;...............]  resync = 27.3% (14304128/52395008) finish=3.1min speed=203612K/sec
+
+unused devices: &lt;none&gt;</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Trecho</th><th>Significado</th></tr>
+<tr><td><code>active raid1</code></td><td>O RAID está ligado e é um espelho</td></tr>
+<tr><td><code>sdb[0] sdc[1]</code></td><td>Os discos e sua posição no RAID</td></tr>
+<tr><td><code>[2/2]</code></td><td>Discos esperados / discos funcionando</td></tr>
+<tr><td><code>[UU]</code></td><td>Um caractere por disco: <code>U</code> = funcionando (<em>up</em>), <code>_</code> = faltando</td></tr>
+<tr><td><code>resync</code> / <code>recovery</code></td><td>Sincronização inicial / reconstrução após troca de disco</td></tr>
+<tr><td><code>(F)</code> depois do disco</td><td>Disco marcado como com defeito (<em>failed</em>)</td></tr>
+</table>
+</div>
+
+<p>Para acompanhar a sincronização ao vivo: <code>watch cat /proc/mdstat</code> (<kbd>Ctrl</kbd>+<kbd>C</kbd> para sair). Mais detalhes com <code>sudo mdadm --detail /dev/md0</code>:</p>
+
+<pre class="term" data-host="servidor">$ sudo mdadm --detail /dev/md0
+/dev/md0:
+           Version : 1.2
+        Raid Level : raid1
+        Array Size : 52395008 (49.97 GiB 53.65 GB)
+      Raid Devices : 2
+     Total Devices : 2
+             State : clean                                « clean = saudável e sincronizado
+    Active Devices : 2
+   Working Devices : 2
+    Failed Devices : 0
+              Name : servidor:0  (local to host servidor)
+              UUID : 6a1c2f4e:9b3d7e10:5c8a2b6f:0d4e1a73
+
+    Number   Major   Minor   RaidDevice State
+       0       8       16        0      active sync   /dev/sdb
+       1       8       32        1      active sync   /dev/sdc</pre>
+
+<h2>Usar o RAID</h2>
+<p>O <code>/dev/md0</code> se comporta como um disco único. Formate e monte normalmente:</p>
+<pre class="term" data-host="servidor">$ sudo mkfs.ext4 -L espelho /dev/md0
+$ sudo mkdir -p /srv/espelho
+$ sudo mount /dev/md0 /srv/espelho
+$ df -h /srv/espelho
+Sist. Arq.  Tam. Usado Disp. Uso% Montado em
+/dev/md0     49G   24K   47G   1% /srv/espelho          « 2 discos de 50 GB = 50 GB úteis</pre>
+
+<div class="tip">
+<strong>Combine com LVM</strong>
+<p>É comum usar o <code>/dev/md0</code> como PV do <a href="lvm.html">LVM</a>: o RAID cuida da segurança e o LVM da flexibilidade de tamanho.</p>
+</div>
+
+<hr>
+
+<h2>Salvar a configuração (essencial)</h2>
+<p>Sem este passo, depois de reiniciar o RAID pode voltar com outro nome (<code>/dev/md127</code>) ou nem montar. Grave a descrição do RAID no arquivo de configuração e atualize o <em>initramfs</em>, o mini-sistema que o kernel usa no boot.</p>
+
+<dl class="anatomy">
+  <dt>sudo mdadm --detail --scan</dt><dd>Gera uma linha <code>ARRAY …</code> para cada RAID ativo.</dd>
+  <dt>|</dt><dd>Passa essa linha para o próximo comando.</dd>
+  <dt>sudo tee -a /etc/mdadm/mdadm.conf</dt><dd>Acrescenta (<code>-a</code>) a linha no arquivo, com permissão de root.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo mdadm --detail --scan | sudo tee -a /etc/mdadm/mdadm.conf
+ARRAY /dev/md0 metadata=1.2 UUID=6a1c2f4e:9b3d7e10:5c8a2b6f:0d4e1a73
+$ sudo update-initramfs -u
+update-initramfs: Generating /boot/initrd.img-7.0.0-38-generic</pre>
+
+<p>Depois, adicione o RAID ao <code>/etc/fstab</code> pelo UUID do sistema de arquivos (<code>sudo blkid /dev/md0</code>), como em <a href="montar.html">mount e fstab</a>, com a opção <code>nofail</code>.</p>
+
+<hr>
+
+<h2>Simular um disco com defeito e trocá-lo</h2>
+<p>Treine isso no laboratório. No dia em que um disco quebrar de verdade, você vai saber o que fazer com calma.</p>
+
+<ol class="passo">
+  <li><strong>Marque o disco como defeituoso.</strong> Num caso real, o kernel faz isso sozinho.
+<pre class="term" data-host="servidor">$ sudo mdadm /dev/md0 --fail /dev/sdc
+mdadm: set /dev/sdc faulty in /dev/md0
+$ cat /proc/mdstat
+md0 : active raid1 sdc[1](F) sdb[0]                         « (F) = failed
+      52395008 blocks super 1.2 [2/1] [U_]                  « só 1 de 2 funcionando</pre>
+  <p>Repare: o RAID continua <code>active</code> e os arquivos em <code>/srv/espelho</code> continuam acessíveis. Esse é o "modo degradado".</p></li>
+  <li><strong>Remova o disco do RAID.</strong>
+<pre class="term" data-host="servidor">$ sudo mdadm /dev/md0 --remove /dev/sdc
+mdadm: hot removed /dev/sdc from /dev/md0</pre></li>
+  <li><strong>Coloque o disco novo</strong> (no laboratório, o <code>/dev/sdd</code>) e adicione:
+<pre class="term" data-host="servidor">$ sudo mdadm /dev/md0 --add /dev/sdd
+mdadm: added /dev/sdd
+$ cat /proc/mdstat
+md0 : active raid1 sdd[2] sdb[0]
+      52395008 blocks super 1.2 [2/1] [U_]
+      [==&gt;..................]  recovery = 12.5% (6549376/52395008) finish=4.0min speed=187124K/sec</pre></li>
+  <li><strong>Espere a reconstrução</strong> terminar e confira <code>[2/2] [UU]</code>.</li>
+</ol>
+
+<div class="note">
+<strong>Identificar o disco físico certo</strong>
+<p>Num servidor real, anote o número de série antes de abrir a máquina: <code>sudo smartctl -i /dev/sdc | grep -i serial</code> (pacote <code>smartmontools</code>). A etiqueta do disco tem o mesmo número.</p>
+</div>
+
+<h3>Ser avisado quando um disco falhar</h3>
+<p>O <code>mdadm</code> tem um monitor que pode mandar e-mail. Coloque <code>MAILADDR seu@email</code> no <code>/etc/mdadm/mdadm.conf</code> (exige um servidor de e-mail configurado) ou verifique periodicamente com um <a href="cron.html">cron</a> que procure <code>_</code> no <code>/proc/mdstat</code>.</p>
+
+<hr>
+
+<h2>Outros níveis</h2>
+<p>A sintaxe é a mesma; mudam o <code>--level</code> e a quantidade de discos:</p>
+<pre class="term" data-host="servidor"># RAID 5 com 3 discos
+$ sudo mdadm --create /dev/md1 --level=5 --raid-devices=3 /dev/sdb /dev/sdc /dev/sdd
+# RAID 10 com 4 discos
+$ sudo mdadm --create /dev/md2 --level=10 --raid-devices=4 /dev/sd[b-e]
+# RAID 1 com um disco reserva (spare), que entra sozinho se outro falhar
+$ sudo mdadm --create /dev/md3 --level=1 --raid-devices=2 --spare-devices=1 /dev/sdb /dev/sdc /dev/sdd</pre>
+
+<p>No último exemplo, <code>/dev/sd[b-e]</code> é um <a href="curingas.html">curinga</a> que vira <code>/dev/sdb /dev/sdc /dev/sdd /dev/sde</code>.</p>
+
+<hr>
+
+<h2>Desmontar o laboratório</h2>
+<pre class="term" data-host="servidor" data-cwd="~/lab">$ sudo umount /srv/espelho
+$ sudo mdadm --stop /dev/md0
+mdadm: stopped /dev/md0
+$ sudo mdadm --zero-superblock /dev/loop20 /dev/loop21 /dev/loop22
+$ sudo losetup -d /dev/loop20 /dev/loop21 /dev/loop22
+$ rm r1.img r2.img r3.img</pre>
+<p><code>--zero-superblock</code> apaga a marca de RAID dos discos, para que não sejam reconhecidos como RAID no futuro. Lembre de tirar a linha <code>ARRAY</code> do <code>mdadm.conf</code> se ela foi gravada.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Depois de reiniciar, o RAID virou <code>/dev/md127</code></strong>
+<pre class="term" data-host="servidor">$ cat /proc/mdstat
+md127 : active (auto-read-only) raid1 sdb[0] sdc[1]</pre>
+<p><strong>O que aconteceu:</strong> o RAID não estava no <code>mdadm.conf</code> (ou o initramfs não foi atualizado). O sistema montou mesmo assim, com um nome automático.</p>
+<p><strong>Como resolver:</strong> faça a seção "Salvar a configuração". Montar pelo UUID no fstab evita depender do nome <code>md0</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Device or resource busy" ao criar</strong>
+<pre class="term" data-host="servidor">$ sudo mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sdb /dev/sdc
+mdadm: cannot open /dev/sdb: Device or resource busy</pre>
+<p><strong>O que aconteceu:</strong> o disco está em uso: montado, fazendo parte de outro RAID ou de um VG do LVM.</p>
+<p><strong>Como confirmar:</strong> <code>lsblk /dev/sdb</code> e <code>cat /proc/mdstat</code>.</p>
+<p><strong>Como resolver:</strong> desmonte, pare o RAID antigo (<code>mdadm --stop</code>) e limpe as marcas (<code>mdadm --zero-superblock</code> ou <code>wipefs -a</code>).</p>
+</div>
+
+<div class="cenario">
+<strong>O status mostra <code>[U_]</code> e ninguém percebeu</strong>
+<p><strong>O que aconteceu:</strong> um disco falhou e o RAID está degradado. Funciona, mas sem proteção: se o segundo disco falhar, os dados se perdem.</p>
+<p><strong>Como resolver:</strong> troque o disco o quanto antes (seção acima) e configure um aviso. Verifique o estado dos discos com <code>sudo smartctl -H /dev/sdb</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência rápida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>cat /proc/mdstat</code></td><td>Estado de todos os RAIDs</td></tr>
+<tr><td><code>sudo mdadm --create /dev/md0 --level=N --raid-devices=N DISCOS</code></td><td>Cria um RAID</td></tr>
+<tr><td><code>sudo mdadm --detail /dev/md0</code></td><td>Detalhes de um RAID</td></tr>
+<tr><td><code>sudo mdadm --detail --scan</code></td><td>Linhas para o <code>mdadm.conf</code></td></tr>
+<tr><td><code>sudo update-initramfs -u</code></td><td>Atualiza o boot com a nova configuração</td></tr>
+<tr><td><code>sudo mdadm /dev/md0 --fail DISCO</code></td><td>Marca um disco como defeituoso</td></tr>
+<tr><td><code>sudo mdadm /dev/md0 --remove DISCO</code></td><td>Tira o disco do RAID</td></tr>
+<tr><td><code>sudo mdadm /dev/md0 --add DISCO</code></td><td>Adiciona disco (reconstrução automática)</td></tr>
+<tr><td><code>sudo mdadm --stop /dev/md0</code></td><td>Para o RAID</td></tr>
+<tr><td><code>sudo mdadm --zero-superblock DISCO</code></td><td>Apaga a marca de RAID do disco</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Criar um espelho</h3>
+<p>Complete para criar um RAID 1 com dois discos:</p>
+<div class="ex-code">sudo mdadm --create /dev/md0 --level=<input data-answer="1|mirror" aria-label="nível"> --raid-devices=<input data-answer="2" aria-label="quantidade"> /dev/sdb /dev/sdc</div>
+</div>
+
+<div class="exercise">
+<h3>2. Trocar o disco</h3>
+<p>O <code>/dev/sdc</code> foi removido. Complete para colocar o <code>/dev/sdd</code> no lugar:</p>
+<div class="ex-code">sudo mdadm /dev/md0 <input data-answer="--add|-a" aria-label="opção"> /dev/sdd</div>
+</div>
+
+<div class="exercise">
+<h3>3. Onde olhar primeiro</h3>
+<p>Complete o comando que mostra o estado de todos os RAIDs:</p>
+<div class="ex-code">cat <input data-answer="/proc/mdstat" aria-label="arquivo"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. O <code>/proc/mdstat</code> mostra <code>[2/1] [U_]</code>. O que significa?</p>
+<label><input type="radio" name="q4"> O RAID está sincronizando pela primeira vez.</label>
+<label><input type="radio" name="q4"> Um dos dois discos não está funcionando: o RAID está degradado.</label>
+<label><input type="radio" name="q4"> Está tudo certo.</label>
+<label><input type="radio" name="q4"> O RAID foi parado.</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Quatro discos de 2 TB em RAID 5. Quanto espaço útil?</p>
+<label><input type="radio" name="q5"> 2 TB</label>
+<label><input type="radio" name="q5"> 4 TB</label>
+<label><input type="radio" name="q5"> 6 TB</label>
+<label><input type="radio" name="q5"> 8 TB</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>RAID 1 espelha, RAID 0 só acelera (sem proteção), RAID 5/6 economizam espaço com paridade, RAID 10 é rápido e seguro.</li>
+  <li><code>mdadm --create</code> cria; <code>/proc/mdstat</code> mostra a saúde: <code>[UU]</code> bom, <code>[U_]</code> degradado.</li>
+  <li>Salve sempre: <code>mdadm --detail --scan</code> no <code>mdadm.conf</code> + <code>update-initramfs -u</code>.</li>
+  <li>Troca de disco: <code>--fail</code> → <code>--remove</code> → <code>--add</code> → esperar a reconstrução.</li>
+  <li>RAID não substitui backup.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

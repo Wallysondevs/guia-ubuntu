@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Informações do Sistema — versão, kernel, CPU, memória e hardware | Guia Ubuntu</title>
+<meta name="description" content="Descubra tudo sobre o seu Ubuntu e o hardware: hostnamectl, lsb_release, uname, lscpu, free, lsblk, lspci, lsusb, lshw, dmidecode, sensors e inxi, com cada saída explicada.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Informações do Sistema</span></h1>
+
+<p class="intro">Qual é a versão do Ubuntu? Qual kernel está rodando? Quantos núcleos tem o processador? Qual é a placa de vídeo e que driver ela usa? Saber responder isso é o primeiro passo para instalar o driver certo, pedir ajuda num fórum ou planejar uma atualização de hardware.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A identificar versão do Ubuntu, kernel e modelo da máquina.</li>
+  <li>A ler a saída do <code>lscpu</code> e do <code>free</code>.</li>
+  <li>A listar placas e dispositivos com <code>lspci</code>, <code>lsusb</code> e <code>lshw</code>, e a ver o driver de cada um.</li>
+  <li>A montar um relatório seguro (sem dados pessoais) para colar num fórum.</li>
+</ul>
+</div>
+
+<p>Os exemplos são do <strong>notebook</strong> fictício da Ana: um notebook com processador AMD de 8 threads e 16 GB de RAM.</p>
+
+<hr>
+
+<h2>O resumo de tudo: <code>hostnamectl</code></h2>
+<p>O <code>hostnamectl</code> serve para ver e mudar o nome da máquina, mas sem argumentos ele mostra um ótimo resumo:</p>
+
+<pre class="term">$ hostnamectl
+ Static hostname: notebook                           « nome da máquina na rede
+       Icon name: computer-laptop
+         Chassis: laptop 💻                          « notebook, desktop, vm, server…
+      Machine ID: 4b1f0c6e9a2d4c7f8e3a5b6c7d8e9f01
+         Boot ID: 9c2e7a1b3d4f4e5a8b6c7d8e9f0a1b2c
+Operating System: Ubuntu 26.04.1 LTS                 « versão do Ubuntu
+          Kernel: Linux 7.0.0-38-generic             « versão do kernel
+    Architecture: x86-64
+ Hardware Vendor: Lenovo                             « fabricante
+  Hardware Model: ThinkPad E14 Gen 5                 « modelo
+Firmware Version: R2AET41W (1.21)                    « versão da BIOS/UEFI</pre>
+
+<p>O <code>Machine ID</code> é um identificador único desta instalação. Não é segredo grave, mas evite publicá-lo: ele identifica a sua máquina. Para mudar o nome da máquina, veja <a href="configurar-rede.html">Configurar a Rede</a>.</p>
+
+<hr>
+
+<h2>Versão do Ubuntu</h2>
+<p>Há três formas de perguntar, e cada uma é útil numa situação:</p>
+
+<pre class="term">$ lsb_release -a
+Distributor ID:	Ubuntu
+Description:	Ubuntu 26.04.1 LTS
+Release:	26.04
+Codename:	resolute
+$ lsb_release -sc
+resolute
+$ cat /etc/os-release
+PRETTY_NAME="Ubuntu 26.04.1 LTS"
+NAME="Ubuntu"
+VERSION_ID="26.04"
+VERSION="26.04.1 LTS (Resolute Raccoon)"
+VERSION_CODENAME=resolute
+ID=ubuntu
+ID_LIKE=debian
+…</pre>
+
+<dl class="anatomy">
+  <dt>lsb_release</dt><dd>Mostra a versão no padrão LSB (<em>Linux Standard Base</em>).</dd>
+  <dt>-s</dt><dd><em>Short</em>: só o valor, sem o rótulo. Bom para scripts.</dd>
+  <dt>-c</dt><dd><em>Codename</em>: o nome de código.</dd>
+</dl>
+
+<p>O codinome <code>resolute</code> vem de "Resolute Raccoon", o apelido do 26.04, e aparece nos endereços dos repositórios. O <code>.1</code> de 26.04.1 é o <em>point release</em>: a mesma versão com as correções acumuladas. O <code>/etc/os-release</code> existe em qualquer distribuição Linux, por isso é o preferido em scripts: <code>. /etc/os-release; echo $VERSION_ID</code>.</p>
+
+<hr>
+
+<h2>Kernel: <code>uname</code></h2>
+<p>O <code>uname</code> (de <em>Unix name</em>) informa o kernel, a parte central do sistema que conversa com o hardware.</p>
+
+<pre class="term">$ uname -r
+7.0.0-38-generic
+$ uname -a
+Linux notebook 7.0.0-38-generic #38-Ubuntu SMP PREEMPT_DYNAMIC Fri Sep  4 09:10:14 UTC 2026 x86_64 GNU/Linux</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Pedaço de <code>7.0.0-38-generic</code></th><th>Significado</th></tr>
+<tr><td><code>7.0.0</code></td><td>Versão do kernel Linux.</td></tr>
+<tr><td><code>38</code></td><td>Número da compilação do Ubuntu. Sobe a cada atualização de segurança.</td></tr>
+<tr><td><code>generic</code></td><td>"Sabor" do kernel: o padrão para desktops e servidores.</td></tr>
+</table>
+</div>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Mostra</th></tr>
+<tr><td><code>-r</code></td><td>Versão do kernel (<em>release</em>)</td></tr>
+<tr><td><code>-m</code></td><td>Arquitetura (<code>x86_64</code>, <code>aarch64</code>)</td></tr>
+<tr><td><code>-n</code></td><td>Nome da máquina</td></tr>
+<tr><td><code>-a</code></td><td>Tudo (<em>all</em>)</td></tr>
+</table>
+</div>
+
+<p>Quais kernels estão instalados, e como voltar para um anterior, você vê em <a href="boot-grub.html">Boot, GRUB e Kernel</a>.</p>
+
+<hr>
+
+<h2>Processador: <code>lscpu</code> e <code>nproc</code></h2>
+
+<pre class="term">$ lscpu | head -14
+Arquitetura:                               x86_64
+Modo(s) operacional da CPU:                32-bit, 64-bit
+Tamanhos de endereço:                      48 bits physical, 48 bits virtual
+Ordem dos bytes:                           Little Endian
+CPU(s):                                    8                       « total de threads
+Lista de CPU(s) on-line:                   0-7
+ID de fornecedor:                          AuthenticAMD
+Nome do modelo:                            AMD Ryzen 5 7520U with Radeon Graphics
+Família da CPU:                            23
+Modelo:                                    160
+Thread(s) per núcleo:                      2
+Núcleo(s) por soquete:                     4                       « núcleos físicos
+Soquete(s):                                1
+Step:                                      0
+$ nproc
+8</pre>
+
+<p>A conta é: 1 soquete × 4 núcleos × 2 threads por núcleo = 8 CPUs. Para o sistema, cada thread é uma "CPU". O <code>nproc</code> (de <em>number of processors</em>) mostra só esse número, útil em scripts como <code>make -j$(nproc)</code>.</p>
+
+<p>Para saber se o processador aceita máquinas virtuais (veja <a href="kvm.html">KVM e virt-manager</a>):</p>
+<pre class="term">$ lscpu | grep -i virtualiza
+Virtualização:                             AMD-V                   « Intel mostra VT-x</pre>
+
+<hr>
+
+<h2>Memória: <code>free</code> e <code>dmidecode</code></h2>
+
+<pre class="term">$ free -h
+               total       usada       livre    compart.  buff/cache  disponível
+Mem.:           15Gi       4,7Gi       3,6Gi       118Mi       7,2Gi        10Gi
+Swap:          4,0Gi          0B       4,0Gi</pre>
+
+<p>16 GB aparecem como 15Gi porque o <code>-h</code> usa a unidade binária (1 Gi = 1024 Mi) e parte da RAM fica reservada ao vídeo integrado. Olhe a coluna <strong>disponível</strong>; a explicação completa está em <a href="desempenho.html">Desempenho e Monitoramento</a>.</p>
+
+<p>Para saber <strong>quantos pentes</strong> de memória há e se sobra slot livre para um upgrade, pergunte ao firmware com o <code>dmidecode</code> (precisa de <code>sudo</code>):</p>
+
+<dl class="anatomy">
+  <dt>sudo dmidecode</dt><dd>Lê a tabela DMI/SMBIOS, que o fabricante grava na placa-mãe.</dd>
+  <dt>-t memory</dt><dd><em>Type</em>: só a parte de memória.</dd>
+  <dt>| grep -E "Size|Speed|Locator"</dt><dd>Filtra só tamanho, velocidade e posição de cada slot.</dd>
+</dl>
+
+<pre class="term">$ sudo dmidecode -t memory | grep -E "^\s+(Size|Speed|Locator):"
+	Size: 8 GB
+	Locator: DIMM 0
+	Speed: 5500 MT/s
+	Size: 8 GB
+	Locator: DIMM 1                                     « dois pentes de 8 GB, nenhum slot livre
+	Speed: 5500 MT/s</pre>
+
+<hr>
+
+<h2>Discos</h2>
+<pre class="term">$ lsblk -e7 -o NAME,SIZE,TYPE,MOUNTPOINTS
+NAME          SIZE TYPE MOUNTPOINTS
+nvme0n1     476,9G disk
+├─nvme0n1p1     1G part /boot/efi
+└─nvme0n1p2 475,9G part /</pre>
+<p>O <code>-e7</code> esconde os dispositivos <code>loop</code> (os snaps montados). Tudo sobre discos e espaço está em <a href="discos.html">lsblk, df, du</a>.</p>
+
+<hr>
+
+<h2>Placas e dispositivos: <code>lspci</code>, <code>lsusb</code>, <code>lshw</code></h2>
+<p><code>lspci</code> lista o que está ligado ao barramento PCI: placa de vídeo, rede cabeada, Wi-Fi, som. A pergunta mais comum é "qual é a minha placa de vídeo e qual driver ela usa?":</p>
+
+<dl class="anatomy">
+  <dt>lspci</dt><dd>Lista os dispositivos PCI.</dd>
+  <dt>-k</dt><dd>Mostra o driver do kernel (<em>kernel driver</em>) de cada um.</dd>
+  <dt>| grep -A3 -i vga</dt><dd>Mostra a linha da placa de vídeo e as 3 seguintes (<em>after</em>).</dd>
+</dl>
+
+<pre class="term">$ lspci -k | grep -A3 -i vga
+04:00.0 VGA compatible controller: Advanced Micro Devices, Inc. [AMD/ATI] Barcelo (rev c1)
+	Subsystem: Lenovo Device 3f4b
+	Kernel driver in use: amdgpu                         « o driver que está funcionando
+	Kernel modules: amdgpu</pre>
+
+<p>Se faltar a linha <code>Kernel driver in use</code>, o dispositivo está sem driver. É o primeiro sinal de "Wi-Fi não aparece" ou "vídeo travado em baixa resolução". Para a rede:</p>
+
+<pre class="term">$ lspci | grep -Ei "network|ethernet"
+02:00.0 Network controller: MEDIATEK Corp. MT7922 802.11ax PCI Express Wireless Network Adapter
+03:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168/8211/8411 PCI Express Gigabit Ethernet Controller (rev 15)</pre>
+
+<p>O <code>lsusb</code> faz o mesmo para dispositivos USB:</p>
+
+<pre class="term">$ lsusb
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 003: ID 046d:c52b Logitech, Inc. Unifying Receiver      « o receptor do mouse
+Bus 003 Device 002: ID 0e8d:0616 MediaTek Inc. Wireless_Device         « o Bluetooth</pre>
+
+<p>O par <code>046d:c52b</code> é a identidade do aparelho: fabricante (<code>046d</code> = Logitech) e modelo. Procurar esse código na internet é a melhor forma de achar informações sobre drivers.</p>
+
+<h3>Tudo de uma vez: <code>lshw</code></h3>
+<pre class="term">$ sudo lshw -short
+Caminho do hardware  Dispositivo      Classe         Descrição
+================================================================
+                                      system         ThinkPad E14 Gen 5
+/0/1                                  processor      AMD Ryzen 5 7520U with Radeon Graphics
+/0/100/2.4/0         /dev/nvme0       storage        SAMSUNG MZVL2512HCJQ-00BL7
+/0/100/2.2/0         wlp2s0           network        MT7922 802.11ax PCI Express Wireless Network Adapter
+…</pre>
+
+<p>Sem <code>sudo</code>, o <code>lshw</code> avisa <code>AVISO: você deveria executar este programa como superusuário.</code> e mostra informações incompletas.</p>
+
+<hr>
+
+<h2>Temperatura e tempo ligado</h2>
+<p>O <code>sensors</code> vem no pacote <code>lm-sensors</code>, que não é instalado por padrão:</p>
+
+<pre class="term">$ sudo apt install lm-sensors
+$ sensors
+k10temp-pci-00c3
+Adapter: PCI adapter
+Tctl:         +52.6°C                                « temperatura do processador
+
+nvme-pci-0400
+Adapter: PCI adapter
+Composite:    +38.9°C                                « temperatura do SSD</pre>
+
+<pre class="term">$ uptime -p
+up 3 days, 4 hours, 5 minutes
+$ uptime -s
+2026-10-12 06:25:11                                  « quando foi ligado</pre>
+
+<hr>
+
+<h2>Formas diferentes de fazer</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td>Configurações → Sobre (desktop)</td><td>App Configurações</td><td>Você só quer ver modelo, memória e versão.</td></tr>
+<tr><td>Um comando por pergunta</td><td><code>uname -r</code>, <code>nproc</code>, <code>free -h</code></td><td>Scripts e respostas rápidas.</td></tr>
+<tr><td><code>hostnamectl</code></td><td><code>hostnamectl</code></td><td>Resumo de sistema e máquina num comando só.</td></tr>
+<tr><td><code>inxi</code></td><td><code>inxi -Fxz</code></td><td>Relatório completo para colar num fórum.</td></tr>
+<tr><td><code>fastfetch</code></td><td><code>fastfetch</code></td><td>Resumo bonito com o logo do Ubuntu.</td></tr>
+<tr><td>Arquivos do sistema</td><td><code>cat /proc/cpuinfo</code>, <code>cat /sys/class/dmi/id/product_name</code></td><td>Scripts que não podem depender de programas extras.</td></tr>
+</table>
+</div>
+
+<h3>Relatório seguro para fóruns: <code>inxi</code></h3>
+
+<dl class="anatomy">
+  <dt>inxi</dt><dd>Reúne informações de sistema e hardware.</dd>
+  <dt>-F</dt><dd><em>Full</em>: relatório completo.</dd>
+  <dt>-x</dt><dd>Detalhes extras.</dd>
+  <dt>-z</dt><dd>Esconde dados pessoais: IPs, MACs, números de série. <strong>Use sempre que for publicar.</strong></dd>
+</dl>
+
+<pre class="term">$ sudo apt install inxi
+$ inxi -Fxz
+System:
+  Kernel: 7.0.0-38-generic arch: x86_64 bits: 64 compiler: gcc v: 15.2.0
+  Desktop: GNOME v: 50.1 Distro: Ubuntu 26.04.1 LTS (Resolute Raccoon)
+Machine:
+  Type: Laptop System: LENOVO product: 21JR001BBR v: ThinkPad E14 Gen 5
+    serial: &lt;filter&gt;                                  « escondido pelo -z
+…</pre>
+
+<p>As versões nessa saída são ilustrativas; as suas podem ser outras. O <code>neofetch</code> foi descontinuado e não está nos repositórios do 26.04: use o <code>fastfetch</code>.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"comando não encontrado"</strong>
+<pre class="term">$ sensors
+Comando 'sensors' não encontrado, mas poder ser instalado com:
+sudo apt install lm-sensors</pre>
+<p><strong>O que aconteceu:</strong> a ferramenta não vem instalada. O Ubuntu sugere o pacote certo (o "poder" é um erro da tradução original).</p>
+<p><strong>Como resolver:</strong> rode o comando sugerido.</p>
+</div>
+
+<div class="cenario">
+<strong>dmidecode sem sudo</strong>
+<pre class="term">$ dmidecode -t memory
+# dmidecode 3.6
+/sys/firmware/dmi/tables/smbios_entry_point: Permission denied
+Scanning /dev/mem for entry point.</pre>
+<p><strong>O que aconteceu:</strong> a tabela do firmware só pode ser lida pelo root.</p>
+<p><strong>Como resolver:</strong> <code>sudo dmidecode -t memory</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O dispositivo aparece no lspci, mas não funciona</strong>
+<pre class="term">$ lspci -k | grep -A3 -i network
+02:00.0 Network controller: MEDIATEK Corp. MT7922 802.11ax PCI Express Wireless Network Adapter
+	Subsystem: Lenovo Device e0e0
+	Kernel modules: mt7921e                              « falta "Kernel driver in use"</pre>
+<p><strong>O que aconteceu:</strong> o kernel conhece um driver (<code>Kernel modules</code>), mas ele não está carregado.</p>
+<p><strong>Como resolver:</strong> veja o motivo no log do kernel com <code>sudo dmesg | grep -i mt7921</code>. Muitas vezes falta firmware (pacote <code>linux-firmware</code>) ou o kernel é antigo. Atualize o sistema e reinicie.</p>
+</div>
+
+<hr>
+
+<h2>Referência rápida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Pergunta</th><th>Comando</th></tr>
+<tr><td>Qual versão do Ubuntu?</td><td><code>lsb_release -a</code> · <code>cat /etc/os-release</code></td></tr>
+<tr><td>Qual kernel?</td><td><code>uname -r</code></td></tr>
+<tr><td>Nome, modelo e sistema</td><td><code>hostnamectl</code></td></tr>
+<tr><td>Processador e núcleos</td><td><code>lscpu</code> · <code>nproc</code></td></tr>
+<tr><td>Memória</td><td><code>free -h</code> · <code>sudo dmidecode -t memory</code></td></tr>
+<tr><td>Discos e partições</td><td><code>lsblk -e7</code> · <code>df -h</code></td></tr>
+<tr><td>Placa de vídeo e driver</td><td><code>lspci -k | grep -A3 -i vga</code></td></tr>
+<tr><td>Wi-Fi e rede cabeada</td><td><code>lspci | grep -Ei "network|ethernet"</code></td></tr>
+<tr><td>Dispositivos USB</td><td><code>lsusb</code> · <code>lsusb -t</code></td></tr>
+<tr><td>Todo o hardware</td><td><code>sudo lshw -short</code></td></tr>
+<tr><td>Temperatura</td><td><code>sensors</code> (pacote lm-sensors)</td></tr>
+<tr><td>Há quanto tempo está ligado</td><td><code>uptime -p</code> · <code>uptime -s</code></td></tr>
+<tr><td>Relatório para fórum</td><td><code>inxi -Fxz</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Só o kernel</h3>
+<p>Complete para ver só a versão do kernel:</p>
+<div class="ex-code">uname <input data-answer="-r|--kernel-release" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>2. O codinome</h3>
+<p>Complete para mostrar só o codinome da versão (ex.: <code>resolute</code>):</p>
+<div class="ex-code">lsb_release <input data-answer="-sc|-cs|-s -c|-c -s" aria-label="opções"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Driver da placa de vídeo</h3>
+<p>Complete para listar os dispositivos PCI com o driver de cada um:</p>
+<div class="ex-code">lspci <input data-answer="-k" aria-label="opção"> | grep -A3 -i vga</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. O <code>lscpu</code> mostra 1 soquete, 6 núcleos por soquete e 2 threads por núcleo. Quanto mostra o <code>nproc</code>?</p>
+<label><input type="radio" name="q4"> 6</label>
+<label><input type="radio" name="q4"> 2</label>
+<label><input type="radio" name="q4"> 12</label>
+<label><input type="radio" name="q4"> 1</label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. Você vai colar um relatório do seu hardware num fórum público. Qual comando usar?</p>
+<label><input type="radio" name="q5"> <code>sudo dmidecode</code></label>
+<label><input type="radio" name="q5"> <code>inxi -Fxz</code></label>
+<label><input type="radio" name="q5"> <code>hostnamectl</code> completo, com o Machine ID</label>
+<label><input type="radio" name="q5"> <code>cat /etc/shadow</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>hostnamectl</code> resume sistema, kernel e modelo; <code>lsb_release -a</code> e <code>/etc/os-release</code> dão a versão.</li>
+  <li><code>uname -r</code> = kernel; <code>lscpu</code>/<code>nproc</code> = processador; <code>free -h</code> = memória.</li>
+  <li><code>lspci -k</code> mostra placas e drivers; sem "Kernel driver in use", o dispositivo está sem driver.</li>
+  <li><code>lsusb</code> lista USB; o código <code>fabricante:modelo</code> ajuda a achar drivers.</li>
+  <li>Para fóruns, use <code>inxi -Fxz</code>, que esconde dados pessoais.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

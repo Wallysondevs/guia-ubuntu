@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Primeiros Comandos — whoami, hostname, date, cal, uptime, uname, echo | Guia Ubuntu</title>
+<meta name="description" content="Os primeiros comandos para conhecer o seu Ubuntu: quem sou, qual a máquina, data e hora em vários formatos, calendário, tempo ligado, versão, echo, clear, exit e history.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Primeiros Comandos</span></h1>
+
+<p class="intro">Antes de mexer em arquivos, vale conhecer a máquina em que você está. Os comandos desta aula só <strong>leem</strong> informações: não mudam nada, não apagam nada. São perfeitos para treinar a digitação, as opções e a leitura das respostas.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Perguntar quem você é (<code>whoami</code>) e em qual máquina está (<code>hostname</code>).</li>
+  <li>Mostrar a data e a hora em qualquer formato com <code>date</code>.</li>
+  <li>Ver o calendário (<code>cal</code>) e há quanto tempo o computador está ligado (<code>uptime</code>).</li>
+  <li>Escrever na tela com <code>echo</code>, inclusive o resultado de outros comandos.</li>
+  <li>Limpar a tela, sair e rever o que você digitou.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Quem sou eu? <code>whoami</code></h2>
+<p><code>whoami</code> é a frase inglesa <em>who am I?</em>, "quem sou eu?", escrita junta. Ele mostra o nome do usuário que está usando o terminal.</p>
+
+<dl class="anatomy">
+  <dt>whoami</dt><dd>O comando inteiro. Não precisa de opções nem de argumentos.</dd>
+</dl>
+
+<pre class="term">$ whoami
+ana</pre>
+
+<p>Parece óbvio, já que o nome aparece no prompt. Mas ele fica útil quando você usa <code>sudo</code>, entra em outro computador por SSH ou escreve scripts:</p>
+
+<pre class="term">$ sudo whoami
+[sudo: authenticate] Senha:
+root                                            « com sudo, o comando roda como administrador</pre>
+
+<h3>Formas diferentes de saber o usuário</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Resposta</th><th>Melhor quando…</th></tr>
+<tr><td><code>whoami</code></td><td><code>ana</code></td><td>Você quer só o nome.</td></tr>
+<tr><td><code>echo $USER</code></td><td><code>ana</code></td><td>Está num script e quer usar o nome numa frase.</td></tr>
+<tr><td><code>id</code></td><td>Nome, número e grupos</td><td>Precisa saber os grupos (por exemplo, se está no grupo <code>sudo</code>).</td></tr>
+<tr><td>O prompt</td><td><code>ana@notebook</code></td><td>Só bater o olho.</td></tr>
+</table>
+</div>
+
+<pre class="term">$ id
+uid=1000(ana) gid=1000(ana) groups=1000(ana),4(adm),24(cdrom),27(sudo),30(dip),46(plugdev),100(users),114(lpadmin)</pre>
+
+<p>O <code>uid=1000</code> é o número da Ana no sistema. O <code>27(sudo)</code> na lista de grupos diz que ela pode usar <code>sudo</code>. Você aprende mais em <a href="usuarios.html">Usuários e Grupos</a>.</p>
+
+<hr>
+
+<h2>Qual é a máquina? <code>hostname</code></h2>
+<p><em>Hostname</em> é o "nome do hospedeiro": o nome do computador na rede.</p>
+
+<pre class="term">$ hostname
+notebook
+$ hostname -I
+192.168.0.15                                    « -I mostra o endereço IP</pre>
+
+<p>Num servidor, o prompt e o <code>hostname</code> mostram o nome dele. Isso evita rodar um comando na máquina errada:</p>
+
+<pre class="term" data-host="servidor">$ hostname
+servidor</pre>
+
+<hr>
+
+<h2>Data e hora: <code>date</code></h2>
+<p>Sem nada, o <code>date</code> mostra a data e a hora completas:</p>
+
+<pre class="term">$ date
+qui. 15 out 2026 10:30:00 -03</pre>
+
+<p>O <code>-03</code> no fim é o fuso horário: três horas a menos que o horário universal (UTC), como em Brasília.</p>
+
+<h3>Escolhendo o formato</h3>
+<p>Para escolher o formato, passe um argumento que começa com <code>+</code>. Cada <code>%</code> com uma letra é trocado por um pedaço da data:</p>
+
+<dl class="anatomy">
+  <dt>date</dt><dd>O programa.</dd>
+  <dt>+"%d/%m/%Y"</dt><dd>O formato: o <code>+</code> avisa que é um formato; <code>%d</code> dia, <code>%m</code> mês, <code>%Y</code> ano. As barras ficam como estão.</dd>
+</dl>
+
+<pre class="term">$ date +"%d/%m/%Y"
+15/10/2026
+$ date +%F
+2026-10-15                                      « formato internacional, ótimo para nomes de arquivo
+$ date +%H:%M
+10:30
+$ date +"%A, %d de %B de %Y"
+quinta-feira, 15 de outubro de 2026</pre>
+
+<p>As aspas só são necessárias quando o formato tem espaços.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Código</th><th>Significa</th><th>Exemplo</th></tr>
+<tr><td><code>%d</code></td><td>Dia (01 a 31)</td><td><code>15</code></td></tr>
+<tr><td><code>%m</code></td><td>Mês (01 a 12)</td><td><code>10</code></td></tr>
+<tr><td><code>%Y</code></td><td>Ano com 4 dígitos</td><td><code>2026</code></td></tr>
+<tr><td><code>%H</code> / <code>%M</code> / <code>%S</code></td><td>Hora / minuto / segundo</td><td><code>10</code> / <code>30</code> / <code>00</code></td></tr>
+<tr><td><code>%A</code> / <code>%a</code></td><td>Dia da semana, completo / curto</td><td><code>quinta-feira</code> / <code>qui</code></td></tr>
+<tr><td><code>%B</code> / <code>%b</code></td><td>Mês, completo / curto</td><td><code>outubro</code> / <code>out</code></td></tr>
+<tr><td><code>%F</code></td><td>O mesmo que <code>%Y-%m-%d</code></td><td><code>2026-10-15</code></td></tr>
+<tr><td><code>%T</code></td><td>O mesmo que <code>%H:%M:%S</code></td><td><code>10:30:00</code></td></tr>
+<tr><td><code>%s</code></td><td>Segundos desde 1/1/1970 (usado por programas)</td><td><code>1792071000</code></td></tr>
+</table>
+</div>
+
+<h3>Outras datas: <code>-d</code></h3>
+<p>A opção <code>-d</code> (de <em>date</em>) calcula outra data em vez de hoje. Ela entende expressões em <strong>inglês</strong> ou datas no formato <code>AAAA-MM-DD</code>:</p>
+
+<pre class="term">$ date -d tomorrow +%F
+2026-10-16
+$ date -d "+3 days" +%F
+2026-10-18
+$ date -d "2026-12-25" +%A
+sexta-feira                                     « em que dia da semana cai o Natal</pre>
+
+<hr>
+
+<h2>Calendário: <code>cal</code></h2>
+<p>O <code>cal</code> (de <em>calendar</em>) desenha o calendário do mês. Ele não vem instalado; o Ubuntu sugere o pacote:</p>
+
+<pre class="term">$ cal
+Comando 'cal' não encontrado, mas poder ser instalado com:
+sudo apt install ncal
+$ sudo apt install ncal</pre>
+
+<p>Depois de instalar:</p>
+
+<pre class="term">$ cal
+    Outubro 2026
+Do Se Te Qu Qu Se Sá
+             1  2  3
+ 4  5  6  7  8  9 10
+11 12 13 14 15 16 17                            « o dia de hoje aparece destacado
+18 19 20 21 22 23 24
+25 26 27 28 29 30 31</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Mostra</th></tr>
+<tr><td><code>cal</code></td><td>O mês atual</td></tr>
+<tr><td><code>cal -3</code></td><td>O mês anterior, o atual e o próximo</td></tr>
+<tr><td><code>cal 12 2026</code></td><td>Dezembro de 2026</td></tr>
+<tr><td><code>cal 2027</code></td><td>O ano inteiro</td></tr>
+</table>
+</div>
+
+<p>A aparência do cabeçalho pode variar um pouco conforme a versão do pacote.</p>
+
+<hr>
+
+<h2>Há quanto tempo está ligado? <code>uptime</code></h2>
+<p><em>Uptime</em> é o "tempo de pé": quanto tempo faz que o computador foi ligado.</p>
+
+<pre class="term">$ uptime
+ 10:30:00 up  2:31,  1 user,  load average: 0,42, 0,38, 0,35</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Pedaço</th><th>Significado</th></tr>
+<tr><td><code>10:30:00</code></td><td>A hora atual.</td></tr>
+<tr><td><code>up 2:31</code></td><td>Ligado há 2 horas e 31 minutos.</td></tr>
+<tr><td><code>1 user</code></td><td>Uma pessoa conectada.</td></tr>
+<tr><td><code>load average</code></td><td>A "carga" do processador no último minuto, nos últimos 5 e nos últimos 15. Veja <a href="processos.html">ps, pgrep, top</a>.</td></tr>
+</table>
+</div>
+
+<p>Duas opções deixam a resposta mais fácil de ler:</p>
+
+<pre class="term">$ uptime -p
+up 2 hours, 31 minutes                          « -p: pretty, "bonito"
+$ uptime -s
+2026-10-15 07:59:00                             « -s: since, "desde quando"</pre>
+
+<hr>
+
+<h2>Qual sistema? <code>uname</code> e <code>lsb_release</code></h2>
+<p>Você já viu esses dois na <a href="introducao.html">Introdução</a>. Um resumo:</p>
+
+<pre class="term">$ uname -r
+7.0.0-38-generic                                « a versão do kernel
+$ lsb_release -ds
+Ubuntu 26.04.1 LTS                              « a versão do Ubuntu</pre>
+
+<hr>
+
+<h2>Escrever na tela: <code>echo</code></h2>
+<p>O <code>echo</code> mostra o texto que recebeu. Ele parece simples demais, mas é usado o tempo todo para ver variáveis e montar mensagens em scripts.</p>
+
+<pre class="term">$ echo "Bom dia!"
+Bom dia!
+$ echo "Minha pasta pessoal é $HOME"
+Minha pasta pessoal é /home/ana</pre>
+
+<p>O <code>$HOME</code> é uma variável: o shell troca pelo valor dela antes de chamar o <code>echo</code>.</p>
+
+<h3>O resultado de um comando dentro do texto: <code>$( )</code></h3>
+<p>Tudo o que estiver dentro de <code>$( )</code> é executado primeiro, e a resposta entra no lugar. Isso se chama <strong>substituição de comando</strong>.</p>
+
+<dl class="anatomy">
+  <dt>echo</dt><dd>Mostra o texto.</dd>
+  <dt>"Hoje é $(date +%d/%m)"</dt><dd>O texto. O <code>$(date +%d/%m)</code> roda antes e vira <code>15/10</code>.</dd>
+</dl>
+
+<pre class="term">$ echo "Hoje é $(date +%d/%m)"
+Hoje é 15/10
+$ echo "Sou $(whoami) e estou em $(hostname)"
+Sou ana e estou em notebook</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-n</code></td><td>Não pula linha no final</td><td><code>echo -n "Sem quebra"</code></td></tr>
+<tr><td><code>-e</code></td><td>Entende <code>\n</code> (nova linha) e <code>\t</code> (tabulação)</td><td><code>echo -e "linha1\nlinha2"</code></td></tr>
+</table>
+</div>
+
+<pre class="term">$ echo -e "Nome:\tAna\nCidade:\tRecife"
+Nome:	Ana
+Cidade:	Recife</pre>
+
+<div class="try" data-goal="contains:~/info.txt=ana,contains:~/info.txt=notebook,contains:~/info.txt=2026-10-15">
+<p class="try-task"><strong>Missão:</strong> crie o arquivo <code>info.txt</code> com o seu usuário, o nome da máquina e a data no formato <code>2026-10-15</code>, sem digitar esses valores à mão. Use <code>echo</code>, <code>$( )</code> e <code>&gt;</code>. Confira com <code>cat info.txt</code>.</p>
+</div>
+
+<hr>
+
+<h2>Limpar, sair e rever: <code>clear</code>, <code>exit</code> e <code>history</code></h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Atalho</th><th>O que faz</th></tr>
+<tr><td><code>clear</code></td><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>Limpa a tela. Nada é apagado do histórico.</td></tr>
+<tr><td><code>exit</code></td><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Fecha o terminal, ou sai de um servidor remoto.</td></tr>
+<tr><td><code>history</code></td><td><kbd>↑</kbd></td><td>Mostra os comandos digitados.</td></tr>
+</table>
+</div>
+
+<pre class="term">$ history | tail -3
+   41  uname -r
+   42  uptime
+   43  history | tail -3</pre>
+
+<p>O <code>| tail -3</code> mostra só as 3 últimas linhas. Veja mais em <a href="terminal.html">O Terminal</a>.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"data inválida" no <code>date -d</code></strong>
+<pre class="term">$ date -d amanhã
+date: data inválida 'amanhã'</pre>
+<p><strong>O que aconteceu:</strong> o <code>-d</code> entende expressões só em inglês.</p>
+<p><strong>Como resolver:</strong> <code>date -d tomorrow</code>, <code>date -d "next friday"</code>, <code>date -d "+3 days"</code> ou uma data <code>AAAA-MM-DD</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"you must be root to change the host name"</strong>
+<pre class="term">$ hostname meu-pc
+hostname: you must be root to change the host name</pre>
+<p><strong>O que aconteceu:</strong> com um argumento, o <code>hostname</code> tenta <strong>trocar</strong> o nome da máquina, o que exige administrador. A mensagem vem em inglês mesmo.</p>
+<p><strong>Como resolver:</strong> se a ideia era só ver o nome, rode <code>hostname</code> sem nada. Para trocar de verdade, use <code>sudo hostnamectl set-hostname meu-pc</code> (veja <a href="configurar-rede.html">Configurar a Rede</a>).</p>
+</div>
+
+<div class="cenario">
+<strong>"argumento inesperado" no <code>whoami</code></strong>
+<pre class="term">$ whoami ana
+erro: argumento inesperado 'ana' encontrado
+
+Uso: whoami
+
+Para obter mais informações, use '--help'.</pre>
+<p><strong>O que aconteceu:</strong> o <code>whoami</code> não recebe argumentos. A linha <code>Uso: whoami</code> mostra isso: não há nada depois do nome.</p>
+<p><strong>Como resolver:</strong> rode só <code>whoami</code>. Para ver os dados de outro usuário, use <code>id ana</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"cal: comando não encontrado"</strong>
+<p><strong>O que aconteceu:</strong> o programa não está instalado. O Ubuntu sugere <code>sudo apt install ncal</code>.</p>
+<p><strong>Como resolver:</strong> instale o pacote sugerido. Veja <a href="apt.html">apt</a>.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Data para nome de arquivo</h3>
+<p>Complete para mostrar a data no formato <code>2026-10-15</code>:</p>
+<div class="ex-code">date +<input data-answer="%F|%Y-%m-%d" aria-label="formato"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Versão do kernel</h3>
+<p>Complete o comando que mostra só a versão do kernel:</p>
+<div class="ex-code">uname <input data-answer="-r" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Tempo ligado, fácil de ler</h3>
+<p>Complete para mostrar há quanto tempo o computador está ligado, em formato legível:</p>
+<div class="ex-code"><input data-answer="uptime" aria-label="comando"> -p</div>
+</div>
+
+<div class="exercise">
+<h3>4. Um comando dentro do texto</h3>
+<p>Complete para mostrar <code>Máquina: notebook</code> sem digitar "notebook":</p>
+<div class="ex-code">echo "Máquina: <input data-answer="$(hostname)" aria-label="substituição">"</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. O que mostra <code>echo 'Usuário: $USER'</code>?</p>
+<label><input type="radio" name="q5"> Usuário: ana</label>
+<label><input type="radio" name="q5"> Usuário: $USER</label>
+<label><input type="radio" name="q5"> Um erro</label>
+<label><input type="radio" name="q5"> Usuário:</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>whoami</code>, <code>id</code> e <code>hostname</code> dizem quem você é e onde está.</li>
+  <li><code>date +FORMATO</code> mostra a data do jeito que você quiser; <code>%F</code> dá <code>2026-10-15</code>. <code>-d</code> calcula outras datas (em inglês).</li>
+  <li><code>cal</code> (pacote <code>ncal</code>) mostra o calendário; <code>uptime -p</code>, o tempo ligado.</li>
+  <li><code>echo</code> escreve na tela; <code>$( )</code> coloca o resultado de um comando dentro do texto.</li>
+  <li><code>clear</code> limpa, <code>exit</code> sai, <code>history</code> mostra o que você digitou.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

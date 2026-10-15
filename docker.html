@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Docker — containers explicados parte por parte | Guia Ubuntu</title>
+<meta name="description" content="Aprenda Docker no Ubuntu: container x VM, instalação (docker.io x docker-ce), grupo docker, docker run explicado, portas, volumes, Dockerfile e os erros mais comuns.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Docker</span></h1>
+
+<p class="intro">O <strong>Docker</strong> roda programas dentro de <strong>containers</strong>: caixas isoladas que já trazem tudo o que o programa precisa. Com ele você sobe um servidor web, um banco de dados ou um app inteiro com um comando, sem bagunçar o seu sistema, e apaga tudo com outro comando.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A diferença entre container, imagem e máquina virtual.</li>
+  <li>As duas formas de instalar o Docker no Ubuntu, e qual escolher.</li>
+  <li>O que cada parte de <code>docker run -d -p 8080:80 --name web nginx</code> faz.</li>
+  <li>Como guardar dados fora do container com volumes.</li>
+  <li>Como criar a sua própria imagem com um <code>Dockerfile</code>.</li>
+  <li>O que fazer com "permission denied", "port is already allocated" e container que morre na hora.</li>
+</ul>
+</div>
+
+<p>Os exemplos acontecem na máquina fictícia <strong>notebook</strong>, usuária <strong>ana</strong>. As saídas do Docker mudam um pouco entre versões (IDs, tamanhos, números de versão): trate-as como ilustrativas.</p>
+
+<hr>
+
+<h2>Conceito: imagem, container e VM</h2>
+<p>Três palavras aparecem o tempo todo. Pense numa receita de bolo:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Palavra</th><th>Analogia</th><th>O que é de verdade</th></tr>
+<tr><td><strong>Imagem</strong></td><td>A receita</td><td>Um pacote somente-leitura com o programa e tudo de que ele precisa (bibliotecas, configurações). Ex.: <code>nginx</code>, <code>postgres</code>, <code>ubuntu</code>.</td></tr>
+<tr><td><strong>Container</strong></td><td>O bolo feito</td><td>Uma imagem <em>rodando</em>. Da mesma imagem saem quantos containers você quiser.</td></tr>
+<tr><td><strong>Registro</strong></td><td>O livro de receitas</td><td>Onde as imagens ficam guardadas. O padrão é o <a href="https://hub.docker.com/">Docker Hub</a>.</td></tr>
+</table>
+</div>
+
+<p>E qual a diferença para uma máquina virtual (veja <a href="kvm.html">KVM</a>)?</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>Container (Docker)</th><th>Máquina virtual (KVM, VirtualBox)</th></tr>
+<tr><td>Kernel</td><td>Usa o kernel do próprio Ubuntu</td><td>Tem kernel próprio</td></tr>
+<tr><td>Sobe em</td><td>Menos de 1 segundo</td><td>Dezenas de segundos</td></tr>
+<tr><td>Tamanho típico</td><td>Dezenas a centenas de MB</td><td>Vários GB</td></tr>
+<tr><td>Roda outro sistema?</td><td>Só Linux (outra distribuição, sim)</td><td>Qualquer um, até Windows</td></tr>
+<tr><td>Isolamento</td><td>Bom, mas compartilha o kernel</td><td>Mais forte</td></tr>
+<tr><td>Melhor para</td><td>Rodar apps e serviços</td><td>Rodar um sistema inteiro</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Instalar: duas formas</h2>
+<p>Existem dois pacotes diferentes, de fontes diferentes. Os dois funcionam; não instale os dois juntos.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th><code>docker.io</code> (do Ubuntu)</th><th><code>docker-ce</code> (oficial da Docker Inc.)</th></tr>
+<tr><td>De onde vem</td><td>Repositório do próprio Ubuntu</td><td>Repositório da Docker (<code>download.docker.com</code>)</td></tr>
+<tr><td>Instalação</td><td>Um <code>apt install</code></td><td>Adicionar chave e repositório antes</td></tr>
+<tr><td>Versão</td><td>Um pouco mais antiga, testada pelo Ubuntu</td><td>Sempre a mais nova</td></tr>
+<tr><td>Atualizações de segurança</td><td>Pelo Ubuntu, junto com o sistema</td><td>Pela Docker</td></tr>
+<tr><td>Compose</td><td>Pacote <code>docker-compose-v2</code></td><td>Pacote <code>docker-compose-plugin</code></td></tr>
+<tr><td>Para quem</td><td>Quem está aprendendo e a maioria dos servidores</td><td>Quem precisa de um recurso recente</td></tr>
+</table>
+</div>
+
+<h3>Forma 1: pacote do Ubuntu (recomendada para começar)</h3>
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Instalar programas exige administrador.</dd>
+  <dt>apt install</dt><dd>Instala pacotes (veja <a href="apt.html">apt</a>).</dd>
+  <dt>docker.io</dt><dd>O motor do Docker (o <em>daemon</em>) e o comando <code>docker</code>.</dd>
+  <dt>docker-compose-v2</dt><dd>O comando <code>docker compose</code>, para vários containers (veja <a href="docker-compose.html">Docker Compose</a>).</dd>
+</dl>
+
+<pre class="term">$ sudo apt update
+$ sudo apt install docker.io docker-compose-v2
+[sudo: authenticate] Senha:
+…
+Configurando docker.io …
+Created symlink /etc/systemd/system/multi-user.target.wants/docker.service → /usr/lib/systemd/system/docker.service.
+$ systemctl is-active docker
+active                                         « o serviço já está rodando
+$ docker --version
+Docker version 28.2.2, build 28.2.2-0ubuntu1   « número ilustrativo</pre>
+
+<h3>Forma 2: repositório oficial da Docker</h3>
+<p>Siga sempre o passo a passo atual em <a href="https://docs.docker.com/engine/install/ubuntu/">docs.docker.com/engine/install/ubuntu</a>. Em resumo: remova pacotes antigos, adicione a chave em <code>/etc/apt/keyrings</code>, adicione o repositório (veja <a href="repositorios.html">Repositórios e PPAs</a>) e instale:</p>
+<pre class="term">$ sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin</pre>
+
+<hr>
+
+<h2>Usar sem sudo: o grupo <code>docker</code></h2>
+<p>O comando <code>docker</code> conversa com o serviço por um arquivo especial, o <em>socket</em> <code>/var/run/docker.sock</code>. Só o root e quem está no grupo <code>docker</code> podem usá-lo. Sem isso, você vê:</p>
+
+<pre class="term">$ docker ps
+permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.47/containers/json": dial unix /var/run/docker.sock: connect: permission denied</pre>
+
+<dl class="anatomy">
+  <dt>sudo usermod</dt><dd>Altera uma conta de usuário (veja <a href="usuarios.html">Usuários e Grupos</a>).</dd>
+  <dt>-aG docker</dt><dd><code>-a</code> = acrescentar, <code>-G docker</code> = ao grupo docker. Sem o <code>-a</code>, você sairia dos outros grupos (inclusive do <code>sudo</code>).</dd>
+  <dt>$USER</dt><dd>Variável com o seu nome de usuário (<code>ana</code>).</dd>
+</dl>
+
+<pre class="term">$ sudo usermod -aG docker $USER
+$ groups
+ana adm cdrom sudo dip plugdev users lpadmin   « docker ainda não aparece
+$ newgrp docker
+$ groups
+docker adm cdrom sudo dip plugdev users lpadmin ana
+$ docker ps
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES   « funcionou (lista vazia)</pre>
+
+<p>O grupo novo só vale em sessões novas. O <code>newgrp docker</code> resolve no terminal atual; para valer em tudo, saia da sessão e entre de novo.</p>
+
+<div class="warning">
+<strong>Atenção: grupo docker = poder de root</strong>
+<p>Quem está no grupo <code>docker</code> pode montar o disco inteiro dentro de um container e mexer em qualquer arquivo do sistema. Em servidores com várias pessoas, coloque no grupo só quem já teria <code>sudo</code>. Uma alternativa mais segura é o modo <em>rootless</em> do Docker.</p>
+</div>
+
+<hr>
+
+<h2>O primeiro container: <code>hello-world</code></h2>
+
+<dl class="anatomy">
+  <dt>docker</dt><dd>O programa cliente: ele só pede coisas ao serviço (daemon).</dd>
+  <dt>run</dt><dd>Subcomando: criar um container a partir de uma imagem e rodá-lo.</dd>
+  <dt>hello-world</dt><dd>O nome da imagem. Sem <code>:versão</code>, o Docker usa <code>:latest</code>.</dd>
+</dl>
+
+<pre class="term">$ docker run hello-world
+Unable to find image 'hello-world:latest' locally         « não tinha a imagem aqui…
+latest: Pulling from library/hello-world                  « …então baixou do Docker Hub
+e6590344b1a5: Pull complete
+Digest: sha256:ec153840d1e635ac434fab5e377081f17e0e15afab27beb3f726c3265039cfff
+Status: Downloaded newer image for hello-world:latest
+
+Hello from Docker!                                         « daqui para baixo é o programa rodando
+This message shows that your installation appears to be working correctly.
+
+To generate this message, Docker took the following steps:
+ 1. The Docker client contacted the Docker daemon.
+ 2. The Docker daemon pulled the "hello-world" image from the Docker Hub.
+    (amd64)
+ 3. The Docker daemon created a new container from that image which runs the
+    executable that produces the output you are currently reading.
+ 4. The Docker daemon streamed that output to the Docker client, which sent it
+    to your terminal.
+…</pre>
+
+<p>Leia a saída em duas partes. As 5 primeiras linhas são o Docker <strong>baixando a imagem</strong>, o que só acontece na primeira vez. O resto é o programa de dentro do container, que imprime a mensagem e termina. Quando o programa termina, o container para.</p>
+
+<h3>O que o comando devolve</h3>
+<p><code>docker run</code> devolve o código de saída do programa de dentro do container. Isso permite usar containers em scripts:</p>
+<pre class="term">$ docker run --rm ubuntu true
+$ echo $?
+0
+$ docker run --rm ubuntu false
+$ echo $?
+1                              « o "false" de dentro do container falhou
+$ docker run --rm ubuntu comando-que-nao-existe
+docker: Error response from daemon: failed to create task for container: … exec: "comando-que-nao-existe": executable file not found in $PATH: unknown
+$ echo $?
+127</pre>
+
+<hr>
+
+<h2>Um servidor de verdade: nginx</h2>
+<p>Agora um container que <strong>fica rodando</strong>: o servidor web nginx. É aqui que entram as opções mais usadas.</p>
+
+<dl class="anatomy">
+  <dt>docker run</dt><dd>Cria e roda um container.</dd>
+  <dt>-d</dt><dd><em>detached</em>, "desacoplado": roda em segundo plano e devolve o terminal.</dd>
+  <dt>-p 8080:80</dt><dd><em>publish</em>: a porta 8080 do <strong>Ubuntu</strong> leva à porta 80 do <strong>container</strong>. Formato <code>host:container</code>.</dd>
+  <dt>--name web</dt><dd>Um nome fácil. Sem ele, o Docker inventa um (ex.: <code>quirky_lovelace</code>).</dd>
+  <dt>nginx</dt><dd>A imagem.</dd>
+</dl>
+
+<pre class="term">$ docker run -d -p 8080:80 --name web nginx
+Unable to find image 'nginx:latest' locally
+latest: Pulling from library/nginx
+…
+Status: Downloaded newer image for nginx:latest
+9b1f2c7a0d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a   « o ID completo do container novo
+$ curl -s localhost:8080 | head -4
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+&lt;title&gt;Welcome to nginx!&lt;/title&gt;           « o nginx respondeu pela porta 8080</pre>
+
+<p>Abra <code>http://localhost:8080</code> no navegador e você verá a página "Welcome to nginx!".</p>
+
+<h3>Ver os containers: <code>docker ps</code></h3>
+<pre class="term">$ docker ps
+CONTAINER ID   IMAGE   COMMAND                  CREATED          STATUS          PORTS                                     NAMES
+9b1f2c7a0d3e   nginx   "/docker-entrypoint.…"   12 seconds ago   Up 11 seconds   0.0.0.0:8080->80/tcp, [::]:8080->80/tcp   web</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Significado</th></tr>
+<tr><td>CONTAINER ID</td><td>Os 12 primeiros caracteres do ID. Você pode usá-lo no lugar do nome.</td></tr>
+<tr><td>IMAGE</td><td>De qual imagem o container nasceu.</td></tr>
+<tr><td>COMMAND</td><td>O programa que roda dentro (cortado com "…").</td></tr>
+<tr><td>CREATED / STATUS</td><td>Quando foi criado e se está <code>Up</code> (rodando) ou <code>Exited</code> (parado).</td></tr>
+<tr><td>PORTS</td><td><code>0.0.0.0:8080-&gt;80/tcp</code> = porta 8080 de todas as interfaces do Ubuntu → porta 80 do container.</td></tr>
+<tr><td>NAMES</td><td>O nome que você deu com <code>--name</code>.</td></tr>
+</table>
+</div>
+
+<p><code>docker ps</code> mostra só os que estão rodando. <code>docker ps -a</code> (de <em>all</em>) mostra também os parados.</p>
+
+<h3>Logs, entrar no container, parar e apagar</h3>
+<pre class="term">$ docker logs --tail 2 web
+172.17.0.1 - - [15/Oct/2026:13:30:02 +0000] "GET / HTTP/1.1" 200 615 "-" "curl/8.14.1" "-"
+172.17.0.1 - - [15/Oct/2026:13:30:09 +0000] "GET /favicon.ico HTTP/1.1" 404 153 "-" "Mozilla/5.0 …" "-"
+$ docker exec -it web bash</pre>
+
+<dl class="anatomy">
+  <dt>docker exec</dt><dd>Roda um comando <strong>dentro</strong> de um container que já está rodando.</dd>
+  <dt>-it</dt><dd><code>-i</code> mantém a entrada aberta e <code>-t</code> cria um terminal: juntos, deixam você digitar lá dentro.</dd>
+  <dt>web</dt><dd>O container.</dd>
+  <dt>bash</dt><dd>O programa a rodar: um shell.</dd>
+</dl>
+
+<p>Agora o prompt muda: você está dentro do container, como root dele (não do Ubuntu).</p>
+<pre class="term" data-user="root" data-host="9b1f2c7a0d3e" data-cwd="/">#> cat /etc/os-release | head -1
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"     « a imagem do nginx é baseada em Debian
+#> ls /usr/share/nginx/html
+50x.html  index.html
+#> exit
+exit</pre>
+
+<pre class="term">$ docker stop web
+web
+$ docker ps -a
+CONTAINER ID   IMAGE   COMMAND                  CREATED         STATUS                     PORTS   NAMES
+9b1f2c7a0d3e   nginx   "/docker-entrypoint.…"   5 minutes ago   Exited (0) 3 seconds ago           web
+$ docker start web
+web
+$ docker rm -f web
+web                                        « -f para e apaga de uma vez</pre>
+
+<div class="tip">
+<strong>Container descartável: <code>--rm</code></strong>
+<p>Com <code>docker run --rm</code>, o container é apagado sozinho quando termina. Use para testes rápidos, como <code>docker run --rm -it ubuntu:26.04 bash</code>, que abre um Ubuntu limpo para brincar.</p>
+</div>
+
+<hr>
+
+<h2>Imagens</h2>
+<pre class="term">$ docker images
+REPOSITORY    TAG       IMAGE ID       CREATED       SIZE
+nginx         latest    a830707172e8   2 weeks ago   192MB
+ubuntu        26.04     4b1d0c4a2c3f   3 weeks ago   78.1MB
+hello-world   latest    74cc54e27dc4   9 months ago  10.1kB
+$ docker pull postgres:17
+$ docker rmi hello-world
+Untagged: hello-world:latest
+Deleted: sha256:74cc54e27dc4…
+$ docker image prune
+WARNING! This will remove all dangling images.
+Are you sure you want to continue? [y/N] y
+Total reclaimed space: 0B</pre>
+
+<p>A <strong>tag</strong> é a versão: <code>postgres:17</code>, <code>ubuntu:26.04</code>. Em servidores, fixe a tag. Com <code>latest</code>, a versão muda sozinha quando você baixa de novo, e isso pode quebrar o app.</p>
+
+<hr>
+
+<h2>Guardar dados: volumes</h2>
+<p>Tudo o que um programa grava <strong>dentro</strong> do container some quando o container é apagado. Para guardar dados, ligue uma pasta de fora a uma pasta de dentro. Há duas formas:</p>
+
+<h3>Forma 1: pasta do Ubuntu (<em>bind mount</em>)</h3>
+<dl class="anatomy">
+  <dt>-v ~/site:/usr/share/nginx/html</dt><dd><code>pasta-do-ubuntu:pasta-do-container</code>. O que você muda em <code>~/site</code> aparece na hora no container.</dd>
+  <dt>:ro</dt><dd>Opcional: <em>read-only</em>, o container só pode ler.</dd>
+</dl>
+<pre class="term">$ mkdir ~/site
+$ echo "&lt;h1&gt;Site da Ana&lt;/h1&gt;" &gt; ~/site/index.html
+$ docker run -d -p 8080:80 --name web -v ~/site:/usr/share/nginx/html:ro nginx
+$ curl localhost:8080
+&lt;h1&gt;Site da Ana&lt;/h1&gt;                         « o nginx serve o arquivo do seu Ubuntu</pre>
+
+<h3>Forma 2: volume gerenciado pelo Docker</h3>
+<pre class="term">$ docker volume create dados-db
+dados-db
+$ docker run -d --name db -e POSTGRES_PASSWORD=segredo -v dados-db:/var/lib/postgresql/data postgres:17
+$ docker volume ls
+DRIVER    VOLUME NAME
+local     dados-db</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td>Pasta do Ubuntu</td><td><code>-v ~/site:/dados</code></td><td>Você quer editar os arquivos (código, site, configurações).</td></tr>
+<tr><td>Volume nomeado</td><td><code>-v dados-db:/dados</code></td><td>Os dados são do programa (banco de dados) e você não mexe à mão.</td></tr>
+<tr><td>Sem volume</td><td>(nada)</td><td>Os dados podem sumir (testes).</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Sua própria imagem: <code>Dockerfile</code></h2>
+<p>Um <code>Dockerfile</code> é a receita da imagem: um arquivo de texto com uma instrução por linha. Exemplo: um site estático servido pelo nginx.</p>
+
+<pre class="file" data-file="Dockerfile"># Parte de uma imagem pronta (a "base")
+FROM nginx:1.29-alpine
+
+# Copia os arquivos do projeto para dentro da imagem
+COPY site/ /usr/share/nginx/html/
+
+# Documenta a porta que o programa usa
+EXPOSE 80
+
+# (o nginx já define o comando de partida; não é preciso CMD aqui)</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Instrução</th><th>O que faz</th></tr>
+<tr><td><code>FROM</code></td><td>Imagem base. Toda receita começa daqui.</td></tr>
+<tr><td><code>RUN</code></td><td>Roda um comando durante a construção (ex.: <code>RUN apt-get update &amp;&amp; apt-get install -y curl</code>).</td></tr>
+<tr><td><code>COPY</code></td><td>Copia arquivos do projeto para dentro da imagem.</td></tr>
+<tr><td><code>WORKDIR</code></td><td>Define a pasta de trabalho dentro da imagem.</td></tr>
+<tr><td><code>ENV</code></td><td>Define variáveis de ambiente.</td></tr>
+<tr><td><code>EXPOSE</code></td><td>Documenta a porta. Não publica nada: isso é o <code>-p</code>.</td></tr>
+<tr><td><code>CMD</code></td><td>O comando que roda quando o container sobe.</td></tr>
+</table>
+</div>
+
+<dl class="anatomy">
+  <dt>docker build</dt><dd>Constrói uma imagem a partir de um Dockerfile.</dd>
+  <dt>-t meusite:1.0</dt><dd><em>tag</em>: o nome e a versão da imagem nova.</dd>
+  <dt>.</dt><dd>O "contexto": a pasta atual, onde estão o <code>Dockerfile</code> e a pasta <code>site/</code>.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/projeto">$ ls
+Dockerfile  site
+$ docker build -t meusite:1.0 .
+[+] Building 3.2s (7/7) FINISHED
+ => [internal] load build definition from Dockerfile
+ => [1/2] FROM docker.io/library/nginx:1.29-alpine
+ => [2/2] COPY site/ /usr/share/nginx/html/
+ => exporting to image
+ => => naming to docker.io/library/meusite:1.0
+$ docker run -d -p 8081:80 --name meusite meusite:1.0</pre>
+
+<hr>
+
+<h2>Formas de manter um app rodando</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td><code>docker run</code> à mão</td><td><code>docker run -d …</code></td><td>Testes e um container só.</td></tr>
+<tr><td>Política de reinício</td><td><code>docker run -d --restart unless-stopped …</code></td><td>Um container que deve voltar sozinho depois de um reboot.</td></tr>
+<tr><td>Docker Compose</td><td><code>docker compose up -d</code></td><td>Vários containers que trabalham juntos (site + banco). Veja <a href="docker-compose.html">Docker Compose</a>.</td></tr>
+<tr><td>Sem Docker</td><td><code>apt install nginx</code> + <a href="systemctl.html">systemctl</a></td><td>Um serviço simples que o Ubuntu já empacota.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"permission denied while trying to connect to the Docker daemon socket"</strong>
+<p><strong>O que aconteceu:</strong> seu usuário não está no grupo <code>docker</code>, ou entrou nele e ainda não abriu uma sessão nova.</p>
+<p><strong>Como confirmar:</strong> <code>groups</code> não mostra <code>docker</code>.</p>
+<p><strong>Como resolver:</strong> <code>sudo usermod -aG docker $USER</code> e depois saia e entre na sessão (ou use <code>newgrp docker</code>).</p>
+</div>
+
+<div class="cenario">
+<strong>"Cannot connect to the Docker daemon … Is the docker daemon running?"</strong>
+<pre class="term">$ docker ps
+Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
+$ systemctl is-active docker
+inactive</pre>
+<p><strong>Como resolver:</strong> <code>sudo systemctl enable --now docker</code>. Se não subir, veja o motivo em <code>journalctl -u docker -n 30</code> (veja <a href="journalctl.html">Logs</a>).</p>
+</div>
+
+<div class="cenario">
+<strong>"port is already allocated"</strong>
+<pre class="term">$ docker run -d -p 8080:80 --name web2 nginx
+docker: Error response from daemon: driver failed programming external connectivity on endpoint web2 (3c1e…): Bind for 0.0.0.0:8080 failed: port is already allocated.</pre>
+<p><strong>O que aconteceu:</strong> outro container (ou outro programa) já usa a porta 8080 do Ubuntu.</p>
+<p><strong>Como confirmar:</strong> <code>docker ps</code> e <code>sudo ss -tulpn | grep 8080</code> (veja <a href="ip.html">ss</a>).</p>
+<p><strong>Como resolver:</strong> escolha outra porta do lado do Ubuntu (<code>-p 8081:80</code>) ou pare o outro container. O container <code>web2</code> foi criado mesmo assim, parado: apague com <code>docker rm web2</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O container morre na hora</strong>
+<pre class="term">$ docker run -d --name teste ubuntu
+5d2a…
+$ docker ps
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES     « vazio!
+$ docker ps -a
+CONTAINER ID   IMAGE    COMMAND       CREATED          STATUS                      PORTS   NAMES
+5d2a8f1e7c33   ubuntu   "/bin/bash"   10 seconds ago   Exited (0) 9 seconds ago            teste</pre>
+<p><strong>O que aconteceu:</strong> um container vive enquanto o programa principal dele vive. A imagem <code>ubuntu</code> roda <code>bash</code>, que sem terminal termina na hora.</p>
+<p><strong>Como resolver:</strong> para usar interativamente, rode com <code>-it</code>: <code>docker run -it ubuntu</code>. Se for um app seu que morre, leia o motivo com <code>docker logs teste</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"pull access denied" ou "not found"</strong>
+<pre class="term">$ docker run nginxx
+Unable to find image 'nginxx:latest' locally
+docker: Error response from daemon: pull access denied for nginxx, repository does not exist or may require 'docker login'.</pre>
+<p><strong>O que aconteceu:</strong> erro de digitação no nome da imagem, ou uma tag que não existe. Confira o nome no Docker Hub.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<h3>Comandos</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>docker run IMAGEM</code></td><td>Cria e roda um container</td></tr>
+<tr><td><code>docker ps</code> / <code>ps -a</code></td><td>Lista containers rodando / todos</td></tr>
+<tr><td><code>docker logs [-f] NOME</code></td><td>Mostra a saída do container (<code>-f</code> acompanha)</td></tr>
+<tr><td><code>docker exec -it NOME bash</code></td><td>Abre um shell dentro do container</td></tr>
+<tr><td><code>docker stop</code> / <code>start</code> / <code>restart NOME</code></td><td>Para, inicia, reinicia</td></tr>
+<tr><td><code>docker rm [-f] NOME</code></td><td>Apaga o container</td></tr>
+<tr><td><code>docker images</code></td><td>Lista imagens baixadas</td></tr>
+<tr><td><code>docker pull IMAGEM:TAG</code></td><td>Baixa uma imagem</td></tr>
+<tr><td><code>docker rmi IMAGEM</code></td><td>Apaga uma imagem</td></tr>
+<tr><td><code>docker build -t NOME .</code></td><td>Constrói uma imagem do Dockerfile</td></tr>
+<tr><td><code>docker volume ls</code> / <code>create</code> / <code>rm</code></td><td>Gerencia volumes</td></tr>
+<tr><td><code>docker system df</code></td><td>Quanto espaço o Docker ocupa</td></tr>
+<tr><td><code>docker system prune</code></td><td>Apaga containers parados, redes e imagens soltas</td></tr>
+</table>
+</div>
+
+<h3>Opções do <code>docker run</code></h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-d</code></td><td>Segundo plano</td><td><code>docker run -d nginx</code></td></tr>
+<tr><td><code>-it</code></td><td>Terminal interativo</td><td><code>docker run -it ubuntu bash</code></td></tr>
+<tr><td><code>-p H:C</code></td><td>Publica a porta C do container na porta H do Ubuntu</td><td><code>-p 8080:80</code></td></tr>
+<tr><td><code>-v ORIGEM:DESTINO</code></td><td>Liga pasta ou volume</td><td><code>-v ~/site:/dados</code></td></tr>
+<tr><td><code>-e VAR=valor</code></td><td>Variável de ambiente</td><td><code>-e TZ=America/Sao_Paulo</code></td></tr>
+<tr><td><code>--name</code></td><td>Dá um nome</td><td><code>--name web</code></td></tr>
+<tr><td><code>--rm</code></td><td>Apaga ao terminar</td><td><code>docker run --rm …</code></td></tr>
+<tr><td><code>--restart</code></td><td><code>no</code>, <code>always</code>, <code>unless-stopped</code>, <code>on-failure</code></td><td><code>--restart unless-stopped</code></td></tr>
+</table>
+</div>
+
+<div class="warning">
+<strong>Atenção: o Docker e o firewall</strong>
+<p>Portas publicadas com <code>-p</code> passam por regras próprias do Docker e podem ficar acessíveis mesmo com o <a href="ufw.html">ufw</a> bloqueando. Para publicar só para a própria máquina, use <code>-p 127.0.0.1:8080:80</code>.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Porta</h3>
+<p>Complete para que <code>http://localhost:9000</code> mostre o nginx (que escuta na porta 80 do container):</p>
+<div class="ex-code">docker run -d -p <input data-answer="9000:80" aria-label="portas"> nginx</div>
+</div>
+
+<div class="exercise">
+<h3>2. Entrar no container</h3>
+<p>Complete para abrir um shell dentro do container <code>web</code>:</p>
+<div class="ex-code">docker <input data-answer="exec -it|exec -ti" aria-label="subcomando e opções"> web bash</div>
+</div>
+
+<div class="exercise">
+<h3>3. Ver os parados</h3>
+<p>Complete para listar também os containers parados:</p>
+<div class="ex-code">docker ps <input data-answer="-a|--all" aria-label="opção"></div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Você apagou o container do banco com <code>docker rm -f db</code>. Em qual caso os dados continuam existindo?</p>
+<label><input type="radio" name="q4"> Sempre: o Docker guarda tudo.</label>
+<label><input type="radio" name="q4"> Nunca: apagar o container apaga tudo.</label>
+<label><input type="radio" name="q4"> Se os dados estavam num volume (<code>-v</code>).</label>
+<label><input type="radio" name="q4"> Se o container tinha <code>--name</code>.</label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. Por que estar no grupo <code>docker</code> é delicado?</p>
+<label><input type="radio" name="q5"> Porque deixa o computador lento.</label>
+<label><input type="radio" name="q5"> Porque dá, na prática, o mesmo poder que root.</label>
+<label><input type="radio" name="q5"> Porque apaga o grupo <code>sudo</code>.</label>
+<label><input type="radio" name="q5"> Porque só funciona com o docker-ce.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><strong>Imagem</strong> é a receita, <strong>container</strong> é a imagem rodando.</li>
+  <li>Instale com <code>sudo apt install docker.io docker-compose-v2</code> e entre no grupo <code>docker</code>, sabendo que ele equivale a root.</li>
+  <li><code>docker run -d -p HOST:CONTAINER --name NOME IMAGEM</code> é a forma mais usada.</li>
+  <li><code>ps</code>, <code>logs</code>, <code>exec -it</code>, <code>stop</code>, <code>rm</code> são o dia a dia.</li>
+  <li>Dados importantes vão em volumes (<code>-v</code>); sem isso, somem com o container.</li>
+  <li>Um <code>Dockerfile</code> descreve a sua própria imagem, e <code>docker build -t</code> a constrói.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

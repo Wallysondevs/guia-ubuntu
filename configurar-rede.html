@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Configurar a Rede — nmcli, Netplan, IP fixo e hostname | Guia Ubuntu</title>
+<meta name="description" content="Configure a rede no Ubuntu: conectar ao Wi-Fi com nmcli, IP fixo no desktop e no servidor com Netplan, trocar DNS, nome da máquina e /etc/hosts, com cada passo explicado.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Configurar a Rede</span></h1>
+
+<p class="intro">Ver a rede você já sabe (<a href="ip.html">ip, ping, ss</a>). Agora é hora de <strong>mudar</strong>: conectar a um Wi-Fi pelo terminal, colocar um IP fixo, trocar o DNS e dar nome à máquina. O Ubuntu Desktop usa o <strong>NetworkManager</strong> (comando <code>nmcli</code>); o Ubuntu Server usa o <strong>Netplan</strong> (arquivos YAML).</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Quem manda na rede no desktop e no servidor, e por que isso importa.</li>
+  <li>Listar redes Wi-Fi e conectar com <code>nmcli</code>.</li>
+  <li>Colocar IP fixo e DNS próprio, pelo <code>nmcli</code> e pelo Netplan.</li>
+  <li>Mudar o nome da máquina e criar apelidos de nomes no <code>/etc/hosts</code>.</li>
+</ul>
+</div>
+
+<div class="warning">
+<strong>Antes de mexer na rede de um servidor remoto</strong>
+<p>Uma configuração errada derruba a conexão, e você fica sem acesso. Em servidores, use sempre <code>sudo netplan try</code> (explicado abaixo), que desfaz a mudança sozinho se você não confirmar. Se possível, tenha acesso ao console da máquina.</p>
+</div>
+
+<hr>
+
+<h2>Quem configura a rede?</h2>
+<p>No Ubuntu, o kernel faz a rede funcionar, mas quem decide <strong>como</strong> ela é configurada é um programa gerente. Existem dois, e cada edição do Ubuntu usa um por padrão:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>Ubuntu Desktop</th><th>Ubuntu Server</th></tr>
+<tr><td>Gerente</td><td>NetworkManager</td><td>systemd-networkd</td></tr>
+<tr><td>Como você configura</td><td>Menu do sistema, Configurações ou <code>nmcli</code></td><td>Arquivos YAML em <code>/etc/netplan/</code></td></tr>
+<tr><td>Bom para</td><td>Wi-Fi que muda de lugar, VPN, notebook</td><td>IP fixo que nunca muda</td></tr>
+</table>
+</div>
+
+<p>O <strong>Netplan</strong> fica no meio dos dois: ele lê os arquivos YAML e entrega a configuração ao gerente certo. No desktop, o NetworkManager também guarda as redes que você conecta em arquivos do Netplan, com nomes como <code>90-NM-….yaml</code>.</p>
+
+<pre class="term">$ ls -l /etc/netplan/
+total 8
+-rw------- 1 root root 648 Jul  5 15:20 50-cloud-init.yaml
+-rw------- 1 root root 717 Jul  5 15:20 90-NM-e9603303-9d5f-42c1-a5ed-31bf9965a33c.yaml   « uma rede salva pelo NetworkManager</pre>
+
+<div class="tip">
+<strong>Regra prática</strong>
+<p>No desktop, configure pela interface gráfica ou pelo <code>nmcli</code>, e não edite os arquivos <code>90-NM-*</code> à mão. No servidor, edite o YAML e aplique com <code>netplan</code>.</p>
+</div>
+
+<hr>
+
+<h2>nmcli: o NetworkManager pelo terminal</h2>
+<p><code>nmcli</code> significa <em>NetworkManager command line interface</em>. Ele organiza tudo em <strong>objetos</strong>: <code>general</code> (estado geral), <code>device</code> (as placas) e <code>connection</code> (as configurações salvas, como "Wi-Fi de casa").</p>
+
+<h3>Estado geral e placas</h3>
+<pre class="term">$ nmcli general status
+STATE      CONNECTIVITY  WIFI-HW     WIFI        WWAN-HW   WWAN        METERED
+conectado  completa      habilitado  habilitado  faltando  habilitado  não (adivinhado)   « "completa" = tem internet
+$ nmcli device status
+DEVICE   TYPE      STATE                     CONNECTION
+wlp2s0   wifi      conectado                 Casa-5GHz     « o Wi-Fi está usando a conexão "Casa-5GHz"
+lo       loopback  conectado (externamente)  lo
+enp3s0   ethernet  não disponível            --            « sem cabo</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Significado</th></tr>
+<tr><td><code>CONNECTIVITY</code></td><td><code>completa</code>: chega à internet. <code>limitada</code>: só à rede local. <code>portal</code>: precisa fazer login numa página (Wi-Fi de hotel).</td></tr>
+<tr><td><code>DEVICE</code></td><td>A placa (o mesmo nome do <code>ip a</code>).</td></tr>
+<tr><td><code>CONNECTION</code></td><td>A configuração salva que está ativa naquela placa.</td></tr>
+</table>
+</div>
+
+<h3>Listar redes Wi-Fi</h3>
+<pre class="term">$ nmcli device wifi list
+IN-USE  BSSID              SSID          MODE   CHAN  RATE         SIGNAL  BARS  SECURITY
+        02:AB:CD:00:00:01  Casa-2.4GHz   Infra  3     130 Mbit/s   57      ▂▄▆_  WPA2
+*       02:AB:CD:00:00:02  Casa-5GHz     Infra  36    1170 Mbit/s  39      ▂▄__  WPA2     « * = conectado agora
+        02:AB:CD:00:01:01  Vizinho       Infra  8     270 Mbit/s   34      ▂▄__  WPA1 WPA2</pre>
+
+<p><code>SSID</code> é o nome da rede; <code>SIGNAL</code> vai de 0 a 100; <code>CHAN</code> é o canal (1 a 13 é 2,4 GHz, 36 em diante é 5 GHz).</p>
+
+<h3>Conectar a um Wi-Fi</h3>
+<dl class="anatomy">
+  <dt>nmcli device wifi connect</dt><dd>"Conecte a placa Wi-Fi a uma rede".</dd>
+  <dt>"Casa-5GHz"</dt><dd>O nome (SSID). Use aspas se tiver espaço.</dd>
+  <dt>--ask</dt><dd>Pergunta a senha na hora, sem deixá-la gravada no histórico do terminal.</dd>
+</dl>
+
+<pre class="term">$ nmcli device wifi connect "Casa-5GHz" --ask
+Senha: ••••••••
+Dispositivo “wlp2s0” ativado com sucesso com “1d9e3c4a-…”.</pre>
+
+<p>A forma curta, com a senha escrita no comando (<code>password "minhasenha"</code> no lugar de <code>--ask</code>), funciona, mas a senha fica no histórico. A mensagem de sucesso é ilustrativa.</p>
+
+<h3>Conexões salvas</h3>
+<pre class="term">$ nmcli connection show
+NAME               UUID                                  TYPE      DEVICE
+Casa-5GHz          e9603303-9d5f-42c1-a5ed-31bf9965a33c  wifi      wlp2s0     « ativa
+lo                 89a03774-6e3e-4e06-a1f3-4eed9659d0f2  loopback  lo
+Conexão cabeada 1  10f398dd-ff22-3029-85cd-c9c246b92b58  ethernet  --         « salva, não ativa
+Escritório         470f1065-25c9-4860-8031-e54cfde5739e  wifi      --</pre>
+
+<p>Para ligar ou desligar uma conexão salva:</p>
+<pre class="term">$ nmcli connection down "Casa-5GHz"
+$ nmcli connection up "Casa-5GHz"</pre>
+
+<p>Para desligar o Wi-Fi inteiro (o mesmo que o botão do menu): <code>nmcli radio wifi off</code>, e <code>on</code> para religar.</p>
+
+<hr>
+
+<h2>IP fixo no desktop com nmcli</h2>
+<p>Por padrão, o roteador entrega o IP por <strong>DHCP</strong>, e ele pode mudar. Um IP fixo é útil quando outros aparelhos precisam achar o computador sempre no mesmo endereço, como um servidor de arquivos em casa.</p>
+
+<div class="note">
+<strong>Escolha um IP livre</strong>
+<p>Use um IP do mesmo "bairro" do roteador, fora da faixa que o DHCP distribui. Se o roteador entrega de <code>.100</code> a <code>.200</code>, um bom fixo é <code>192.168.0.50</code>. A faixa aparece na página de configuração do roteador.</p>
+</div>
+
+<dl class="anatomy">
+  <dt>nmcli connection modify "Casa-5GHz"</dt><dd>Altera a conexão salva com esse nome.</dd>
+  <dt>ipv4.method manual</dt><dd>Desliga o DHCP: os valores serão definidos à mão.</dd>
+  <dt>ipv4.addresses 192.168.0.50/24</dt><dd>O IP fixo e a máscara.</dd>
+  <dt>ipv4.gateway 192.168.0.1</dt><dd>O roteador.</dd>
+  <dt>ipv4.dns "1.1.1.1 8.8.8.8"</dt><dd>Os servidores DNS, separados por espaço.</dd>
+</dl>
+
+<pre class="term">$ nmcli connection modify "Casa-5GHz" ipv4.method manual ipv4.addresses 192.168.0.50/24 ipv4.gateway 192.168.0.1 ipv4.dns "1.1.1.1 8.8.8.8"
+$ nmcli connection up "Casa-5GHz"            « reaplica a conexão para valer a mudança
+$ ip -br a show wlp2s0
+wlp2s0           UP             192.168.0.50/24 fe80::5a1c:3b2d:8e4f:9a10/64     « o IP novo</pre>
+
+<p>O <code>modify</code> só grava a configuração. Ela passa a valer quando a conexão é ativada de novo, com <code>connection up</code>.</p>
+
+<h3>Voltar para automático (DHCP)</h3>
+<pre class="term">$ nmcli connection modify "Casa-5GHz" ipv4.method auto ipv4.addresses "" ipv4.gateway "" ipv4.dns ""
+$ nmcli connection up "Casa-5GHz"</pre>
+
+<h3>Só trocar o DNS, mantendo o DHCP</h3>
+<p>Muitas vezes você quer o IP automático, mas um DNS diferente do roteador. Use <code>ipv4.ignore-auto-dns yes</code> para o DNS do roteador ser ignorado:</p>
+<pre class="term">$ nmcli connection modify "Casa-5GHz" ipv4.dns "1.1.1.1 8.8.8.8" ipv4.ignore-auto-dns yes
+$ nmcli connection up "Casa-5GHz"
+$ resolvectl status wlp2s0 | grep "DNS Servers"
+       DNS Servers: 1.1.1.1 8.8.8.8</pre>
+
+<hr>
+
+<h2>Formas diferentes de configurar a rede no desktop</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Como</th><th>Melhor quando…</th></tr>
+<tr><td>Menu do sistema</td><td>Canto superior direito → Wi-Fi</td><td>Só quer conectar a uma rede</td></tr>
+<tr><td>Configurações</td><td>Configurações → Wi-Fi (ou Rede) → engrenagem → aba IPv4</td><td>IP fixo ou DNS, com o mouse</td></tr>
+<tr><td><code>nmtui</code></td><td>Uma tela de menus dentro do terminal</td><td>Está num terminal (até no TTY) e não quer decorar opções</td></tr>
+<tr><td><code>nmcli</code></td><td>Comandos completos</td><td>Scripts, acesso por SSH, repetir a mesma configuração</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Netplan: a rede no servidor</h2>
+<p>No Ubuntu Server, a rede é descrita num arquivo YAML dentro de <code>/etc/netplan/</code>. YAML é um formato de texto em que a <strong>indentação</strong> (os espaços no começo da linha) define o que está dentro do quê.</p>
+
+<h3>O arquivo padrão: DHCP</h3>
+<p>Depois da instalação, o arquivo costuma pedir DHCP para a placa de cabo:</p>
+<pre class="file" data-file="/etc/netplan/50-cloud-init.yaml">network:
+  version: 2
+  ethernets:
+    enp3s0:
+      dhcp4: true</pre>
+
+<h3>IP fixo</h3>
+<p>Para fixar o IP, troque o <code>dhcp4: true</code> pelos valores. Cada nível é recuado com <strong>2 espaços</strong>; nunca use <kbd>Tab</kbd>:</p>
+<pre class="file" data-file="/etc/netplan/50-cloud-init.yaml">network:
+  version: 2
+  ethernets:
+    enp3s0:
+      dhcp4: false
+      addresses:
+        - 192.168.0.50/24
+      routes:
+        - to: default
+          via: 192.168.0.1
+      nameservers:
+        addresses: [1.1.1.1, 8.8.8.8]</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Chave</th><th>Significado</th></tr>
+<tr><td><code>ethernets: enp3s0:</code></td><td>Vamos configurar a placa de cabo <code>enp3s0</code> (confira o nome com <code>ip -br a</code>).</td></tr>
+<tr><td><code>dhcp4: false</code></td><td>Sem IP automático no IPv4.</td></tr>
+<tr><td><code>addresses:</code></td><td>Lista de IPs da placa, com a máscara.</td></tr>
+<tr><td><code>routes: - to: default via:</code></td><td>O gateway: para qualquer destino, saia por <code>192.168.0.1</code>.</td></tr>
+<tr><td><code>nameservers: addresses:</code></td><td>Os servidores DNS.</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Tutoriais antigos usam <code>gateway4</code></strong>
+<p>A chave <code>gateway4: 192.168.0.1</code> é antiga e o Netplan avisa que ela está obsoleta. Use o bloco <code>routes</code>, como acima.</p>
+</div>
+
+<h3>Aplicar com segurança: netplan try</h3>
+<ol class="passo">
+<li>
+<p><strong>Faça uma cópia do arquivo</strong> antes de editar:</p>
+<pre class="term" data-host="servidor">$ sudo cp /etc/netplan/50-cloud-init.yaml ~/50-cloud-init.yaml.bak</pre>
+</li>
+<li>
+<p><strong>Edite</strong> com o nano e salve (<kbd>Ctrl</kbd>+<kbd>O</kbd>, <kbd>Enter</kbd>, <kbd>Ctrl</kbd>+<kbd>X</kbd>):</p>
+<pre class="term" data-host="servidor">$ sudo nano /etc/netplan/50-cloud-init.yaml</pre>
+</li>
+<li>
+<p><strong>Teste</strong> com <code>netplan try</code>. Ele aplica a configuração e espera 120 segundos. Se você perder o acesso e não conseguir confirmar, ele volta sozinho para a configuração anterior:</p>
+<pre class="term" data-host="servidor">$ sudo netplan try
+Do you want to keep these settings?
+
+Press ENTER before the timeout to accept the new configuration
+
+Changes will revert in 118 seconds                       « aperte Enter se a rede continuar ok
+Configuration accepted.</pre>
+</li>
+<li>
+<p><strong>Confira</strong> o resultado:</p>
+<pre class="term" data-host="servidor">$ ip -br a show enp3s0
+enp3s0           UP             192.168.0.50/24 fe80::3ea9:f4ff:fe12:abcd/64
+$ ip r | grep default
+default via 192.168.0.1 dev enp3s0 proto static           « "static": veio da configuração fixa</pre>
+</li>
+</ol>
+
+<p>Fora do <code>try</code>, existe o <code>sudo netplan apply</code>, que aplica na hora e sem volta automática. Use-o quando estiver no console da máquina.</p>
+
+<h3>Permissões do arquivo</h3>
+<p>Os arquivos do Netplan podem conter senhas de Wi-Fi, por isso devem ser lidos só pelo root. Se as permissões estiverem abertas, o Netplan avisa. Corrija com:</p>
+<pre class="term" data-host="servidor">$ sudo chmod 600 /etc/netplan/*.yaml</pre>
+
+<hr>
+
+<h2>Nome da máquina e /etc/hosts</h2>
+<h3>Ver e mudar o nome: hostnamectl</h3>
+<pre class="term">$ hostnamectl
+ Static hostname: notebook                     « o nome da máquina
+       Icon name: computer-laptop
+         Chassis: laptop 💻
+Operating System: Ubuntu 26.04.1 LTS
+          Kernel: Linux 7.0.0-38-generic
+    Architecture: x86-64
+$ sudo hostnamectl set-hostname estudio
+$ hostname
+estudio</pre>
+
+<p>O prompt só mostra o nome novo quando você abre outro terminal. Atualize também a linha <code>127.0.1.1</code> do <code>/etc/hosts</code> com o nome novo, para evitar avisos do <code>sudo</code>.</p>
+
+<h3>Apelidos de nomes: /etc/hosts</h3>
+<p>O arquivo <code>/etc/hosts</code> é uma agenda local que vale <strong>antes</strong> do DNS. Ele é útil para dar nome a máquinas da sua rede sem configurar um servidor DNS:</p>
+<pre class="file" data-file="/etc/hosts">127.0.0.1       localhost
+127.0.1.1       notebook
+192.168.0.50    servidor
+192.168.0.31    impressora</pre>
+
+<pre class="term">$ sudo nano /etc/hosts
+$ ping -c 1 servidor
+PING servidor (192.168.0.50) 56(84) bytes of data.        « o nome virou o IP do /etc/hosts
+64 bytes from servidor (192.168.0.50): icmp_seq=1 ttl=64 time=2.41 ms</pre>
+
+<p>Depois disso, <code>ssh ana@servidor</code> funciona sem decorar o IP (veja <a href="ssh.html">SSH</a>).</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"conexão desconhecida"</strong>
+<pre class="term">$ nmcli connection up "casa-5ghz"
+Erro: conexão desconhecida “casa-5ghz”.</pre>
+<p><strong>O que aconteceu:</strong> o nome da conexão tem de ser exatamente igual, com maiúsculas e minúsculas.</p>
+<p><strong>Como resolver:</strong> copie o nome de <code>nmcli connection show</code>. Use aspas quando houver espaço, como em <code>"Conexão cabeada 1"</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O Wi-Fi não conecta com a senha</strong>
+<p><strong>O que aconteceu:</strong> o <code>nmcli</code> informa que a ativação falhou porque a senha (os "segredos" da conexão) não foi aceita. Normalmente é senha errada, ou uma conexão salva antiga com a senha anterior.</p>
+<p><strong>Como resolver:</strong> apague a conexão salva com <code>nmcli connection delete "Casa-5GHz"</code> e conecte de novo com <code>--ask</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Depois do netplan, o servidor ficou sem rede</strong>
+<p><strong>O que aconteceu:</strong> geralmente é erro de indentação no YAML, nome errado da placa (<code>eth0</code> em vez de <code>enp3s0</code>) ou gateway fora da rede do IP.</p>
+<p><strong>Como confirmar:</strong> rode <code>sudo netplan generate</code>; ele aponta a linha e a coluna do erro de sintaxe sem aplicar nada. Confira o nome da placa com <code>ip -br a</code>.</p>
+<p><strong>Como resolver:</strong> pelo console, volte o backup (<code>sudo cp ~/50-cloud-init.yaml.bak /etc/netplan/50-cloud-init.yaml</code>) e rode <code>sudo netplan apply</code>. Da próxima vez, use <code>netplan try</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Dois aparelhos com o mesmo IP</strong>
+<p><strong>O que aconteceu:</strong> você fixou um IP que o roteador também entregou por DHCP para outro aparelho. A conexão fica caindo e voltando nos dois.</p>
+<p><strong>Como resolver:</strong> escolha um IP fora da faixa do DHCP do roteador, ou reserve o IP para o MAC do computador na configuração do roteador.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<h3>nmcli</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Faz</th></tr>
+<tr><td><code>nmcli general status</code></td><td>Estado geral e conectividade</td></tr>
+<tr><td><code>nmcli device status</code></td><td>Placas e conexão ativa em cada uma</td></tr>
+<tr><td><code>nmcli device show PLACA</code></td><td>IP, gateway e DNS de uma placa</td></tr>
+<tr><td><code>nmcli device wifi list</code></td><td>Redes Wi-Fi disponíveis</td></tr>
+<tr><td><code>nmcli device wifi connect SSID --ask</code></td><td>Conecta a um Wi-Fi</td></tr>
+<tr><td><code>nmcli connection show</code></td><td>Conexões salvas</td></tr>
+<tr><td><code>nmcli connection up|down NOME</code></td><td>Ativa ou desativa</td></tr>
+<tr><td><code>nmcli connection modify NOME chave valor</code></td><td>Altera (IP, DNS, gateway…)</td></tr>
+<tr><td><code>nmcli connection delete NOME</code></td><td>Apaga a conexão salva</td></tr>
+<tr><td><code>nmcli radio wifi on|off</code></td><td>Liga ou desliga o Wi-Fi</td></tr>
+<tr><td><code>nmtui</code></td><td>Menus no terminal</td></tr>
+</table>
+</div>
+<h3>netplan</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Faz</th></tr>
+<tr><td><code>sudo netplan generate</code></td><td>Valida os arquivos sem aplicar</td></tr>
+<tr><td><code>sudo netplan try</code></td><td>Aplica com volta automática em 120 s</td></tr>
+<tr><td><code>sudo netplan apply</code></td><td>Aplica na hora</td></tr>
+<tr><td><code>sudo netplan get</code></td><td>Mostra a configuração final combinada</td></tr>
+<tr><td><code>netplan status</code></td><td>Estado das placas segundo o Netplan</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Listar Wi-Fi</h3>
+<p>Complete para listar as redes Wi-Fi disponíveis:</p>
+<div class="ex-code">nmcli device wifi <input data-answer="list|ls" aria-label="ação"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Testar sem medo</h3>
+<p>Complete para aplicar o Netplan com volta automática se algo der errado:</p>
+<div class="ex-code">sudo netplan <input data-answer="try" aria-label="subcomando"></div>
+</div>
+
+<div class="exercise">
+<h3>3. IP manual</h3>
+<p>Complete para desligar o DHCP da conexão "Casa-5GHz":</p>
+<div class="ex-code">nmcli connection modify "Casa-5GHz" ipv4.method <input data-answer="manual" aria-label="valor"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Você mudou o DNS com <code>nmcli connection modify</code>, mas nada mudou. O que faltou?</p>
+<label><input type="radio" name="q4"> Reiniciar o computador obrigatoriamente.</label>
+<label><input type="radio" name="q4"> Reativar a conexão com <code>nmcli connection up</code>.</label>
+<label><input type="radio" name="q4"> Rodar <code>sudo netplan try</code>.</label>
+<label><input type="radio" name="q4"> Editar o <code>/etc/hosts</code>.</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Num arquivo do Netplan, qual é o erro mais comum que derruba a rede?</p>
+<label><input type="radio" name="q5"> Usar letras minúsculas.</label>
+<label><input type="radio" name="q5"> Colocar comentários.</label>
+<label><input type="radio" name="q5"> Indentação errada ou uso de Tab.</label>
+<label><input type="radio" name="q5"> Salvar com o nano.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Desktop: NetworkManager (<code>nmcli</code>, <code>nmtui</code>, Configurações). Servidor: Netplan (YAML em <code>/etc/netplan/</code>).</li>
+  <li><code>nmcli device wifi connect "SSID" --ask</code> conecta ao Wi-Fi; <code>connection modify</code> + <code>connection up</code> muda IP e DNS.</li>
+  <li>No Netplan: 2 espaços de indentação, nunca Tab; gateway no bloco <code>routes</code>; aplique com <code>sudo netplan try</code>.</li>
+  <li><code>hostnamectl set-hostname</code> muda o nome; <code>/etc/hosts</code> cria apelidos que valem antes do DNS.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

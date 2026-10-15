@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu tar, zip, gzip — compactar e extrair | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a compactar e extrair arquivos no Ubuntu com tar, zip, unzip, gzip e xz: cada letra do tar -czvf explicada, conferir antes de extrair, formatos comparados e erros reais.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">tar, zip, gzip</span></h1>
+
+<p class="intro">Para mandar uma pasta por e-mail, guardar um backup ou baixar um programa, você vai lidar com arquivos compactados: <code>.tar.gz</code>, <code>.zip</code>, <code>.xz</code>. No Linux, o mais comum é o <code>tar</code>, que parece assustador (<code>tar -czvf</code>?) até você descobrir que cada letra é uma palavra.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A diferença entre <strong>empacotar</strong> (juntar) e <strong>compactar</strong> (encolher).</li>
+  <li>O que significa cada letra de <code>tar -czvf</code> e <code>tar -xzvf</code>.</li>
+  <li>Por que conferir o conteúdo com <code>tar -tf</code> antes de extrair.</li>
+  <li>Quando usar <code>.tar.gz</code>, <code>.tar.xz</code> ou <code>.zip</code>.</li>
+</ul>
+</div>
+
+<p>O simulador não roda <code>tar</code> nem <code>zip</code>. As sessões abaixo foram conferidas num Ubuntu 26.04 real. Pratique no seu terminal com uma pasta de teste.</p>
+
+<hr>
+
+<h2>Empacotar não é compactar</h2>
+<p>São duas tarefas diferentes, que no Linux costumam ser feitas por programas diferentes:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tarefa</th><th>O que faz</th><th>Programa</th><th>Resultado</th></tr>
+<tr><td>Empacotar</td><td>Junta muitos arquivos e pastas num arquivo só, sem encolher</td><td><code>tar</code></td><td><code>site.tar</code></td></tr>
+<tr><td>Compactar</td><td>Encolhe <strong>um</strong> arquivo</td><td><code>gzip</code>, <code>bzip2</code>, <code>xz</code></td><td><code>log.gz</code></td></tr>
+<tr><td>As duas coisas</td><td>Empacota e compacta em seguida</td><td><code>tar</code> com <code>z</code>, <code>j</code> ou <code>J</code></td><td><code>site.tar.gz</code></td></tr>
+<tr><td>As duas coisas</td><td>Empacota e compacta, formato do Windows</td><td><code>zip</code></td><td><code>site.zip</code></td></tr>
+</table>
+</div>
+
+<p>Por isso a extensão <code>.tar.gz</code> tem duas partes: "um pacote tar, compactado com gzip". A forma curta <code>.tgz</code> significa a mesma coisa.</p>
+
+<hr>
+
+<h2>Criar um .tar.gz</h2>
+<p>A pasta <code>site</code> tem uma página, um CSS e um arquivo temporário. Vamos empacotar e compactar tudo:</p>
+
+<dl class="anatomy">
+  <dt>tar</dt><dd>O programa (de <em>tape archive</em>, "arquivo em fita", da época dos backups em fita).</dd>
+  <dt>-c</dt><dd><strong>c</strong>riar um pacote novo (<em>create</em>).</dd>
+  <dt>z</dt><dd>compactar com g<strong>z</strong>ip.</dd>
+  <dt>v</dt><dd><strong>v</strong>erboso: mostrar cada arquivo enquanto trabalha.</dd>
+  <dt>f site.tar.gz</dt><dd><strong>f</strong>ile: o nome do arquivo a criar. O nome vem logo depois do <code>f</code>, por isso o <code>f</code> fica por último.</dd>
+  <dt>site</dt><dd>O que colocar dentro: pastas e arquivos, quantos quiser.</dd>
+</dl>
+
+<pre class="term">$ tar -czvf site.tar.gz site
+site/
+site/rascunho.tmp
+site/index.html
+site/css/
+site/css/style.css
+$ ls -lh site.tar.gz
+-rw-rw-r-- 1 ana ana 244 Oct 15 10:40 site.tar.gz</pre>
+
+<p>As linhas que aparecem são o efeito do <code>v</code>: o <code>tar</code> conta o que está guardando. Sem o <code>v</code>, ele trabalha em silêncio.</p>
+
+<div class="tip">
+<strong>Como decorar</strong>
+<p><code>c</code>riar · <code>z</code>ipado · <code>v</code>endo · <code>f</code>ile. E para extrair, troque o <code>c</code> pelo <code>x</code>: e<code>x</code>trair · <code>z</code>ipado · <code>v</code>endo · <code>f</code>ile. O hífen é opcional: <code>tar czvf</code> funciona igual.</p>
+</div>
+
+<h3>Deixar arquivos de fora: <code>--exclude</code></h3>
+<pre class="term">$ tar -czf site.tar.gz --exclude="*.tmp" site
+$ tar -tzf site.tar.gz
+site/
+site/index.html
+site/css/
+site/css/style.css                   « o rascunho.tmp ficou de fora</pre>
+
+<hr>
+
+<h2>Conferir antes de extrair: <code>-t</code></h2>
+<p>Antes de abrir um pacote que você baixou, veja o que tem dentro. O <code>t</code> (de <em>table of contents</em>, "sumário"; a forma longa é <code>--list</code>) mostra o conteúdo <strong>sem extrair nada</strong>:</p>
+
+<dl class="anatomy">
+  <dt>tar</dt><dd>O programa.</dd>
+  <dt>-t</dt><dd>Listar o conteúdo.</dd>
+  <dt>f site.tar.gz</dt><dd>De qual arquivo.</dd>
+</dl>
+
+<pre class="term">$ tar -tf site.tar.gz
+site/
+site/index.html
+site/css/
+site/css/style.css</pre>
+
+<p>Por que isso importa? Alguns pacotes têm tudo dentro de uma pasta (<code>site/…</code>), e outros têm os arquivos soltos. Extrair um pacote "solto" na pasta Downloads espalha dezenas de arquivos misturados com os seus. Olhando antes, você sabe se precisa criar uma pasta para ele.</p>
+
+<p>Com <code>v</code>, a lista vem com detalhes, como um <code>ls -l</code>:</p>
+<pre class="term">$ tar -tvf site.tar.gz
+drwxrwxr-x ana/ana           0 2026-10-15 10:40 site/
+-rw-rw-r-- ana/ana          14 2026-10-15 10:40 site/index.html
+drwxrwxr-x ana/ana           0 2026-10-15 10:40 site/css/
+-rw-rw-r-- ana/ana           5 2026-10-15 10:40 site/css/style.css</pre>
+
+<hr>
+
+<h2>Extrair: <code>-x</code></h2>
+
+<dl class="anatomy">
+  <dt>tar</dt><dd>O programa.</dd>
+  <dt>-x</dt><dd>e<strong>x</strong>trair (<em>extract</em>).</dd>
+  <dt>v</dt><dd>Mostrar cada arquivo.</dd>
+  <dt>f site.tar.gz</dt><dd>O pacote.</dd>
+  <dt>-C restaurado</dt><dd>Extrair <strong>dentro</strong> da pasta <code>restaurado</code> (de <em>change directory</em>). Sem ele, extrai na pasta atual.</dd>
+</dl>
+
+<pre class="term">$ mkdir restaurado
+$ tar -xvf site.tar.gz -C restaurado
+site/
+site/index.html
+site/css/
+site/css/style.css
+$ ls restaurado
+site</pre>
+
+<div class="note">
+<strong>Não precisa dizer o tipo de compactação para extrair</strong>
+<p>Para <strong>criar</strong>, você diz <code>z</code>, <code>j</code> ou <code>J</code>. Para <strong>extrair</strong> e listar, o <code>tar</code> do Ubuntu descobre o tipo sozinho: <code>tar -xf arquivo.tar.xz</code> funciona. Escrever <code>-xzf</code> também funciona, desde que o arquivo seja mesmo <code>.gz</code>.</p>
+</div>
+
+<div class="warning">
+<strong>Extrair sobrescreve sem perguntar</strong>
+<p>Se já existir um arquivo com o mesmo nome no destino, o <code>tar</code> substitui pelo do pacote. Por isso, extraia numa pasta nova com <code>-C</code> quando não tiver certeza.</p>
+</div>
+
+<h3>Extrair só um arquivo</h3>
+<p>Coloque o caminho, exatamente como aparece no <code>tar -tf</code>, no fim do comando:</p>
+<pre class="term">$ tar -xf site.tar.gz site/index.html
+$ ls site
+index.html</pre>
+
+<hr>
+
+<h2>gzip, bzip2 ou xz?</h2>
+<p>A letra do meio escolhe o compactador. Quanto mais ele encolhe, mais tempo leva:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Letra</th><th>Compactador</th><th>Extensão</th><th>Tamanho</th><th>Velocidade</th><th>Uso típico</th></tr>
+<tr><td><code>z</code></td><td>gzip</td><td><code>.tar.gz</code></td><td>Bom</td><td>Rápido</td><td>Backups do dia a dia; o mais comum</td></tr>
+<tr><td><code>j</code></td><td>bzip2</td><td><code>.tar.bz2</code></td><td>Melhor</td><td>Lento</td><td>Pacotes antigos</td></tr>
+<tr><td><code>J</code></td><td>xz</td><td><code>.tar.xz</code></td><td>O menor</td><td>O mais lento</td><td>Distribuir programas, arquivar por muito tempo</td></tr>
+</table>
+</div>
+
+<p>Um exemplo com uma pasta de logs de 48 MB (números ilustrativos: texto repetitivo encolhe muito; fotos e vídeos quase nada):</p>
+<pre class="term">$ du -sh logs
+48M     logs
+$ tar -czf logs.tar.gz logs
+$ tar -cJf logs.tar.xz logs
+$ ls -lh logs.tar.*
+-rw-rw-r-- 1 ana ana 3,1M Oct 15 11:50 logs.tar.gz
+-rw-rw-r-- 1 ana ana 1,9M Oct 15 11:51 logs.tar.xz</pre>
+
+<div class="note">
+<strong>Fotos, vídeos e .zip já vêm compactados</strong>
+<p>JPG, MP4, MP3 e PDF já são formatos comprimidos. Compactar de novo economiza quase nada. Para eles, um <code>.tar</code> sem compactação (<code>tar -cf</code>) é mais rápido e dá praticamente o mesmo tamanho.</p>
+</div>
+
+<hr>
+
+<h2>zip e unzip: para trocar com quem usa Windows</h2>
+<p>O <code>.zip</code> abre em qualquer sistema com dois cliques. Use-o quando o arquivo for para outra pessoa.</p>
+
+<dl class="anatomy">
+  <dt>zip</dt><dd>O programa.</dd>
+  <dt>-r</dt><dd><strong>r</strong>ecursivo: inclui o conteúdo das pastas. Sem ele, o zip guarda só a pasta vazia.</dd>
+  <dt>site.zip</dt><dd>O arquivo a criar. Atenção: no <code>zip</code>, o nome do arquivo vem <strong>primeiro</strong>.</dd>
+  <dt>site</dt><dd>O que colocar dentro.</dd>
+</dl>
+
+<pre class="term">$ zip -r site.zip site
+  adding: site/ (stored 0%)
+  adding: site/index.html (stored 0%)
+  adding: site/css/ (stored 0%)
+  adding: site/css/style.css (stored 0%)</pre>
+
+<p>"stored 0%" quer dizer que o arquivo foi guardado sem compactar, porque era pequeno demais para valer a pena. Arquivos maiores mostram algo como <code>(deflated 72%)</code>: encolheram 72%.</p>
+
+<h3>Conferir e extrair</h3>
+<pre class="term">$ unzip -l site.zip
+Archive:  site.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+        0  2026-10-15 10:40   site/
+       14  2026-10-15 10:40   site/index.html
+        0  2026-10-15 10:40   site/css/
+        5  2026-10-15 10:40   site/css/style.css
+---------                     -------
+       19                     4 files
+$ unzip site.zip -d copia
+Archive:  site.zip
+   creating: copia/site/
+ extracting: copia/site/index.html
+   creating: copia/site/css/
+ extracting: copia/site/css/style.css</pre>
+
+<p><code>-l</code> lista (como o <code>tar -t</code>) e <code>-d</code> escolhe a pasta de destino (como o <code>tar -C</code>). Para proteger com senha, use <code>zip -e -r segredo.zip pasta</code>: ele pergunta a senha duas vezes.</p>
+
+<hr>
+
+<h2>gzip e xz sozinhos: um arquivo só</h2>
+<p>Para encolher <strong>um</strong> arquivo grande, como um log, não precisa de <code>tar</code>:</p>
+
+<pre class="term">$ ls -lh acesso.log
+-rw-rw-r-- 1 ana ana 48M Oct 15 11:50 acesso.log
+$ gzip acesso.log
+$ ls -lh acesso.log*
+-rw-rw-r-- 1 ana ana 3,1M Oct 15 11:50 acesso.log.gz    « o original sumiu
+$ gunzip acesso.log.gz
+$ ls acesso.log*
+acesso.log</pre>
+
+<p>Por padrão, o <code>gzip</code> <strong>substitui</strong> o original pela versão <code>.gz</code>. Para manter os dois, use <code>-k</code> (de <em>keep</em>, "manter"). Para ler um <code>.gz</code> sem descompactar, use <code>zcat</code>, <code>zless</code> ou <code>zgrep</code>, as versões "z" de <code>cat</code>, <code>less</code> e <code>grep</code>:</p>
+
+<pre class="term">$ zgrep "403" /var/log/nginx/access.log.2.gz
+192.168.0.10 - - [13/Oct/2026:14:20:11 -0300] "GET /admin HTTP/1.1" 403 162 "-" "curl/8.14.1"</pre>
+
+<hr>
+
+<h2>Formas diferentes de fazer</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tarefa</th><th>Terminal</th><th>Interface gráfica</th></tr>
+<tr><td>Compactar uma pasta</td><td><code>tar -czf pasta.tar.gz pasta</code> ou <code>zip -r pasta.zip pasta</code></td><td>No Arquivos: botão direito → <strong>Comprimir…</strong></td></tr>
+<tr><td>Extrair</td><td><code>tar -xf arquivo.tar.gz</code> ou <code>unzip arquivo.zip</code></td><td>Botão direito → <strong>Extrair</strong>, ou dois cliques</td></tr>
+<tr><td>Ver o conteúdo</td><td><code>tar -tf</code> ou <code>unzip -l</code></td><td>Dois cliques abre o visualizador sem extrair</td></tr>
+</table>
+</div>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Formato</th><th>Melhor quando…</th></tr>
+<tr><td><code>.tar.gz</code></td><td>Backup e troca entre Linux; guarda permissões e donos dos arquivos.</td></tr>
+<tr><td><code>.tar.xz</code></td><td>Quer o menor tamanho e tem tempo; arquivamento.</td></tr>
+<tr><td><code>.zip</code></td><td>O arquivo vai para alguém com Windows ou macOS.</td></tr>
+<tr><td><code>.gz</code> sozinho</td><td>É um arquivo só, como um log.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Recusando a criar um arquivo-tar vazio"</strong>
+<pre class="term">$ tar -czf backup.tar.gz
+tar: Recusando a criar um arquivo-tar vazio
+Tente "tar --help" ou "tar --usage" para mais informações.</pre>
+<p><strong>O que aconteceu:</strong> faltou dizer o que colocar no pacote.</p>
+<p><strong>Como resolver:</strong> acrescente as pastas ou arquivos no fim: <code>tar -czf backup.tar.gz Documentos</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"a opção exige um argumento -- "f""</strong>
+<pre class="term">$ tar -czvf
+tar: a opção exige um argumento -- "f"
+Tente "tar --help" ou "tar --usage" para mais informações.</pre>
+<p><strong>O que aconteceu:</strong> o <code>f</code> espera o nome do arquivo logo em seguida. Também acontece com <code>tar -cfzv nome</code>: aí o <code>tar</code> acha que o arquivo se chama "zv".</p>
+<p><strong>Como resolver:</strong> deixe o <code>f</code> por último, colado ao nome: <code>-czvf nome.tar.gz</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Este não parece ser um arquivo-tar"</strong>
+<pre class="term">$ tar -tf foto.jpg
+tar: Este não parece ser um arquivo-tar
+tar: Saindo com status de falha em razão de erros anteriores</pre>
+<p><strong>O que aconteceu:</strong> o arquivo não é um pacote tar. Às vezes é um <code>.zip</code> com a extensão errada, ou um download que não terminou.</p>
+<p><strong>Como confirmar:</strong> <code>file arquivo</code> diz o tipo real, pelo conteúdo.</p>
+</div>
+
+<div class="cenario">
+<strong>Erro com "(child)" ao extrair</strong>
+<pre class="term">$ tar -xzf projeto.tar.gz
+tar (child): projeto.tar.gz: Função open falhou: Arquivo ou diretório inexistente
+tar (child): Error is not recoverable: exiting now
+tar: Child returned status 2
+tar: Error is not recoverable: exiting now</pre>
+<p><strong>O que aconteceu:</strong> o arquivo não existe na pasta atual. "child" é o <code>gzip</code> que o <code>tar</code> chamou para descompactar; o erro aparece duas vezes, uma de cada programa, metade em inglês.</p>
+<p><strong>Como resolver:</strong> confira com <code>ls</code> e use <kbd>Tab</kbd> para completar o nome.</p>
+</div>
+
+<div class="cenario">
+<strong>"Removendo `/' inicial dos nomes dos membros"</strong>
+<pre class="term">$ tar -czf hosts.tar.gz /etc/hosts
+tar: Removendo `/' inicial dos nomes dos membros</pre>
+<p><strong>O que aconteceu:</strong> não é erro, é um aviso de segurança. O <code>tar</code> guarda <code>etc/hosts</code> em vez de <code>/etc/hosts</code>, para que, ao extrair, o arquivo vá para a pasta atual e não sobrescreva o do sistema.</p>
+</div>
+
+<div class="cenario">
+<strong>"cannot find or open" no unzip</strong>
+<pre class="term">$ unzip fotos.zip
+unzip:  cannot find or open fotos.zip, fotos.zip.zip or fotos.zip.ZIP.</pre>
+<p><strong>O que aconteceu:</strong> o arquivo não está na pasta atual (talvez em Downloads).</p>
+<p><strong>Como resolver:</strong> <code>unzip ~/Downloads/fotos.zip -d ~/fotos</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<h3>tar</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Letra</th><th>Significado</th><th>Exemplo</th></tr>
+<tr><td><code>c</code></td><td>Criar pacote</td><td><code>tar -cf a.tar pasta</code></td></tr>
+<tr><td><code>x</code></td><td>Extrair</td><td><code>tar -xf a.tar</code></td></tr>
+<tr><td><code>t</code></td><td>Listar o conteúdo</td><td><code>tar -tf a.tar</code></td></tr>
+<tr><td><code>f</code></td><td>Nome do arquivo (sempre por último, antes do nome)</td><td><code>-cf nome.tar</code></td></tr>
+<tr><td><code>v</code></td><td>Mostrar cada arquivo</td><td><code>tar -xvf a.tar</code></td></tr>
+<tr><td><code>z</code> / <code>j</code> / <code>J</code></td><td>gzip / bzip2 / xz</td><td><code>tar -cJf a.tar.xz pasta</code></td></tr>
+<tr><td><code>-C pasta</code></td><td>Extrair (ou criar) a partir de outra pasta</td><td><code>tar -xf a.tar -C /tmp</code></td></tr>
+<tr><td><code>--exclude</code></td><td>Deixar arquivos de fora</td><td><code>--exclude="*.log"</code></td></tr>
+<tr><td><code>-r</code></td><td>Acrescentar a um .tar sem compactação</td><td><code>tar -rf a.tar novo.txt</code></td></tr>
+</table>
+</div>
+<h3>zip / unzip</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Descrição</th></tr>
+<tr><td><code>zip -r arq.zip pasta</code></td><td>Compacta a pasta inteira</td></tr>
+<tr><td><code>zip -e -r arq.zip pasta</code></td><td>Com senha</td></tr>
+<tr><td><code>zip arq.zip novo.txt</code></td><td>Acrescenta um arquivo a um zip existente</td></tr>
+<tr><td><code>unzip -l arq.zip</code></td><td>Lista o conteúdo</td></tr>
+<tr><td><code>unzip arq.zip -d pasta</code></td><td>Extrai na pasta escolhida</td></tr>
+<tr><td><code>unzip -o arq.zip</code></td><td>Sobrescreve sem perguntar</td></tr>
+</table>
+</div>
+<h3>gzip / xz</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Descrição</th></tr>
+<tr><td><code>gzip arq</code></td><td>Compacta e troca <code>arq</code> por <code>arq.gz</code></td></tr>
+<tr><td><code>gzip -k arq</code></td><td>Compacta mantendo o original</td></tr>
+<tr><td><code>gzip -d arq.gz</code> / <code>gunzip arq.gz</code></td><td>Descompacta</td></tr>
+<tr><td><code>gzip -9 arq</code></td><td>Compactação máxima (mais lenta)</td></tr>
+<tr><td><code>zcat</code> / <code>zless</code> / <code>zgrep</code></td><td>Lê um .gz sem descompactar</td></tr>
+<tr><td><code>xz arq</code> / <code>unxz arq.xz</code></td><td>O mesmo, com xz</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Backup compactado</h3>
+<p>Complete para criar <code>docs.tar.gz</code> com a pasta <code>Documentos</code>:</p>
+<div class="ex-code">tar -<input data-answer="czf|czvf|cvzf|zcf|zcvf" aria-label="letras"> docs.tar.gz Documentos</div>
+</div>
+
+<div class="exercise">
+<h3>2. Olhar antes de abrir</h3>
+<p>Complete para <strong>listar</strong> o conteúdo de <code>programa.tar.xz</code> sem extrair:</p>
+<div class="ex-code">tar -<input data-answer="tf|tvf|tJf|tvJf" aria-label="letras"> programa.tar.xz</div>
+</div>
+
+<div class="exercise">
+<h3>3. Extrair em outra pasta</h3>
+<p>Complete para extrair <code>site.tar.gz</code> dentro de <code>/tmp/teste</code>:</p>
+<div class="ex-code">tar -xf site.tar.gz <input data-answer="-C" aria-label="opção"> /tmp/teste</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. No comando <code>tar -czvf backup.tar.gz fotos</code>, o que faz o <code>z</code>?</p>
+<label><input type="radio" name="q4"> Cria um arquivo .zip.</label>
+<label><input type="radio" name="q4"> Compacta o pacote com gzip.</label>
+<label><input type="radio" name="q4"> Mostra os arquivos na tela.</label>
+<label><input type="radio" name="q4"> Indica o nome do arquivo.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. Você vai mandar uma pasta para um colega que usa Windows. Qual é a melhor escolha?</p>
+<label><input type="radio" name="q5"> <code>tar -cJf pasta.tar.xz pasta</code></label>
+<label><input type="radio" name="q5"> <code>gzip pasta</code></label>
+<label><input type="radio" name="q5"> <code>tar -cf pasta.tar pasta</code></label>
+<label><input type="radio" name="q5"> <code>zip -r pasta.zip pasta</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>tar</code> empacota; <code>gzip</code>/<code>xz</code> compactam; <code>.tar.gz</code> é "pacote compactado".</li>
+  <li>Criar: <code>tar -czvf nome.tar.gz pasta</code> (criar · gzip · ver · file).</li>
+  <li>Conferir antes: <code>tar -tf nome.tar.gz</code>. Extrair: <code>tar -xf nome.tar.gz -C destino</code>.</li>
+  <li>O <code>f</code> vem por último, colado ao nome do arquivo.</li>
+  <li>Para Windows, use <code>zip -r</code> e <code>unzip -l</code> / <code>unzip -d</code>.</li>
+  <li><code>gzip</code> substitui o original; <code>-k</code> mantém os dois.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu criar um serviço — script que reinicia sozinho com systemd | Guia Ubuntu</title>
+<meta name="description" content="Passo a passo para transformar um script em serviço do systemd no Ubuntu: arquivo .service explicado linha a linha, reinício automático testado, serviços de usuário, timers e erros comuns como 203/EXEC.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Criar um Serviço</span></h1>
+
+<p class="intro">Você tem um script ou programa que precisa rodar o tempo todo: ligar sozinho no boot, voltar se cair e guardar o que acontece num log. Em vez de deixá-lo aberto num terminal, você o transforma num <strong>serviço do systemd</strong>. Nesta aula você vai fazer isso do zero e testar o reinício automático matando o processo de propósito.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Escrever um arquivo <code>.service</code> e entender cada linha.</li>
+  <li>Ativar, conferir e acompanhar o log do serviço.</li>
+  <li>Provar que o <code>Restart=on-failure</code> funciona.</li>
+  <li>Criar serviços de usuário (sem sudo) e timers (agendamentos).</li>
+  <li>Resolver os erros mais comuns: <code>203/EXEC</code>, <code>217/USER</code> e "start request repeated too quickly".</li>
+</ul>
+</div>
+
+<p>Antes, leia <a href="systemctl.html">systemctl</a>: aqui usamos <code>status</code>, <code>enable</code> e <code>daemon-reload</code>.</p>
+
+<hr>
+
+<h2>Antes do comando: como o systemd lê um serviço</h2>
+<p>Um serviço é um arquivo de texto com <strong>seções</strong> entre colchetes. Cada seção responde uma pergunta:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Seção</th><th>Pergunta</th></tr>
+<tr><td><code>[Unit]</code></td><td>O que é este serviço e do que ele depende?</td></tr>
+<tr><td><code>[Service]</code></td><td>Que programa rodar, como qual usuário, e o que fazer se ele cair?</td></tr>
+<tr><td><code>[Install]</code></td><td>Em que momento do boot ele deve ligar (quando você der <code>enable</code>)?</td></tr>
+</table>
+</div>
+
+<p>Serviços que <strong>você</strong> cria ficam em <code>/etc/systemd/system/</code>. Os que vêm com pacotes ficam em <code>/usr/lib/systemd/system/</code>; não mexa neles.</p>
+
+<hr>
+
+<h2>Passo a passo: o serviço "relógio"</h2>
+<p>Nosso exemplo é um script simples que anota a hora a cada 10 segundos. Ele é inofensivo, então você pode reproduzir tudo numa VM ou no seu Ubuntu.</p>
+
+<ol class="passo">
+  <li>
+    <p><strong>Escreva o script.</strong></p>
+    <pre class="file" data-file="/usr/local/bin/relogio.sh">#!/usr/bin/env bash
+# Anota a hora a cada 10 segundos.
+while true; do
+    echo "tic-tac: $(date +%T)"
+    sleep 10
+done</pre>
+    <p>Crie com <code>sudo nano /usr/local/bin/relogio.sh</code>. A pasta <code>/usr/local/bin</code> é o lugar padrão para programas que você mesmo instala.</p>
+    <p>O <code>echo</code> escreve na saída padrão. Num serviço, tudo o que o programa escreve vai automaticamente para o log do systemd: você não precisa criar arquivo de log.</p>
+  </li>
+  <li>
+    <p><strong>Dê permissão de execução e teste à mão.</strong></p>
+    <pre class="term">$ sudo chmod +x /usr/local/bin/relogio.sh
+$ /usr/local/bin/relogio.sh
+tic-tac: 10:30:00
+tic-tac: 10:30:10
+^C                                          « Ctrl+C para parar o teste</pre>
+    <p>Sempre teste o script antes de virar serviço. Se ele não funciona no terminal, também não vai funcionar como serviço.</p>
+  </li>
+  <li>
+    <p><strong>Escreva o arquivo do serviço.</strong></p>
+    <pre class="file" data-file="/etc/systemd/system/relogio.service">[Unit]
+Description=Relógio de teste do Guia Ubuntu
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/relogio.sh
+User=ana
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target</pre>
+    <p>Crie com <code>sudo nano /etc/systemd/system/relogio.service</code>. O nome do arquivo é o nome do serviço. Linha por linha:</p>
+    <div class="table-wrap">
+    <table class="ref">
+    <tr><th>Linha</th><th>O que significa</th></tr>
+    <tr><td><code>Description=</code></td><td>Texto que aparece no <code>status</code> e nos logs.</td></tr>
+    <tr><td><code>After=network.target</code></td><td>Só inicie depois que a rede estiver configurada. É só ordem: não obriga a rede a existir.</td></tr>
+    <tr><td><code>Type=simple</code></td><td>O programa fica rodando em primeiro plano (o normal para scripts). É o padrão; está aqui para ficar explícito.</td></tr>
+    <tr><td><code>ExecStart=</code></td><td>O comando a rodar. <strong>Sempre com caminho completo.</strong></td></tr>
+    <tr><td><code>User=ana</code></td><td>Roda como a usuária ana. Sem essa linha, o serviço roda como <strong>root</strong>.</td></tr>
+    <tr><td><code>Restart=on-failure</code></td><td>Se o programa cair com erro ou for morto, inicie de novo.</td></tr>
+    <tr><td><code>RestartSec=5</code></td><td>Espere 5 segundos antes de reiniciar.</td></tr>
+    <tr><td><code>WantedBy=multi-user.target</code></td><td>No <code>enable</code>, ligue junto com o estágio normal do boot (sistema pronto para uso, com ou sem interface gráfica).</td></tr>
+    </table>
+    </div>
+  </li>
+  <li>
+    <p><strong>Avise o systemd e ligue o serviço.</strong></p>
+    <dl class="anatomy">
+      <dt>sudo systemctl daemon-reload</dt><dd>Relê os arquivos: o systemd ainda não sabe que o novo arquivo existe.</dd>
+      <dt>sudo systemctl enable --now relogio</dt><dd>Liga agora e em todo boot.</dd>
+    </dl>
+    <pre class="term">$ sudo systemctl daemon-reload
+$ sudo systemctl enable --now relogio
+Created symlink '/etc/systemd/system/multi-user.target.wants/relogio.service' → '/etc/systemd/system/relogio.service'.</pre>
+  </li>
+  <li>
+    <p><strong>Confira o estado.</strong></p>
+    <pre class="term">$ systemctl status relogio
+● relogio.service - Relógio de teste do Guia Ubuntu
+     Loaded: loaded (/etc/systemd/system/relogio.service; enabled; preset: enabled)   « enabled: liga no boot
+     Active: active (running) since Thu 2026-10-15 10:31:02 -03; 25s ago
+   Main PID: 5337 (relogio.sh)                                                        « anote este número
+      Tasks: 2 (limit: 18339)
+     Memory: 1.4M (peak: 1.7M)
+        CPU: 11ms
+     CGroup: /system.slice/relogio.service
+             ├─5337 /bin/bash /usr/local/bin/relogio.sh
+             └─5344 sleep 10
+
+out 15 10:31:02 notebook systemd[1]: Started relogio.service - Relógio de teste do Guia Ubuntu.
+out 15 10:31:02 notebook relogio.sh[5337]: tic-tac: 10:31:02
+out 15 10:31:12 notebook relogio.sh[5337]: tic-tac: 10:31:12</pre>
+    <p>O <code>CGroup</code> mostra dois processos: o bash rodando o script e o <code>sleep</code> que ele chamou. Os <code>echo</code> do script já aparecem no log.</p>
+  </li>
+  <li>
+    <p><strong>Acompanhe o log ao vivo.</strong></p>
+    <pre class="term">$ journalctl -u relogio -f
+out 15 10:31:22 notebook relogio.sh[5337]: tic-tac: 10:31:22
+out 15 10:31:32 notebook relogio.sh[5337]: tic-tac: 10:31:32</pre>
+    <p>O <code>-f</code> (de <em>follow</em>) fica mostrando linhas novas. <kbd>Ctrl</kbd>+<kbd>C</kbd> sai.</p>
+  </li>
+</ol>
+
+<hr>
+
+<h2>Teste: mate o processo e veja o systemd reiniciar</h2>
+<p>Agora a prova de que o <code>Restart=on-failure</code> funciona. Vamos simular uma queda matando o processo principal com o sinal 9 (KILL), que não pode ser ignorado (veja <a href="kill.html">kill</a>).</p>
+
+<dl class="anatomy">
+  <dt>systemctl show</dt><dd>Mostra propriedades internas de uma unit.</dd>
+  <dt>-p MainPID</dt><dd>Só a propriedade <code>MainPID</code> (o processo principal).</dd>
+  <dt>--value</dt><dd>Só o valor, sem o nome. Perfeito para usar dentro de outro comando.</dd>
+  <dt>relogio</dt><dd>O serviço.</dd>
+</dl>
+
+<pre class="term">$ systemctl show -p MainPID --value relogio
+5337
+$ sudo kill -9 5337                         « simula uma queda
+$ sleep 6
+$ systemctl status relogio
+● relogio.service - Relógio de teste do Guia Ubuntu
+     Loaded: loaded (/etc/systemd/system/relogio.service; enabled; preset: enabled)
+     Active: active (running) since Thu 2026-10-15 10:33:08 -03; 1s ago       « voltou, há 1 segundo
+   Main PID: 5502 (relogio.sh)                                               « PID novo: é outro processo</pre>
+
+<p>O log conta exatamente o que aconteceu:</p>
+
+<pre class="term">$ journalctl -u relogio -n 5
+out 15 10:33:03 notebook systemd[1]: relogio.service: Main process exited, code=killed, status=9/KILL   « morreu
+out 15 10:33:03 notebook systemd[1]: relogio.service: Failed with result 'signal'.
+out 15 10:33:08 notebook systemd[1]: relogio.service: Scheduled restart job, restart counter is at 1.  « 5 s depois
+out 15 10:33:08 notebook systemd[1]: Started relogio.service - Relógio de teste do Guia Ubuntu.
+out 15 10:33:08 notebook relogio.sh[5502]: tic-tac: 10:33:08</pre>
+
+<div class="note">
+<strong>E se eu der <code>systemctl stop</code>?</strong>
+<p>Aí ele <strong>não</strong> volta. Um <code>stop</code> é uma parada pedida por você, não uma falha. O <code>Restart=on-failure</code> só age quando o programa cai sozinho ou é morto por fora.</p>
+</div>
+
+<div class="note">
+<strong>Por que <code>kill -9</code> e não só <code>kill</code>?</strong>
+<p>O <code>kill</code> sem número manda o sinal TERM, um pedido educado de encerramento. O systemd considera esse fim "limpo" e, com <code>on-failure</code>, <strong>não</strong> reinicia. O sinal 9 (KILL) é uma morte forçada, igual a uma queda de verdade. Se quiser que o serviço volte em qualquer caso, use <code>Restart=always</code>.</p>
+</div>
+
+<h3>Opções de <code>Restart=</code></h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Valor</th><th>Reinicia quando…</th><th>Use para…</th></tr>
+<tr><td><code>no</code></td><td>Nunca (padrão)</td><td>Tarefas que rodam uma vez</td></tr>
+<tr><td><code>on-failure</code></td><td>Sai com erro, é morto por sinal ou trava</td><td>A maioria dos serviços</td></tr>
+<tr><td><code>on-abnormal</code></td><td>É morto por sinal ou trava (não por código de erro)</td><td>Programas que saem com erro de propósito</td></tr>
+<tr><td><code>always</code></td><td>Sempre que terminar, até com sucesso</td><td>Programas que nunca deveriam parar</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Parar e remover o serviço</h2>
+<pre class="term">$ sudo systemctl disable --now relogio      # para e tira do boot
+Removed '/etc/systemd/system/multi-user.target.wants/relogio.service'.
+$ sudo rm /etc/systemd/system/relogio.service
+$ sudo systemctl daemon-reload</pre>
+
+<hr>
+
+<h2>Outras formas de fazer</h2>
+
+<h3>Serviço de usuário (sem sudo)</h3>
+<p>Para algo que só importa para você, como sincronizar uma pasta, crie um serviço de <strong>usuário</strong>. Ele roda como você, enquanto você estiver logado.</p>
+
+<ol class="passo">
+  <li><strong>Crie a pasta e o arquivo</strong> em <code>~/.config/systemd/user/</code>:
+    <pre class="term">$ mkdir -p ~/.config/systemd/user
+$ nano ~/.config/systemd/user/relogio.service</pre>
+    <pre class="file" data-file="~/.config/systemd/user/relogio.service">[Unit]
+Description=Relógio do usuário
+
+[Service]
+ExecStart=%h/bin/relogio.sh
+Restart=on-failure
+
+[Install]
+WantedBy=default.target</pre>
+    <p><code>%h</code> é trocado pela sua pasta pessoal. Não há <code>User=</code>: ele já roda como você. O alvo é <code>default.target</code>, o "boot" da sua sessão.</p></li>
+  <li><strong>Use <code>--user</code> em tudo, sem sudo:</strong>
+    <pre class="term">$ systemctl --user daemon-reload
+$ systemctl --user enable --now relogio
+$ journalctl --user -u relogio -f</pre></li>
+</ol>
+
+<p>Para o serviço de usuário rodar mesmo quando você não está logado (num servidor, por exemplo), rode uma vez <code>sudo loginctl enable-linger ana</code>.</p>
+
+<h3>Timer: rodar de tempos em tempos</h3>
+<p>Para "rodar todo dia às 2h", em vez de um serviço que fica em loop, use um <strong>timer</strong>. São dois arquivos com o mesmo nome:</p>
+
+<pre class="file" data-file="/etc/systemd/system/backup.service">[Unit]
+Description=Backup da pasta pessoal
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/backup.sh</pre>
+
+<pre class="file" data-file="/etc/systemd/system/backup.timer">[Unit]
+Description=Backup diário às 2h
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Linha</th><th>Significado</th></tr>
+<tr><td><code>Type=oneshot</code></td><td>O programa roda, termina, e isso é o normal.</td></tr>
+<tr><td><code>OnCalendar=*-*-* 02:00:00</code></td><td>Todo ano-mês-dia, às 02:00. Também aceita <code>daily</code>, <code>weekly</code>, <code>Mon *-*-* 08:00</code>.</td></tr>
+<tr><td><code>Persistent=true</code></td><td>Se o computador estava desligado às 2h, roda assim que ligar.</td></tr>
+</table>
+</div>
+
+<pre class="term">$ sudo systemctl daemon-reload
+$ sudo systemctl enable --now backup.timer      « habilite o .timer, não o .service
+$ systemctl list-timers backup.timer</pre>
+
+<p>Para testar a regra de horário antes: <code>systemd-analyze calendar "*-*-* 02:00:00"</code> mostra a próxima execução. Compare com o cron em <a href="cron.html">Agendar Tarefas</a>.</p>
+
+<h3>Qual usar?</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Situação</th><th>Use</th></tr>
+<tr><td>Programa que fica rodando sempre, para o sistema todo</td><td>Serviço em <code>/etc/systemd/system/</code></td></tr>
+<tr><td>Programa só seu, enquanto você está logado</td><td>Serviço de usuário (<code>--user</code>)</td></tr>
+<tr><td>Tarefa que roda de tempos em tempos</td><td><code>.timer</code> + <code>.service</code> com <code>Type=oneshot</code>, ou <a href="cron.html">cron</a></td></tr>
+<tr><td>Testar algo rápido, sem criar arquivo</td><td><code>systemd-run --user comando</code> (cria um serviço temporário)</td></tr>
+<tr><td>Rodar uma vez, depois de fechar o terminal</td><td><code>nohup</code> ou <code>tmux</code> (veja <a href="jobs.html">Jobs</a>)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Opções úteis do <code>[Service]</code></h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Para que serve</th><th>Exemplo</th></tr>
+<tr><td><code>WorkingDirectory=</code></td><td>Pasta onde o programa roda (importa se ele usa caminhos relativos)</td><td><code>WorkingDirectory=/opt/meuapp</code></td></tr>
+<tr><td><code>Environment=</code></td><td>Define uma variável de ambiente</td><td><code>Environment=PORTA=8080</code></td></tr>
+<tr><td><code>EnvironmentFile=</code></td><td>Lê variáveis de um arquivo (bom para senhas fora do .service)</td><td><code>EnvironmentFile=/etc/meuapp.env</code></td></tr>
+<tr><td><code>User=</code> / <code>Group=</code></td><td>Com qual usuário e grupo rodar</td><td><code>User=www-data</code></td></tr>
+<tr><td><code>ExecStartPre=</code></td><td>Comando antes de iniciar (ex.: testar a configuração)</td><td><code>ExecStartPre=/usr/sbin/nginx -t</code></td></tr>
+<tr><td><code>ExecReload=</code></td><td>O que fazer no <code>systemctl reload</code></td><td><code>ExecReload=/bin/kill -HUP $MAINPID</code></td></tr>
+<tr><td><code>StartLimitBurst=</code> / <code>StartLimitIntervalSec=</code></td><td>Quantas tentativas de reinício, em quanto tempo, antes de desistir (vão na seção <code>[Unit]</code>)</td><td><code>StartLimitBurst=5</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong><code>status=203/EXEC</code></strong>
+<pre class="term">$ systemctl status relogio
+× relogio.service - Relógio de teste do Guia Ubuntu
+     Active: failed (Result: exit-code) since Thu 2026-10-15 10:40:11 -03; 3s ago
+    Process: 5610 ExecStart=/usr/local/bin/relogio.sh (code=exited, status=203/EXEC)</pre>
+<p><strong>O que aconteceu:</strong> o systemd não conseguiu <strong>executar</strong> o programa. As causas, em ordem de frequência: falta permissão de execução, o caminho no <code>ExecStart</code> está errado, ou falta a primeira linha <code>#!/usr/bin/env bash</code> no script.</p>
+<p><strong>Como confirmar e resolver:</strong></p>
+<pre class="term">$ ls -l /usr/local/bin/relogio.sh
+-rw-r--r-- 1 root root 98 Oct 15 10:39 /usr/local/bin/relogio.sh     « sem "x": não é executável
+$ sudo chmod +x /usr/local/bin/relogio.sh
+$ head -1 /usr/local/bin/relogio.sh
+#!/usr/bin/env bash
+$ sudo systemctl restart relogio</pre>
+</div>
+
+<div class="cenario">
+<strong><code>status=217/USER</code></strong>
+<p><strong>O que aconteceu:</strong> o usuário de <code>User=</code> não existe (erro de digitação, por exemplo).</p>
+<p><strong>Como resolver:</strong> confira com <code>id nome-do-usuario</code>, corrija o arquivo, rode <code>sudo systemctl daemon-reload</code> e reinicie.</p>
+</div>
+
+<div class="cenario">
+<strong>"start request repeated too quickly"</strong>
+<pre class="term">$ journalctl -u relogio -n 3
+out 15 10:45:20 notebook systemd[1]: relogio.service: Start request repeated too quickly.
+out 15 10:45:20 notebook systemd[1]: relogio.service: Failed with result 'exit-code'.
+out 15 10:45:20 notebook systemd[1]: Failed to start relogio.service - Relógio de teste do Guia Ubuntu.</pre>
+<p><strong>O que aconteceu:</strong> o programa cai logo ao iniciar, o systemd reinicia, ele cai de novo… Depois de várias tentativas seguidas, o systemd desiste para não ficar em loop.</p>
+<p><strong>Como resolver:</strong> leia as linhas <strong>anteriores</strong> do log para achar o erro real (<code>journalctl -u relogio -n 50</code>), corrija, e então libere o serviço:</p>
+<pre class="term">$ sudo systemctl reset-failed relogio
+$ sudo systemctl start relogio</pre>
+</div>
+
+<div class="cenario">
+<strong>No terminal funciona, como serviço não</strong>
+<p><strong>O que aconteceu:</strong> o serviço roda num ambiente "limpo": sem os seus apelidos, sem o seu <code>PATH</code> completo, em outra pasta e às vezes como outro usuário.</p>
+<p><strong>Como resolver:</strong></p>
+<ul>
+  <li>Use caminhos completos no script (<code>/usr/bin/python3</code>, <code>/home/ana/dados/arquivo.txt</code>).</li>
+  <li>Defina <code>WorkingDirectory=</code> se o programa usa caminhos relativos.</li>
+  <li>Passe variáveis com <code>Environment=</code> ou <code>EnvironmentFile=</code>.</li>
+  <li>Confira se o <code>User=</code> tem permissão nas pastas que o programa usa.</li>
+</ul>
+</div>
+
+<div class="warning">
+<strong>Atenção: sem <code>User=</code>, o serviço é root</strong>
+<p>Um serviço sem <code>User=</code> roda com poder total. Se o programa tiver uma falha, o invasor ganha o sistema inteiro. Sempre que possível, rode como um usuário comum ou um usuário próprio do serviço.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>sudo systemctl daemon-reload</code></td><td>Relê os arquivos depois de criar ou editar</td></tr>
+<tr><td><code>sudo systemctl enable --now nome</code></td><td>Liga agora e no boot</td></tr>
+<tr><td><code>systemctl status nome</code></td><td>Estado e log recente</td></tr>
+<tr><td><code>journalctl -u nome -f</code></td><td>Log ao vivo</td></tr>
+<tr><td><code>systemctl show -p MainPID --value nome</code></td><td>PID do processo principal</td></tr>
+<tr><td><code>sudo systemctl reset-failed nome</code></td><td>Zera o estado de falha e o limite de tentativas</td></tr>
+<tr><td><code>systemd-analyze verify arquivo.service</code></td><td>Procura erros no arquivo</td></tr>
+<tr><td><code>systemd-analyze calendar "expressão"</code></td><td>Testa uma regra de <code>OnCalendar</code></td></tr>
+<tr><td><code>systemctl --user …</code></td><td>Mesmos comandos, para serviços de usuário</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. O comando do serviço</h3>
+<p>Complete a linha que diz qual programa o serviço roda:</p>
+<div class="ex-code"><input data-answer="ExecStart" aria-label="opção">=/usr/local/bin/relogio.sh</div>
+</div>
+
+<div class="exercise">
+<h3>2. Voltar se cair</h3>
+<p>Complete para o serviço reiniciar quando falhar ou for morto:</p>
+<div class="ex-code">Restart=<input data-answer="on-failure|always" aria-label="valor"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Depois de criar o arquivo</h3>
+<p>Você acabou de criar <code>/etc/systemd/system/meuapp.service</code>. Complete o primeiro comando a rodar:</p>
+<div class="ex-code">sudo systemctl <input data-answer="daemon-reload" aria-label="ação"></div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. O status mostra <code>status=203/EXEC</code>. Qual é a causa mais provável?</p>
+<label><input type="radio" name="q4"> Falta de memória.</label>
+<label><input type="radio" name="q4"> A rede não estava pronta.</label>
+<label><input type="radio" name="q4"> O script não tem permissão de execução ou o caminho no ExecStart está errado.</label>
+<label><input type="radio" name="q4"> O serviço foi desabilitado.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. Se o arquivo <code>.service</code> não tem a linha <code>User=</code>, com qual usuário o programa roda?</p>
+<label><input type="radio" name="q5"> root</label>
+<label><input type="radio" name="q5"> O usuário que criou o arquivo</label>
+<label><input type="radio" name="q5"> nobody</label>
+<label><input type="radio" name="q5"> O serviço não inicia sem User=</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Script testado no terminal → arquivo em <code>/etc/systemd/system/nome.service</code> → <code>daemon-reload</code> → <code>enable --now</code>.</li>
+  <li><code>[Unit]</code> descreve, <code>[Service]</code> diz o que rodar e como, <code>[Install]</code> diz quando ligar no boot.</li>
+  <li><code>Restart=on-failure</code> + <code>RestartSec</code> fazem o serviço voltar sozinho; o log mostra "Scheduled restart job".</li>
+  <li>Use <code>User=</code> para não rodar como root; caminhos sempre completos.</li>
+  <li><code>203/EXEC</code> = não conseguiu executar; "repeated too quickly" = leia o erro anterior e use <code>reset-failed</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

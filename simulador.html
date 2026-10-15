@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Terminal Simulado — pratique comandos no navegador sem risco | Guia Ubuntu</title>
+<meta name="description" content="Um terminal Ubuntu simulado que roda no navegador: a máquina fictícia notebook, o que funciona, o que não funciona e uma trilha de 10 missões para praticar sem medo de estragar nada.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Terminal Simulado</span></h1>
+
+<p class="intro">Este guia tem um terminal de mentira que roda dentro da própria página. Ele imita um Ubuntu 26.04 de verdade, com pastas, arquivos e até processos, mas nada do que você digita sai do navegador. Pode apagar tudo: é só clicar em <strong>Reiniciar</strong>.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que é a máquina fictícia <strong>notebook</strong> e o que existe dentro dela.</li>
+  <li>Como usar o simulador: digitar, <kbd>Tab</kbd>, histórico e reiniciar.</li>
+  <li>O que o simulador faz igual ao Ubuntu real e onde ele é diferente.</li>
+  <li>Praticar com uma trilha de 10 missões, do básico até processos e <code>sudo</code>.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Por que um terminal simulado?</h2>
+<p>O medo de "quebrar alguma coisa" é o que mais trava quem está começando. No simulador, esse medo não existe: ele é um programa da página, não o seu sistema. Você pode rodar <code>rm -r</code> em tudo, errar o caminho, apagar a pasta pessoal. Clique em <strong>Reiniciar</strong> e a máquina volta ao começo.</p>
+<p>As caixas <strong>"Experimente você mesmo"</strong> espalhadas pelo guia usam este mesmo simulador, cada uma com uma missão da aula.</p>
+
+<hr>
+
+<h2>Como usar</h2>
+<ol class="passo">
+  <li>Clique dentro da janela preta do terminal.</li>
+  <li>Digite um comando, por exemplo <code>ls</code>, e aperte <kbd>Enter</kbd>.</li>
+  <li>Leia a resposta. Um prompt novo aparece quando o comando termina.</li>
+  <li>Quando quiser começar do zero, clique em <strong>Reiniciar</strong>, no canto da janela.</li>
+</ol>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tecla</th><th>No simulador</th></tr>
+<tr><td><kbd>Tab</kbd></td><td>Completa nomes de comandos, pastas e arquivos</td></tr>
+<tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Navega pelos comandos já digitados</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>Limpa a tela (o comando <code>clear</code> também)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Cancela a linha que você está digitando</td></tr>
+<tr><td><code>help</code></td><td>Lista os comandos que o simulador conhece</td></tr>
+</table>
+</div>
+
+<h3>Terminal livre</h3>
+<p>Este aqui não tem missão. Explore à vontade: <code>ls</code>, <code>cd Documentos</code>, <code>cat frutas.txt</code>, <code>tree</code>…</p>
+
+<div class="try">
+<p class="try-task">Comece por <code>help</code> e depois experimente <code>ls -l</code>, <code>tree</code> e <code>cat Documentos/notas.txt</code>.</p>
+</div>
+
+<hr>
+
+<h2>A máquina fictícia</h2>
+<p>Todos os exemplos do guia acontecem na mesma máquina. Conhecer o que tem nela ajuda a entender as respostas.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Item</th><th>Valor</th></tr>
+<tr><td>Nome da máquina (hostname)</td><td><code>notebook</code></td></tr>
+<tr><td>Usuária</td><td><code>ana</code>, que pode usar <code>sudo</code></td></tr>
+<tr><td>Pasta pessoal</td><td><code>/home/ana</code> (<code>~</code>)</td></tr>
+<tr><td>Sistema</td><td>Ubuntu 26.04.1 LTS, kernel 7.0.0-38-generic</td></tr>
+<tr><td>Data e hora</td><td>Sempre quinta-feira, 15 de outubro de 2026, 10:30</td></tr>
+</table>
+</div>
+
+<p>A pasta pessoal da Ana começa assim:</p>
+
+<pre class="term">$ tree
+.
+├── Área de trabalho
+├── Documentos
+│   ├── acesso.log                               « log de um site, bom para grep
+│   ├── notas.txt                                « uma lista de tarefas
+│   ├── projetos
+│   │   ├── backup.sh                            « um script executável
+│   │   └── site
+│   │       ├── index.html
+│   │       └── style.css
+│   └── relatorio.odt
+├── Downloads
+│   ├── foto.jpg
+│   ├── fotos-viagem.zip
+│   ├── manual.pdf
+│   ├── musica.mp3
+│   └── ubuntu-26.04-desktop-amd64.iso           « um arquivo grande, de 5,9 GB
+├── frutas.txt                                   « frutas repetidas, bom para sort e uniq
+├── Imagens
+│   ├── ferias.jpg
+│   └── perfil.png
+├── Modelos
+├── Música
+├── Público
+└── Vídeos
+
+10 directories, 14 files</pre>
+
+<p>Fora da pasta pessoal, existem <code>/etc</code> (com <code>hostname</code>, <code>hosts</code>, <code>os-release</code>, <code>passwd</code> e <code>shadow</code>), <code>/tmp</code>, <code>/opt</code> e outras. A pasta <code>/root</code> e o arquivo <code>/etc/shadow</code> são proibidos para a Ana, como num Ubuntu real.</p>
+
+<h3>Programas "abertos" na máquina</h3>
+<pre class="term">$ pgrep -l .
+1 systemd
+812 NetworkManager
+1534 gnome-shell
+2210 chrome                                      « o navegador Chromium
+2251 chrome
+2304 nautilus                                    « o app Arquivos
+2388 gnome-text-edit                             « o Editor de Texto (nome cortado em 15 letras)
+2950 ptyxis                                      « o app Terminal
+3001 bash                                        « o shell desta janela</pre>
+
+<p>Repare que o Chromium aparece como <code>chrome</code>. Isso é igual no Ubuntu real e confunde muita gente; a aula <a href="processos.html">ps, pgrep, top</a> explica por quê.</p>
+
+<hr>
+
+<h2>O que funciona e o que não funciona</h2>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Funciona</th><th>Comandos e recursos</th></tr>
+<tr><td>Navegação</td><td><code>pwd</code>, <code>cd</code>, <code>ls</code> (com <code>-l -a -A -h -t -S -r -R -d -1 -F</code>), <code>tree</code>, <code>pushd</code>, <code>popd</code></td></tr>
+<tr><td>Arquivos</td><td><code>mkdir</code>, <code>touch</code>, <code>cp</code>, <code>mv</code>, <code>rm</code>, <code>rmdir</code>, <code>find</code></td></tr>
+<tr><td>Texto</td><td><code>cat</code>, <code>head</code>, <code>tail</code>, <code>wc</code>, <code>grep</code>, <code>sort</code>, <code>uniq</code>, <code>cut</code>, <code>tr</code>, <code>echo</code>, <code>printf</code>, <code>seq</code>, <code>xargs</code></td></tr>
+<tr><td>Sistema</td><td><code>whoami</code>, <code>id</code>, <code>groups</code>, <code>hostname</code>, <code>uname</code>, <code>date</code>, <code>uptime</code>, <code>lsb_release</code>, <code>free</code>, <code>df</code>, <code>history</code>, <code>type</code>, <code>which</code>, <code>sudo</code></td></tr>
+<tr><td>Processos</td><td><code>ps</code>, <code>ps aux</code>, <code>ps -ef</code>, <code>pgrep</code>, <code>kill</code>, <code>pkill</code>, <code>killall</code></td></tr>
+<tr><td>Shell</td><td>Pipes <code>|</code>, <code>&gt;</code>, <code>&gt;&gt;</code>, <code>2&gt;</code>, <code>2&gt;&amp;1</code>, <code>&lt;</code>, <code>/dev/null</code>, <code>;</code>, <code>&amp;&amp;</code>, <code>||</code>, <code>$VAR</code>, <code>$(comando)</code>, <code>$?</code>, chaves <code>{a,b}</code> e <code>{1..5}</code>, curingas <code>* ? [abc]</code>, <code>for … ; do … ; done</code></td></tr>
+</table>
+</div>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Não funciona</th><th>Por quê</th></tr>
+<tr><td><code>apt</code>, <code>snap</code>, <code>flatpak</code></td><td>Não há internet nem programas de verdade para instalar.</td></tr>
+<tr><td><code>systemctl</code>, <code>journalctl</code>, <code>ping</code>, <code>ip</code>, <code>curl</code></td><td>Não há serviços nem rede.</td></tr>
+<tr><td><code>nano</code>, <code>vim</code>, <code>less</code>, <code>man</code>, <code>top</code>, <code>htop</code></td><td>São programas de tela cheia.</td></tr>
+<tr><td><code>chmod</code>, <code>chown</code>, <code>ln</code>, <code>tar</code>, <code>sed</code>, <code>awk</code>, <code>du</code></td><td>Ainda não foram incluídos.</td></tr>
+<tr><td><code>!!</code>, <kbd>Ctrl</kbd>+<kbd>R</kbd>, <code>if</code>, <code>while</code>, funções</td><td>O shell simulado é simplificado.</td></tr>
+</table>
+</div>
+
+<p>Quando você tenta algo que ele não sabe fazer, a resposta começa com <code>(simulador)</code>. Assim você nunca confunde uma limitação do simulador com um erro de verdade:</p>
+
+<pre class="term">$ sudo apt install htop
+(simulador) "apt" não está disponível nesta máquina fictícia. Pratique no seu Ubuntu ou numa VM.</pre>
+
+<h3>Diferenças em relação ao Ubuntu real</h3>
+<ul>
+  <li><strong>Senha do sudo:</strong> o simulador aceita sozinho e avisa. No real, você digita a senha sem ver nada.</li>
+  <li><strong>Data fixa:</strong> o relógio está parado em 15/10/2026, 10:30, para os exemplos ficarem iguais aos do guia.</li>
+  <li><strong>Sistema menor:</strong> a raiz <code>/</code> tem só as pastas principais; um Ubuntu real tem mais (<code>/lib</code>, <code>/run</code>, <code>/sys</code>…).</li>
+  <li><strong>Opções:</strong> cada comando conhece as opções mais usadas, não todas.</li>
+  <li><strong>Mensagens:</strong> os erros são os mesmos do Ubuntu 26.04 em português, inclusive os que aparecem em inglês.</li>
+</ul>
+
+<hr>
+
+<h2>Trilha de missões</h2>
+<p>Cada caixa abaixo é uma máquina nova, independente das outras. Quando você cumprir a missão, aparece <strong>✔ Missão cumprida!</strong> embaixo da janela. Se travar, abra a solução.</p>
+
+<h3>Missão 1: andar até Downloads</h3>
+<div class="try" data-goal="cwd:~/Downloads">
+<p class="try-task"><strong>Missão:</strong> descubra onde você está com <code>pwd</code>, veja o que existe com <code>ls</code> e entre na pasta <code>Downloads</code>.</p>
+</div>
+<details><summary>Ver uma solução</summary>
+<pre class="term">$ pwd
+/home/ana
+$ cd Downloads</pre>
+</details>
+
+<h3>Missão 2: chegar fundo de uma vez</h3>
+<div class="try" data-goal="cwd:~/Documentos/projetos/site">
+<p class="try-task"><strong>Missão:</strong> com <strong>um único</strong> <code>cd</code>, entre em <code>Documentos/projetos/site</code>. Use <kbd>Tab</kbd> para completar os nomes.</p>
+</div>
+<details><summary>Ver uma solução</summary>
+<pre class="term">$ cd Documentos/projetos/site</pre>
+</details>
+
+<h3>Missão 3: montar pastas de viagem</h3>
+<div class="try" data-goal="dir:~/viagem/fotos,dir:~/viagem/roteiro">
+<p class="try-task"><strong>Missão:</strong> crie a pasta <code>viagem</code> com duas subpastas: <code>fotos</code> e <code>roteiro</code>.</p>
+</div>
+<details><summary>Ver uma solução</summary>
+<pre class="term">$ mkdir -p viagem/fotos viagem/roteiro</pre>
+<p>Ou com chaves: <code>mkdir -p viagem/{fotos,roteiro}</code>. Veja <a href="criar.html">touch e mkdir</a>.</p>
+</details>
+
+<h3>Missão 4: copiar um arquivo</h3>
+<div class="try" data-setup="mkdir -p viagem/roteiro" data-goal="file:~/viagem/roteiro/notas.txt,file:~/Documentos/notas.txt">
+<p class="try-task"><strong>Missão:</strong> copie <code>Documentos/notas.txt</code> para dentro de <code>viagem/roteiro</code>. O original tem de continuar onde está.</p>
+</div>
+<details><summary>Ver uma solução</summary>
+<pre class="term">$ cp Documentos/notas.txt viagem/roteiro/</pre>
+</details>
+
+<h3>Missão 5: renomear</h3>
+<div class="try" data-goal="file:~/lista-frutas.txt,absent:~/frutas.txt">
+<p class="try-task"><strong>Missão:</strong> renomeie <code>frutas.txt</code> para <code>lista-frutas.txt</code>.</p>
+</div>
+<details><summary>Ver uma solução</summary>
+<pre class="term">$ mv frutas.txt lista-frutas.txt</pre>
+<p>No Linux, renomear é mover para um nome novo. Veja <a href="copiar-mover.html">cp e mv</a>.</p>
+</details>
+
+<h3>Missão 6: limpar pastas vazias</h3>
+<div class="try" data-goal="absent:~/Modelos,absent:~/Público,dir:~/Documentos">
+<p class="try-task"><strong>Missão:</strong> apague as pastas vazias <code>Modelos</code> e <code>Público</code>, sem apagar mais nada.</p>
+</div>
+<details><summary>Ver uma solução</summary>
+<pre class="term">$ rmdir Modelos Público</pre>
+<p>O <code>rmdir</code> só apaga pastas vazias, por isso é o jeito seguro. Veja <a href="remover.html">rm e rmdir</a>.</p>
+</details>
+
+<h3>Missão 7: procurar texto e guardar o resultado</h3>
+<div class="try" data-goal="contains:~/bananas.txt=banana,ran:grep">
+<p class="try-task"><strong>Missão:</strong> salve no arquivo <code>bananas.txt</code> todas as linhas de <code>frutas.txt</code> que contêm "banana". Use <code>grep</code> e <code>&gt;</code>.</p>
+</div>
+<details><summary>Ver uma solução</summary>
+<pre class="term">$ grep banana frutas.txt &gt; bananas.txt
+$ cat bananas.txt
+banana
+banana
+banana</pre>
+</details>
+
+<h3>Missão 8: contar com pipes</h3>
+<div class="try" data-goal="contains:~/total.txt=4,ran:sort.*\|.*wc">
+<p class="try-task"><strong>Missão:</strong> descubra quantas frutas <strong>diferentes</strong> existem em <code>frutas.txt</code> e salve o número em <code>total.txt</code>. Junte <code>sort -u</code> e <code>wc -l</code> com um <code>|</code>.</p>
+</div>
+<details><summary>Ver uma solução</summary>
+<pre class="term">$ sort -u frutas.txt | wc -l &gt; total.txt
+$ cat total.txt
+4</pre>
+<p>O <code>sort -u</code> ordena e tira as repetições; o <code>wc -l</code> conta as linhas. Veja <a href="pipes.html">Pipes e xargs</a>.</p>
+</details>
+
+<h3>Missão 9: fechar o navegador pelo terminal</h3>
+<div class="try" data-goal="noproc:chrome">
+<p class="try-task"><strong>Missão:</strong> o Chromium está aberto. Ache os processos dele e encerre todos. Dica: <code>pgrep chromium</code> não acha nada; descubra o nome certo.</p>
+</div>
+<details><summary>Ver uma solução</summary>
+<pre class="term">$ pgrep chromium
+$ echo $?
+1                                                « 1 = não achou nenhum processo com esse nome
+$ pgrep -af chromium
+2210 /snap/chromium/3554/usr/lib/chromium-browser/chrome --password-store
+2251 /snap/chromium/3554/usr/lib/chromium-browser/chrome --type=renderer
+$ pkill chrome
+$ pgrep chrome
+$ echo $?
+1                                                « não sobrou nenhum</pre>
+<p>O <code>-f</code> procura na linha de comando inteira, onde aparece "chromium". O nome do processo é <code>chrome</code>. Veja <a href="processos.html">ps, pgrep, top</a> e <a href="kill.html">Encerrar Programas</a>.</p>
+</details>
+
+<h3>Missão 10: criar uma pasta do sistema</h3>
+<div class="try" data-goal="dir:/opt/estudos">
+<p class="try-task"><strong>Missão:</strong> crie a pasta <code>/opt/estudos</code>. Primeiro tente sem <code>sudo</code> e leia o erro; depois faça do jeito certo.</p>
+</div>
+<details><summary>Ver uma solução</summary>
+<pre class="term">$ mkdir /opt/estudos
+mkdir: Permission denied
+$ sudo mkdir /opt/estudos
+[sudo: authenticate] Senha:
+$ ls -ld /opt/estudos
+drwxr-xr-x 2 root root 4096 Oct 15 10:30 /opt/estudos      « a dona é a root</pre>
+<p>Veja <a href="sudo.html">sudo</a> e <a href="permissoes.html">Entendendo Permissões</a>.</p>
+</details>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Digito e nada acontece</strong>
+<p><strong>O que aconteceu:</strong> a janela do simulador não está selecionada.</p>
+<p><strong>Como resolver:</strong> clique dentro da área preta e digite de novo.</p>
+</div>
+
+<div class="cenario">
+<strong>"(simulador) a opção … não existe neste simulador"</strong>
+<pre class="term">$ head --lines=3 frutas.txt
+head: (simulador) a opção '--lines' não existe neste simulador. Teste no seu Ubuntu.</pre>
+<p><strong>O que aconteceu:</strong> a opção existe no Ubuntu real, mas o simulador só conhece as mais usadas.</p>
+<p><strong>Como resolver:</strong> use a forma curta (<code>head -n 3 frutas.txt</code>) ou teste no seu terminal.</p>
+</div>
+
+<div class="cenario">
+<strong>A missão não marca como cumprida</strong>
+<p><strong>O que aconteceu:</strong> o resultado ainda não está exatamente como pedido (um nome diferente, uma pasta a mais ou a menos).</p>
+<p><strong>Como resolver:</strong> confira com <code>ls</code>, <code>pwd</code> ou <code>cat</code>. Se a máquina ficou bagunçada, clique em <strong>Reiniciar</strong> e comece de novo.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Listar os comandos do simulador</h3>
+<p>Complete o comando que mostra o que o simulador sabe fazer:</p>
+<div class="ex-code"><input data-answer="help" aria-label="comando"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Procurar pela linha de comando inteira</h3>
+<p>Complete para achar os processos cuja linha de comando contém "chromium":</p>
+<div class="ex-code">pgrep <input data-answer="-af|-fa|-f|-a -f|-f -a" aria-label="opções"> chromium</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">3. Você apagou sem querer a pasta Documentos no simulador. O que fazer?</p>
+<label><input type="radio" name="q3"> Restaurar pela lixeira do Ubuntu.</label>
+<label><input type="radio" name="q3"> Nada: o arquivo foi apagado do seu computador.</label>
+<label><input type="radio" name="q3"> Clicar em Reiniciar: a máquina fictícia volta ao estado inicial.</label>
+<label><input type="radio" name="q3"> Rodar <code>sudo apt install documentos</code>.</label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Uma resposta começa com <code>(simulador)</code>. O que isso indica?</p>
+<label><input type="radio" name="q4"> Um erro grave do Ubuntu.</label>
+<label><input type="radio" name="q4"> Uma limitação do simulador, e não um erro do Ubuntu real.</label>
+<label><input type="radio" name="q4"> Que o comando foi executado no seu computador.</label>
+<label><input type="radio" name="q4"> Que você precisa usar sudo.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>O simulador é uma máquina fictícia (<code>ana@notebook</code>) que roda só no navegador. Nada afeta o seu computador.</li>
+  <li><strong>Reiniciar</strong> volta tudo ao começo. <code>help</code> lista os comandos disponíveis.</li>
+  <li>Ele cobre navegação, arquivos, texto, pipes, processos e <code>sudo</code>; instalação, rede e editores, não.</li>
+  <li>Respostas que começam com <code>(simulador)</code> são limitações dele; as outras imitam o Ubuntu 26.04 real.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu chown, chgrp e umask — dono, grupo e permissões padrão | Guia Ubuntu</title>
+<meta name="description" content="Aprenda chown, chgrp e umask no Ubuntu: mudar dono e grupo de arquivos, consertar arquivos que ficaram do root, montar uma pasta compartilhada e entender as permissões padrão de arquivos novos.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">chown, chgrp e umask</span></h1>
+
+<p class="intro">Todo arquivo tem um <strong>dono</strong> e um <strong>grupo</strong>. As permissões que você viu no <a href="chmod.html">chmod</a> dizem o que cada um pode fazer. O <code>chown</code> (<em>change owner</em>, "mudar dono") e o <code>chgrp</code> (<em>change group</em>, "mudar grupo") decidem <strong>quem</strong> são eles. O <code>umask</code> define as permissões que os arquivos novos já ganham ao nascer.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A ver o dono e o grupo de um arquivo.</li>
+  <li>A usar o <code>chown</code> nas suas quatro formas (só dono, dono e grupo, só grupo, grupo principal).</li>
+  <li>A consertar o caso mais comum: um arquivo seu que ficou "do root".</li>
+  <li>A montar uma pasta compartilhada e a entender o <code>umask</code>.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Ver o dono e o grupo</h2>
+<p>No <code>ls -l</code>, o dono é a 3ª coluna e o grupo é a 4ª:</p>
+
+<pre class="term">$ ls -l frutas.txt /etc/hostname
+-rw-r--r-- 1 root root  9 Mar 26  2026 /etc/hostname     « dono root, grupo root
+-rw-rw-r-- 1 ana  ana  47 Oct 14 16:05 frutas.txt        « dono ana, grupo ana</pre>
+
+<dl class="anatomy">
+  <dt>-rw-rw-r--</dt><dd>Permissões: o que o dono, o grupo e os outros podem fazer.</dd>
+  <dt>ana</dt><dd>3ª coluna: o <strong>dono</strong>.</dd>
+  <dt>ana</dt><dd>4ª coluna: o <strong>grupo</strong>. No Ubuntu, cada usuário tem um grupo com o próprio nome.</dd>
+</dl>
+
+<p>O comando <code>stat</code> mostra só o que você pedir: <code>stat -c "%U %G %n" frutas.txt</code> imprime <code>ana ana frutas.txt</code>, com dono (<code>%U</code>), grupo (<code>%G</code>) e nome (<code>%n</code>).</p>
+
+<div class="try" data-goal="ran:ls -l">
+<p class="try-task"><strong>Missão:</strong> use <code>ls -l</code> para descobrir o dono e o grupo de <code>/etc/hostname</code>, de <code>/etc/shadow</code> e da pasta <code>Documentos</code>. Qual deles tem um grupo diferente do dono?</p>
+</div>
+
+<hr>
+
+<h2>chown: mudar o dono</h2>
+<p>Só o root pode dar um arquivo para outra pessoa. Por isso, o <code>chown</code> quase sempre vem com <code>sudo</code>.</p>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Mudar o dono exige ser administrador.</dd>
+  <dt>chown</dt><dd>O programa.</dd>
+  <dt>joao:financeiro</dt><dd>Novo dono e, depois dos dois-pontos, novo grupo.</dd>
+  <dt>relatorio.ods</dt><dd>O arquivo (ou vários arquivos).</dd>
+</dl>
+
+<pre class="term">$ ls -l relatorio.ods
+-rw-rw-r-- 1 ana ana 8394 Oct 15 10:40 relatorio.ods
+$ sudo chown joao:financeiro relatorio.ods
+[sudo: authenticate] Senha:
+$ ls -l relatorio.ods
+-rw-rw-r-- 1 joao financeiro 8394 Oct 15 10:40 relatorio.ods</pre>
+
+<h3>As quatro formas do chown</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Muda</th></tr>
+<tr><td><code>usuario</code></td><td><code>sudo chown joao arq</code></td><td>Só o dono</td></tr>
+<tr><td><code>usuario:grupo</code></td><td><code>sudo chown joao:financeiro arq</code></td><td>Dono e grupo</td></tr>
+<tr><td><code>:grupo</code></td><td><code>chown :financeiro arq</code></td><td>Só o grupo (igual ao <code>chgrp</code>)</td></tr>
+<tr><td><code>usuario:</code></td><td><code>sudo chown joao: arq</code></td><td>Dono e o grupo principal dele</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>O caso clássico: "meu arquivo virou do root"</h2>
+<p>Quando você cria ou copia um arquivo usando <code>sudo</code>, ele nasce com o dono <strong>root</strong>, mesmo dentro da sua pasta. Depois, você não consegue editá-lo.</p>
+
+<ol class="passo">
+<li>
+<p>A Ana copiou um arquivo do sistema com sudo:</p>
+<pre class="term">$ sudo cp /etc/hosts ~/hosts-copia
+$ ls -l ~/hosts-copia
+-rw-r--r-- 1 root root 221 Oct 15 10:40 /home/ana/hosts-copia    « dono: root</pre>
+</li>
+<li>
+<p>Ao tentar escrever nele, recebe um erro:</p>
+<pre class="term">$ echo "192.168.0.50 servidor" &gt;&gt; ~/hosts-copia
+bash: /home/ana/hosts-copia: Permissão negada</pre>
+<p>O arquivo está na pasta dela, mas pertence ao root, e só o dono tem o <code>w</code>.</p>
+</li>
+<li>
+<p>Ela devolve o arquivo para si mesma:</p>
+<pre class="term">$ sudo chown ana:ana ~/hosts-copia
+$ ls -l ~/hosts-copia
+-rw-r--r-- 1 ana ana 221 Oct 15 10:40 /home/ana/hosts-copia     « agora é dela
+$ echo "192.168.0.50 servidor" &gt;&gt; ~/hosts-copia                « funciona</pre>
+</li>
+</ol>
+
+<div class="tip">
+<strong>Evite o problema</strong>
+<p>Use <code>sudo</code> só para o que realmente precisa. Para <strong>ler</strong> um arquivo do sistema e guardar uma cópia sua, <code>cp /etc/hosts ~/</code> sem sudo já funciona, porque o arquivo pode ser lido por todos.</p>
+</div>
+
+<hr>
+
+<h2>Pastas inteiras: <code>-R</code></h2>
+<p>Com <code>-R</code>, o chown muda a pasta e tudo o que está dentro. O exemplo típico é entregar os arquivos de um site ao usuário do servidor web, o <code>www-data</code>:</p>
+
+<pre class="term">$ sudo chown -R www-data:www-data /var/www/loja
+$ ls -l /var/www/loja
+total 12
+drwxr-xr-x 2 www-data www-data 4096 Oct 15 10:45 css
+-rw-r--r-- 1 www-data www-data  512 Oct 15 10:45 index.html
+-rw-r--r-- 1 www-data www-data  880 Oct 15 10:45 contato.html</pre>
+
+<div class="warning">
+<strong>Cuidado com <code>sudo chown -R</code></strong>
+<p>Um caminho errado, como <code>sudo chown -R ana /usr</code> ou um espaço a mais em <code>sudo chown -R ana / home/ana</code>, muda o dono de arquivos do sistema e pode deixar o Ubuntu sem funcionar (o <code>sudo</code>, por exemplo, exige pertencer ao root). Confira o caminho antes de apertar <kbd>Enter</kbd>.</p>
+</div>
+
+<hr>
+
+<h2>chgrp: mudar só o grupo</h2>
+<p>O <code>chgrp</code> muda apenas o grupo. Diferente do chown, um usuário comum pode usá-lo <strong>sem sudo</strong>, desde que seja dono do arquivo e participe do grupo de destino.</p>
+
+<pre class="term">$ chgrp adm relatorio.txt
+$ ls -l relatorio.txt
+-rw-rw-r-- 1 ana adm 0 Oct 15 10:50 relatorio.txt     « a ana está no grupo adm: funcionou
+$ chgrp root relatorio.txt
+chgrp: changing group of 'relatorio.txt': Operation not permitted (os error 1)   « ela não está no grupo root</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Para mudar só o grupo…</th><th>Observação</th></tr>
+<tr><td><code>chgrp equipe arq</code></td><td>O comando específico; o mais claro.</td></tr>
+<tr><td><code>chown :equipe arq</code></td><td>O mesmo efeito, com dois-pontos na frente.</td></tr>
+<tr><td><code>sudo chgrp -R equipe pasta</code></td><td>Para uma pasta inteira, ou grupos de que você não participa.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Projeto: pasta compartilhada pela equipe</h2>
+<p>A ana e o joao precisam editar os mesmos arquivos. A receita junta grupos, chown e chmod:</p>
+
+<ol class="passo">
+<li><p>Crie o grupo e coloque os dois nele (veja <a href="usuarios.html">Usuários e Grupos</a>):</p>
+<pre class="term">$ sudo groupadd equipe
+$ sudo usermod -aG equipe ana
+$ sudo usermod -aG equipe joao</pre></li>
+<li><p>Crie a pasta e entregue-a ao grupo:</p>
+<pre class="term">$ sudo mkdir /srv/equipe
+$ sudo chown root:equipe /srv/equipe</pre></li>
+<li><p>Dê permissão total ao grupo e ligue o <strong>setgid</strong> (o <code>2</code> na frente). Assim, todo arquivo criado ali dentro herda o grupo <code>equipe</code>:</p>
+<pre class="term">$ sudo chmod 2775 /srv/equipe
+$ ls -ld /srv/equipe
+drwxrwsr-x 2 root equipe 4096 Oct 15 11:00 /srv/equipe     « o "s" é o setgid</pre></li>
+<li><p>Depois de sair e entrar de novo na sessão (para o grupo valer), teste:</p>
+<pre class="term">$ touch /srv/equipe/plano.txt
+$ ls -l /srv/equipe/plano.txt
+-rw-rw-r-- 1 ana equipe 0 Oct 15 11:05 /srv/equipe/plano.txt   « grupo equipe, com rw para o grupo</pre></li>
+</ol>
+
+<hr>
+
+<h2>umask: as permissões de quem acabou de nascer</h2>
+<p>Quando você cria um arquivo, ele já nasce com permissões. Quem decide quais é a <strong>umask</strong> (<em>user mask</em>, "máscara do usuário"). Ela não dá permissões: ela diz quais <strong>tirar</strong> do máximo.</p>
+
+<ul>
+  <li>O máximo para arquivos é <code>666</code> (<code>rw-rw-rw-</code>): arquivos nunca nascem executáveis.</li>
+  <li>O máximo para pastas é <code>777</code> (<code>rwxrwxrwx</code>).</li>
+  <li>A umask tira os bits dela desse máximo.</li>
+</ul>
+
+<pre class="term">$ umask
+0002                                   « o padrão do Ubuntu para usuários comuns
+$ umask -S
+u=rwx,g=rwx,o=rx                       « o mesmo, em letras: o que fica permitido</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>umask</th><th>Arquivo novo</th><th>Pasta nova</th><th>Quando usar</th></tr>
+<tr><td><code>002</code></td><td><code>664</code> rw-rw-r--</td><td><code>775</code> rwxrwxr-x</td><td>Padrão do Ubuntu: você e seu grupo editam</td></tr>
+<tr><td><code>022</code></td><td><code>644</code> rw-r--r--</td><td><code>755</code> rwxr-xr-x</td><td>Padrão do root e de servidores</td></tr>
+<tr><td><code>077</code></td><td><code>600</code> rw-------</td><td><code>700</code> rwx------</td><td>Máxima privacidade</td></tr>
+</table>
+</div>
+
+<p>Veja a umask em ação, mudando o valor só neste terminal:</p>
+
+<pre class="term">$ umask 077
+$ touch privado.txt
+$ mkdir pasta-privada
+$ ls -ld privado.txt pasta-privada
+drwx------ 2 ana ana 4096 Oct 15 11:10 pasta-privada
+-rw------- 1 ana ana    0 Oct 15 11:10 privado.txt</pre>
+
+<p>A mudança vale até você fechar o terminal. Para torná-la permanente, acrescente a linha <code>umask 077</code> ao seu <code>~/.bashrc</code> (veja <a href="bashrc.html">.bashrc, alias, PATH</a>).</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Operation not permitted" no chown</strong>
+<pre class="term">$ chown joao relatorio.ods
+chown: changing ownership of 'relatorio.ods': Operation not permitted (os error 1)</pre>
+<p><strong>O que aconteceu:</strong> um usuário comum não pode dar arquivos para outra pessoa, nem pegar arquivos dos outros. É uma regra de segurança.</p>
+<p><strong>Como resolver:</strong> <code>sudo chown joao relatorio.ods</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"usuário inválido" ou "invalid group"</strong>
+<pre class="term">$ sudo chown joaoo relatorio.ods
+chown: usuário inválido: 'joaoo'
+$ chgrp finaceiro relatorio.ods
+chgrp: invalid group: 'finaceiro'</pre>
+<p><strong>O que aconteceu:</strong> o usuário ou grupo não existe. Nesses exemplos, os nomes foram digitados errado.</p>
+<p><strong>Como confirmar:</strong> <code>getent passwd joao</code> e <code>getent group financeiro</code> mostram a linha se o nome existir.</p>
+</div>
+
+<div class="cenario">
+<strong>Mudei o grupo, mas a pessoa ainda não consegue editar</strong>
+<p><strong>O que aconteceu:</strong> o grupo do arquivo está certo, mas faltam permissões para o grupo (por exemplo, <code>-rw-r--r--</code> não tem <code>w</code> no grupo), ou a pessoa entrou no grupo e ainda não refez o login.</p>
+<p><strong>Como resolver:</strong> <code>chmod g+w arquivo</code>, e peça para a pessoa sair e entrar de novo na sessão.</p>
+</div>
+
+<div class="cenario">
+<strong>Mensagem gigante "argumentos obrigatórios não foram fornecidos"</strong>
+<pre class="term">$ chown -R
+erro: os seguintes argumentos obrigatórios não foram fornecidos:
+  &lt;OWNER&gt;
+  &lt;FILE&gt;...
+
+Usage: chown [OPÇÃO]... [PROPRIETÁRIO][:[GRUPO]] ARQUIVO...
+       chown [OPÇÃO]... --reference=RFILE ARQUIVO...
+
+Para obter mais informações, use '--help'.</pre>
+<p><strong>O que aconteceu:</strong> faltaram o dono e o arquivo. A mensagem lista o que está faltando (<code>OWNER</code> = dono, <code>FILE</code> = arquivo) e mostra a forma certa na linha <code>Usage</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando / opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>chown usuario arq</code></td><td>Muda o dono</td><td><code>sudo chown joao a.txt</code></td></tr>
+<tr><td><code>chown usuario:grupo arq</code></td><td>Muda dono e grupo</td><td><code>sudo chown www-data:www-data index.html</code></td></tr>
+<tr><td><code>chown -R</code></td><td>Pasta e todo o conteúdo</td><td><code>sudo chown -R ana:ana ~/projeto</code></td></tr>
+<tr><td><code>chown -h</code></td><td>Muda o link simbólico, não o alvo</td><td><code>sudo chown -h ana atalho</code></td></tr>
+<tr><td><code>chown --reference=a b</code></td><td>Copia dono e grupo de outro arquivo</td><td><code>sudo chown --reference=a.txt b.txt</code></td></tr>
+<tr><td><code>chown -v</code> / <code>-c</code></td><td>Mostra cada arquivo / só os alterados</td><td><code>sudo chown -Rc ana pasta</code></td></tr>
+<tr><td><code>chgrp grupo arq</code></td><td>Muda só o grupo</td><td><code>chgrp equipe plano.txt</code></td></tr>
+<tr><td><code>umask</code> / <code>umask -S</code></td><td>Mostra a máscara (número / letras)</td><td><code>umask</code></td></tr>
+<tr><td><code>umask 077</code></td><td>Muda a máscara neste terminal</td><td><code>umask 022</code></td></tr>
+<tr><td><code>stat -c "%U %G" arq</code></td><td>Mostra dono e grupo</td><td><code>stat -c "%U:%G %n" *</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Devolver o arquivo</h3>
+<p>O arquivo <code>notas.txt</code> na sua pasta ficou com dono root. Complete para devolvê-lo à ana, com o grupo ana:</p>
+<div class="ex-code">sudo chown <input data-answer="ana:ana|ana:" aria-label="dono e grupo"> notas.txt</div>
+</div>
+
+<div class="exercise">
+<h3>2. Site inteiro</h3>
+<p>Complete para entregar a pasta do site, com tudo o que tem dentro, ao usuário e ao grupo <code>www-data</code>:</p>
+<div class="ex-code">sudo chown <input data-answer="-R" aria-label="opção"> www-data:www-data /var/www/loja</div>
+</div>
+
+<div class="exercise">
+<h3>3. Só o grupo</h3>
+<p>Complete para mudar só o grupo de <code>plano.txt</code> para <code>equipe</code>:</p>
+<div class="ex-code"><input data-answer="chgrp equipe|chown :equipe" aria-label="comando e grupo"> plano.txt</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Com <code>umask 022</code>, com quais permissões nasce um arquivo novo?</p>
+<label><input type="radio" name="q4"> <code>755</code> rwxr-xr-x</label>
+<label><input type="radio" name="q4"> <code>644</code> rw-r--r--</label>
+<label><input type="radio" name="q4"> <code>022</code> ----w--w-</label>
+<label><input type="radio" name="q4"> <code>666</code> rw-rw-rw-</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. A ana rodou <code>chown joao arquivo.txt</code> (sem sudo) num arquivo dela. O que acontece?</p>
+<label><input type="radio" name="q5"> O arquivo passa a ser do joao.</label>
+<label><input type="radio" name="q5"> O sistema pede a senha do joao.</label>
+<label><input type="radio" name="q5"> O arquivo é copiado para a pasta do joao.</label>
+<label><input type="radio" name="q5"> Dá "Operation not permitted": só o root pode mudar o dono.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Dono e grupo são a 3ª e a 4ª colunas do <code>ls -l</code>.</li>
+  <li><code>sudo chown usuario:grupo arq</code> muda os dois; <code>-R</code> faz o mesmo numa pasta inteira.</li>
+  <li><code>chgrp</code> muda só o grupo e funciona sem sudo se você for dono do arquivo e participar do grupo.</li>
+  <li>Arquivo criado com sudo fica do root; devolva com <code>sudo chown ana:ana</code>.</li>
+  <li>A umask tira permissões dos arquivos novos: <code>002</code> → 664/775, <code>022</code> → 644/755, <code>077</code> → 600/700.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

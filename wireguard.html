@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu WireGuard — VPN entre notebook e servidor | Guia Ubuntu</title>
+<meta name="description" content="Monte uma VPN WireGuard no Ubuntu: chaves com wg genkey, arquivo wg0.conf dos dois lados explicado, wg-quick, wg show, firewall e solução de problemas.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">WireGuard</span></h1>
+
+<p class="intro">Uma <strong>VPN</strong> (<em>Virtual Private Network</em>, rede privada virtual) cria um "cabo virtual" criptografado entre duas máquinas pela internet. O <strong>WireGuard</strong> é a VPN mais simples do Linux: faz parte do kernel, usa poucas linhas de configuração e é muito rápido. Nesta aula você vai ligar o notebook da Ana ao servidor dela.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Como funciona a troca de chaves pública e privada do WireGuard.</li>
+  <li>O que significa cada linha do <code>wg0.conf</code>, no servidor e no cliente.</li>
+  <li>Como subir, testar e ligar a VPN no boot com <code>wg-quick</code> e <code>systemd</code>.</li>
+  <li>Como ler o <code>wg show</code> e diagnosticar uma VPN que não conecta.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes do comando: o desenho da VPN</h2>
+<p>Hoje o notebook só fala com o servidor pela internet aberta. Com a VPN, os dois ganham uma rede particular nova, <code>10.8.0.0/24</code>, que só eles enxergam:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Máquina</th><th>Endereço na internet</th><th>Endereço na VPN</th><th>Papel</th></tr>
+<tr><td>servidor</td><td><code>203.0.113.10</code> (público, fixo)</td><td><code>10.8.0.1</code></td><td>Espera conexões na porta UDP 51820</td></tr>
+<tr><td>notebook</td><td>muda (casa, café, 4G)</td><td><code>10.8.0.2</code></td><td>Inicia a conexão</td></tr>
+</table>
+</div>
+
+<p>No WireGuard não há usuário e senha. Cada máquina tem um <strong>par de chaves</strong>:</p>
+<ul>
+  <li><strong>Chave privada</strong>: fica só na própria máquina, nunca é copiada. É como a chave da sua casa.</li>
+  <li><strong>Chave pública</strong>: é calculada a partir da privada e pode ser mostrada a qualquer um. É como o seu endereço.</li>
+</ul>
+<p>O servidor guarda a chave <strong>pública</strong> do notebook, e o notebook guarda a <strong>pública</strong> do servidor. Cada lado só aceita quem ele conhece. No WireGuard, cada "outro lado" se chama <strong>peer</strong> (par).</p>
+
+<hr>
+
+<h2>Passo 1: instalar</h2>
+<p>Rode nas <strong>duas</strong> máquinas:</p>
+<pre class="term">$ sudo apt install wireguard
+[sudo: authenticate] Senha:
+Instalando:
+  wireguard
+
+Instalando dependências:
+  wireguard-tools
+…</pre>
+<p>O módulo do WireGuard já vem no kernel do Ubuntu. O pacote traz as ferramentas <code>wg</code> (configurar e ver o estado) e <code>wg-quick</code> (subir e descer a VPN a partir de um arquivo).</p>
+
+<hr>
+
+<h2>Passo 2: gerar as chaves</h2>
+
+<dl class="anatomy">
+  <dt>wg genkey</dt><dd>Gera uma chave privada nova e a escreve na tela.</dd>
+  <dt>| tee privada.key</dt><dd>Grava a chave no arquivo <code>privada.key</code> e repassa adiante.</dd>
+  <dt>| wg pubkey</dt><dd>Lê a chave privada e calcula a pública correspondente.</dd>
+  <dt>&gt; publica.key</dt><dd>Grava a chave pública em <code>publica.key</code>.</dd>
+</dl>
+
+<p>Faça no servidor, como root, dentro de <code>/etc/wireguard</code>. O <code>umask 077</code> garante que só o root consiga ler os arquivos criados (veja <a href="chown.html">chown, chgrp, umask</a>):</p>
+
+<pre class="term" data-host="servidor">$ sudo -i
+#> cd /etc/wireguard
+#> umask 077
+#> wg genkey | tee privada.key | wg pubkey &gt; publica.key
+#> ls -l
+total 8
+-rw------- 1 root root 45 Oct 15 10:40 privada.key     « só o root lê
+-rw------- 1 root root 45 Oct 15 10:40 publica.key
+#> cat publica.key
+qL3vKpXo5nTw8mE2YfR1bJ0cHs7aUdZ6gN4iWkVtM0E=</pre>
+
+<p>Repita o mesmo no notebook. Depois anote as duas chaves <strong>públicas</strong>; você vai precisar delas no outro lado. As chaves desta aula são exemplos: as suas serão diferentes.</p>
+
+<div class="warning">
+<strong>A chave privada é segredo</strong>
+<p>Nunca cole a <code>privada.key</code> em chat, e-mail ou repositório. Quem tiver a chave privada do notebook se passa por ele na VPN.</p>
+</div>
+
+<hr>
+
+<h2>Passo 3: o arquivo do servidor</h2>
+<p>O <code>wg-quick</code> lê <code>/etc/wireguard/NOME.conf</code>. O nome do arquivo vira o nome da interface de rede, aqui <code>wg0</code>.</p>
+
+<pre class="file" data-file="/etc/wireguard/wg0.conf (servidor)">[Interface]
+# Endereço do servidor dentro da VPN
+Address = 10.8.0.1/24
+# Porta UDP em que o servidor espera conexões
+ListenPort = 51820
+# Conteúdo de /etc/wireguard/privada.key DO SERVIDOR
+PrivateKey = 8C4lYpZqv3Ku2xJwTnR0aHs9eDfGb1mLcV6oNiQk3Ws=
+
+[Peer]
+# Notebook da Ana: a chave PÚBLICA dele
+PublicKey = Hm2sY7wQ0vLxN5pT3kR8dJ1aF6cZbE9uG4iVoKqWnXs=
+# Que endereços da VPN pertencem a este peer
+AllowedIPs = 10.8.0.2/32</pre>
+
+<h2>Passo 4: o arquivo do notebook</h2>
+
+<pre class="file" data-file="/etc/wireguard/wg0.conf (notebook)">[Interface]
+Address = 10.8.0.2/24
+# Conteúdo de privada.key DO NOTEBOOK
+PrivateKey = 2A9xQmTv7Lp0sKcWyR4nHd1eJg6bUoZ3fN8iVkEtM1Y=
+
+[Peer]
+# O servidor: a chave PÚBLICA dele
+PublicKey = qL3vKpXo5nTw8mE2YfR1bJ0cHs7aUdZ6gN4iWkVtM0E=
+# Onde encontrar o servidor na internet
+Endpoint = 203.0.113.10:51820
+# Que destinos devem passar pela VPN
+AllowedIPs = 10.8.0.0/24
+# Manda um "sinal de vida" a cada 25 s para atravessar o roteador de casa
+PersistentKeepalive = 25</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Linha</th><th>O que faz</th></tr>
+<tr><td><code>Address</code></td><td>O IP desta máquina dentro da VPN.</td></tr>
+<tr><td><code>ListenPort</code></td><td>Porta UDP de escuta. Necessária no lado que recebe conexões.</td></tr>
+<tr><td><code>PrivateKey</code></td><td>A chave privada <strong>desta</strong> máquina.</td></tr>
+<tr><td><code>PublicKey</code> (no [Peer])</td><td>A chave pública do <strong>outro</strong> lado.</td></tr>
+<tr><td><code>Endpoint</code></td><td>IP ou nome e porta do outro lado na internet. Só o cliente precisa.</td></tr>
+<tr><td><code>AllowedIPs</code></td><td>No servidor: que IPs da VPN são desse peer. No cliente: que destinos vão pelo túnel.</td></tr>
+<tr><td><code>PersistentKeepalive</code></td><td>Mantém o caminho aberto quando o cliente está atrás de um roteador doméstico (NAT).</td></tr>
+</table>
+</div>
+
+<p>Proteja os dois arquivos, que contêm a chave privada:</p>
+<pre class="term">$ sudo chmod 600 /etc/wireguard/wg0.conf</pre>
+
+<hr>
+
+<h2>Passo 5: abrir a porta no firewall do servidor</h2>
+<pre class="term" data-host="servidor">$ sudo ufw allow 51820/udp
+Regra adicionada
+Regra adicionada (v6)</pre>
+<p>Se o servidor estiver numa nuvem, libere também a porta UDP 51820 no painel do provedor. Se você usa nftables, acrescente <code>udp dport 51820 accept</code> na cadeia <code>input</code> (veja <a href="nftables.html">nftables</a>).</p>
+
+<hr>
+
+<h2>Passo 6: subir a VPN</h2>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Criar interfaces de rede exige root.</dd>
+  <dt>wg-quick</dt><dd>Lê o arquivo de configuração e monta tudo.</dd>
+  <dt>up</dt><dd>Liga. O contrário é <code>down</code>.</dd>
+  <dt>wg0</dt><dd>O nome da configuração, ou seja, <code>/etc/wireguard/wg0.conf</code>.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo wg-quick up wg0
+[#] ip link add wg0 type wireguard                   « cria a interface
+[#] wg setconf wg0 /dev/fd/63                        « aplica chaves e peers
+[#] ip -4 address add 10.8.0.1/24 dev wg0            « dá o IP da VPN
+[#] ip link set mtu 1420 up dev wg0                  « liga a interface</pre>
+
+<p>Cada linha <code>[#]</code> é um comando que o <code>wg-quick</code> rodou por você. Faça o mesmo no notebook e teste:</p>
+
+<pre class="term">$ sudo wg-quick up wg0
+[#] ip link add wg0 type wireguard
+[#] wg setconf wg0 /dev/fd/63
+[#] ip -4 address add 10.8.0.2/24 dev wg0
+[#] ip link set mtu 1420 up dev wg0
+$ ping -c 3 10.8.0.1
+PING 10.8.0.1 (10.8.0.1) 56(84) bytes of data.
+64 bytes from 10.8.0.1: icmp_seq=1 ttl=64 time=38.2 ms
+64 bytes from 10.8.0.1: icmp_seq=2 ttl=64 time=37.9 ms
+64 bytes from 10.8.0.1: icmp_seq=3 ttl=64 time=38.4 ms
+
+--- 10.8.0.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+$ ssh ana@10.8.0.1                                   « SSH pelo túnel</pre>
+
+<hr>
+
+<h2>Ver o estado: <code>wg show</code></h2>
+
+<pre class="term" data-host="servidor">$ sudo wg show
+interface: wg0
+  public key: qL3vKpXo5nTw8mE2YfR1bJ0cHs7aUdZ6gN4iWkVtM0E=
+  private key: (hidden)                              « nunca é exibida
+  listening port: 51820
+
+peer: Hm2sY7wQ0vLxN5pT3kR8dJ1aF6cZbE9uG4iVoKqWnXs=
+  endpoint: 198.51.100.23:48712                      « de onde o notebook está vindo
+  allowed ips: 10.8.0.2/32
+  latest handshake: 14 seconds ago                   « a prova de que conectou
+  transfer: 18.43 KiB received, 12.07 KiB sent</pre>
+
+<p>A linha mais importante é <code>latest handshake</code> ("último aperto de mão"). Se ela não aparece, os dois lados <strong>nunca</strong> conseguiram conversar. Os números de <code>transfer</code> mostram quanto tráfego já passou pelo túnel.</p>
+
+<hr>
+
+<h2>Passo 7: ligar no boot</h2>
+<p>O <code>wg-quick up</code> vale até reiniciar. Para a VPN subir sozinha, use o serviço <code>wg-quick@</code> do systemd. O que vem depois do <code>@</code> é o nome da configuração:</p>
+
+<pre class="term" data-host="servidor">$ sudo wg-quick down wg0
+[#] ip link delete dev wg0
+$ sudo systemctl enable --now wg-quick@wg0
+Created symlink '/etc/systemd/system/multi-user.target.wants/wg-quick@wg0.service' → '/usr/lib/systemd/system/wg-quick@.service'.
+$ systemctl is-active wg-quick@wg0
+active</pre>
+
+<p>Derrubamos antes a VPN que estava de pé, porque o serviço não sobe uma interface que já existe.</p>
+
+<hr>
+
+<h2>Formas diferentes de fazer</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td><code>wg-quick</code></td><td><code>sudo wg-quick up wg0</code></td><td>Testar e ligar ou desligar à mão.</td></tr>
+<tr><td>systemd</td><td><code>sudo systemctl enable --now wg-quick@wg0</code></td><td>Servidores e VPN que deve estar sempre ligada.</td></tr>
+<tr><td>NetworkManager</td><td><code>nmcli connection import type wireguard file wg0.conf</code></td><td>Notebook com desktop: a VPN aparece no menu de rede.</td></tr>
+<tr><td>Adicionar peer sem reiniciar</td><td><code>sudo wg set wg0 peer CHAVE allowed-ips 10.8.0.3/32</code></td><td>Incluir mais um cliente com a VPN ligada (lembre de salvar no arquivo também).</td></tr>
+</table>
+</div>
+
+<h3>Variação: mandar toda a internet do notebook pela VPN</h3>
+<p>Com <code>AllowedIPs = 0.0.0.0/0</code> no notebook, todo o tráfego vai pelo servidor, como numa VPN comercial. O servidor precisa então repassar pacotes (<em>forward</em>) e mascarar o endereço (NAT). Isso exige ligar <code>net.ipv4.ip_forward=1</code> e regras de NAT no servidor; teste antes com a VPN simples desta aula funcionando.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Não aparece "latest handshake"</strong>
+<pre class="term" data-host="servidor">$ sudo wg show
+interface: wg0
+  public key: qL3vKpXo5nTw8mE2YfR1bJ0cHs7aUdZ6gN4iWkVtM0E=
+  private key: (hidden)
+  listening port: 51820
+
+peer: Hm2sY7wQ0vLxN5pT3kR8dJ1aF6cZbE9uG4iVoKqWnXs=
+  allowed ips: 10.8.0.2/32                           « sem endpoint e sem handshake</pre>
+<p><strong>O que aconteceu:</strong> os pacotes do notebook não chegam ao servidor, ou chegam com a chave errada.</p>
+<p><strong>Como confirmar e resolver:</strong></p>
+<ol>
+  <li>No servidor, a porta está aberta? <code>sudo ufw status | grep 51820</code> e o painel da nuvem.</li>
+  <li>O <code>Endpoint</code> do notebook tem o IP e a porta certos?</li>
+  <li>As chaves estão trocadas? Em cada <code>[Peer]</code> vai a chave <strong>pública</strong> do <strong>outro</strong> lado. Compare com <code>sudo wg show wg0 public-key</code> em cada máquina.</li>
+</ol>
+</div>
+
+<div class="cenario">
+<strong>"already exists"</strong>
+<pre class="term">$ sudo wg-quick up wg0
+wg-quick: `wg0' already exists</pre>
+<p><strong>O que aconteceu:</strong> a VPN já está ligada, à mão ou pelo serviço.</p>
+<p><strong>Como resolver:</strong> para recarregar, use <code>sudo wg-quick down wg0 &amp;&amp; sudo wg-quick up wg0</code>, ou <code>sudo systemctl restart wg-quick@wg0</code> se ela foi ligada pelo systemd.</p>
+</div>
+
+<div class="cenario">
+<strong>Aviso "world accessible"</strong>
+<pre class="term">$ sudo wg-quick up wg0
+Warning: `/etc/wireguard/wg0.conf' is world accessible</pre>
+<p><strong>O que aconteceu:</strong> qualquer usuário da máquina consegue ler o arquivo, inclusive a chave privada.</p>
+<p><strong>Como resolver:</strong> <code>sudo chmod 600 /etc/wireguard/wg0.conf</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O handshake acontece, mas o ping não volta</strong>
+<p><strong>O que aconteceu:</strong> quase sempre é o <code>AllowedIPs</code>. No servidor ele precisa conter o IP do notebook na VPN (<code>10.8.0.2/32</code>); no notebook, o destino que você quer alcançar (<code>10.8.0.0/24</code>).</p>
+<p><strong>Como resolver:</strong> confira as duas pontas com <code>sudo wg show</code> e veja as rotas com <code>ip route | grep wg0</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>wg genkey</code></td><td>Gera uma chave privada</td></tr>
+<tr><td><code>wg pubkey</code></td><td>Calcula a chave pública a partir da privada (lida da entrada)</td></tr>
+<tr><td><code>wg show</code></td><td>Estado de todas as interfaces e peers</td></tr>
+<tr><td><code>wg show wg0 public-key</code></td><td>Só a chave pública da interface</td></tr>
+<tr><td><code>wg set wg0 peer CHAVE allowed-ips IP/32</code></td><td>Adiciona ou altera um peer na hora</td></tr>
+<tr><td><code>wg set wg0 peer CHAVE remove</code></td><td>Remove um peer</td></tr>
+<tr><td><code>wg-quick up|down wg0</code></td><td>Liga ou desliga a partir do arquivo</td></tr>
+<tr><td><code>wg-quick save wg0</code></td><td>Salva no arquivo a configuração em uso</td></tr>
+<tr><td><code>systemctl enable --now wg-quick@wg0</code></td><td>Liga agora e em todo boot</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Gerar o par de chaves</h3>
+<p>Complete para gerar a chave privada, guardá-la e calcular a pública:</p>
+<div class="ex-code">wg genkey | tee privada.key | wg <input data-answer="pubkey" aria-label="subcomando"> &gt; publica.key</div>
+</div>
+
+<div class="exercise">
+<h3>2. Ligar no boot</h3>
+<p>Complete para ativar a VPN <code>wg0</code> agora e em todo boot:</p>
+<div class="ex-code">sudo systemctl enable --now <input data-answer="wg-quick@wg0" aria-label="serviço"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Porta do firewall</h3>
+<p>Complete para liberar a porta padrão do WireGuard no ufw:</p>
+<div class="ex-code">sudo ufw allow <input data-answer="51820/udp" aria-label="porta"></div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. No <code>[Peer]</code> do arquivo do servidor, qual chave vai em <code>PublicKey</code>?</p>
+<label><input type="radio" name="q4"> A chave privada do servidor.</label>
+<label><input type="radio" name="q4"> A chave pública do servidor.</label>
+<label><input type="radio" name="q4"> A chave pública do notebook.</label>
+<label><input type="radio" name="q4"> A chave privada do notebook.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. O <code>wg show</code> não mostra "latest handshake". O que isso indica?</p>
+<label><input type="radio" name="q5"> Os dois lados nunca conseguiram conversar.</label>
+<label><input type="radio" name="q5"> A VPN está funcionando normalmente.</label>
+<label><input type="radio" name="q5"> A chave privada foi exibida por engano.</label>
+<label><input type="radio" name="q5"> O ping está bloqueado, mas o resto passa.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Cada máquina tem um par de chaves; em <code>[Peer]</code> vai a chave <strong>pública do outro lado</strong>.</li>
+  <li><code>/etc/wireguard/wg0.conf</code> vira a interface <code>wg0</code>; proteja-o com <code>chmod 600</code>.</li>
+  <li><code>wg-quick up wg0</code> liga; <code>systemctl enable --now wg-quick@wg0</code> liga no boot.</li>
+  <li><code>wg show</code> → "latest handshake" é a prova de que a VPN conectou.</li>
+  <li>Sem handshake: confira firewall (UDP 51820), <code>Endpoint</code> e chaves.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projeto: Servidor Web do Zero | Guia Ubuntu</title>
+<meta name="description" content="Laboratório passo a passo: monte um servidor web Ubuntu com usuário próprio, SSH por chave, firewall ufw, nginx, site em /var/www, logs e HTTPS.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Projeto <span class="hl">Servidor Web do Zero</span></h1>
+
+<p class="intro">Neste laboratório você transforma uma VM recém-criada num servidor web de verdade, configurado como um administrador faria. São nove etapas, e cada uma termina com uma conferência.</p>
+
+<div class="tip">
+<strong>Ao terminar você terá</strong>
+<ul>
+  <li>Uma usuária própria com <code>sudo</code>, acessando o servidor por <strong>SSH com chave</strong>, sem senha.</li>
+  <li>Um <strong>firewall</strong> que só deixa passar SSH e web.</li>
+  <li>O <strong>nginx</strong> servindo o seu site, em <code>http://meusite.lab</code> e <code>https://meusite.lab</code>.</li>
+  <li>Logs de acesso e de erro separados para o seu site.</li>
+</ul>
+</div>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Item</th><th>Detalhe</th></tr>
+<tr><td>Tempo estimado</td><td>1h30</td></tr>
+<tr><td>Nível</td><td>Intermediário para avançado</td></tr>
+<tr><td>Pré-requisitos</td><td><a href="projetos.html">Como Usar os Projetos</a>, <a href="sudo.html">sudo</a>, <a href="usuarios.html">Usuários e Grupos</a>, <a href="ssh.html">SSH</a>, <a href="ufw.html">ufw</a>, <a href="nginx.html">nginx</a></td></tr>
+<tr><td>Onde roda</td><td>VM <code>lab</code> do Multipass + seu notebook</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Preste atenção no prompt</strong>
+<p><code>ana@notebook</code> é o seu computador. <code>ubuntu@lab</code> e <code>ana@lab</code> são a VM. O IP usado aqui é <code>10.85.140.27</code>; troque pelo IP que o <code>multipass list</code> mostrar para você.</p>
+</div>
+
+<hr>
+
+<h2>As etapas</h2>
+
+<ol class="passo">
+
+<li>
+<h3>Preparar a VM</h3>
+<p><strong>O que vamos fazer e por quê:</strong> criar a VM, tirar um snapshot (para poder recomeçar) e atualizar o sistema. Um servidor novo sempre começa atualizado, porque as imagens podem ter semanas de idade.</p>
+
+<pre class="term">$ multipass launch 26.04 --name lab --disk 10G --memory 2G
+Launched: lab
+$ multipass stop lab
+$ multipass snapshot lab --name limpo
+Snapshot taken: lab.limpo
+$ multipass start lab
+$ multipass list
+Name                    State             IPv4             Image
+lab                     Running           10.85.140.27     Ubuntu 26.04 LTS
+$ multipass shell lab</pre>
+
+<p>Agora, dentro da VM:</p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo apt update &amp;&amp; sudo apt upgrade -y
+Hit:1 http://archive.ubuntu.com/ubuntu resolute InRelease
+Get:2 http://security.ubuntu.com/ubuntu resolute-security InRelease [126 kB]
+…
+Reading package lists... Done
+…
+0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.   « os números variam</pre>
+
+<p><strong>Confira se deu certo:</strong> <code>apt list --upgradable</code> não deve listar nada além de <code>Listing... Done</code>.</p>
+</li>
+
+<li>
+<h3>Criar a sua usuária com sudo</h3>
+<p><strong>O que vamos fazer e por quê:</strong> o usuário <code>ubuntu</code> é genérico e existe em toda VM do Multipass. Num servidor real, cada administrador tem a própria conta: assim os logs mostram quem fez o quê, e é possível tirar o acesso de uma pessoa sem afetar as outras.</p>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Roda como administrador, porque criar usuários mexe em <code>/etc/passwd</code>.</dd>
+  <dt>adduser</dt><dd>Cria o usuário de forma interativa: pasta pessoal, senha e dados.</dd>
+  <dt>ana</dt><dd>O nome da nova conta.</dd>
+</dl>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo adduser ana
+info: Adding user `ana' ...
+info: Selecting UID/GID from range 1000 to 59999 ...
+info: Adding new group `ana' (1001) ...
+info: Adding new user `ana' (1001) with group `ana (1001)' ...
+info: Creating home directory `/home/ana' ...
+info: Copying files from `/etc/skel' ...
+New password:                                     « digite a senha; nada aparece na tela
+Retype new password:
+passwd: password updated successfully
+Changing the user information for ana
+Enter the new value, or press ENTER for the default
+	Full Name []: Ana
+	Room Number []:
+	Work Phone []:
+	Home Phone []:
+	Other []:
+Is the information correct? [Y/n] y
+$ sudo usermod -aG sudo ana
+$ groups ana
+ana : ana sudo users                              « "sudo" na lista = pode administrar</pre>
+
+<p>O <code>-aG</code> significa "acrescente (<em>append</em>) ao grupo". Sem o <code>-a</code>, a usuária seria removida de todos os outros grupos.</p>
+
+<p><strong>Confira se deu certo:</strong> entre como <code>ana</code> e use o <code>sudo</code>:</p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ su - ana
+Password:                                         « a senha da ana, criada agora há pouco</pre>
+
+<p>O prompt muda para <code>ana@lab</code>. A partir daqui você é a ana:</p>
+
+<pre class="term" data-user="ana" data-host="lab">$ sudo whoami
+[sudo: authenticate] Password:
+root                                              « o sudo funcionou
+$ exit
+logout</pre>
+
+<div class="cenario">
+<strong>Se deu errado: "ana is not in the sudoers file" ou "I'm sorry ana"</strong>
+<p><strong>O que aconteceu:</strong> o <code>usermod</code> não rodou, ou a sessão da ana foi aberta antes de ela entrar no grupo. Grupos novos só valem a partir do próximo login.</p>
+<p><strong>Como resolver:</strong> confira com <code>groups ana</code>. Se <code>sudo</code> não aparecer, rode de novo <code>sudo usermod -aG sudo ana</code> como <code>ubuntu</code>. Depois saia (<code>exit</code>) e entre de novo como <code>ana</code>.</p>
+</div>
+</li>
+
+<li>
+<h3>Acesso por SSH com chave</h3>
+<p><strong>O que vamos fazer e por quê:</strong> senhas podem ser adivinhadas; uma chave SSH, não. Você gera um par de chaves no notebook: a <strong>privada</strong> fica com você, e a <strong>pública</strong> vai para o servidor. As VMs do Multipass já vêm com o login por senha desligado, então a chave é o único jeito de entrar por SSH.</p>
+
+<p>No <strong>notebook</strong>, veja se você já tem uma chave. Se não tiver, crie uma:</p>
+
+<pre class="term">$ ls ~/.ssh/id_ed25519.pub
+ls: não é possível acessar '/home/ana/.ssh/id_ed25519.pub': Arquivo ou diretório inexistente
+$ ssh-keygen -t ed25519 -C "ana@notebook"
+Generating public/private ed25519 key pair.
+Enter file in which to save the key (/home/ana/.ssh/id_ed25519):     « Enter aceita o padrão
+Enter passphrase for "/home/ana/.ssh/id_ed25519" (empty for no passphrase):   « uma frase-senha protege a chave
+Enter same passphrase again:
+Your identification has been saved in /home/ana/.ssh/id_ed25519
+Your public key has been saved in /home/ana/.ssh/id_ed25519.pub
+…</pre>
+
+<p>Num servidor comum, você usaria <code>ssh-copy-id</code>. Como a VM não aceita senha por SSH, vamos copiar a chave com o próprio Multipass:</p>
+
+<pre class="term">$ multipass transfer ~/.ssh/id_ed25519.pub lab:/tmp/chave.pub
+$ multipass shell lab</pre>
+
+<p>Dentro da VM, coloque a chave no lugar certo, com o dono e as permissões que o SSH exige:</p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo install -d -m 700 -o ana -g ana /home/ana/.ssh
+$ sudo install -m 600 -o ana -g ana /tmp/chave.pub /home/ana/.ssh/authorized_keys
+$ sudo ls -la /home/ana/.ssh
+total 12
+drwx------ 2 ana  ana  4096 Oct 15 10:40 .
+drwxr-x--- 3 ana  ana  4096 Oct 15 10:35 ..
+-rw------- 1 ana  ana    94 Oct 15 10:40 authorized_keys     « 600: só a ana lê e escreve
+$ exit</pre>
+
+<dl class="anatomy">
+  <dt>install</dt><dd>Copia arquivos ou cria pastas já com dono e permissão, num passo só.</dd>
+  <dt>-d</dt><dd>Cria uma pasta (<em>directory</em>) em vez de copiar um arquivo.</dd>
+  <dt>-m 700</dt><dd>Permissão (<em>mode</em>): só o dono entra.</dd>
+  <dt>-o ana -g ana</dt><dd>Dono (<em>owner</em>) e grupo.</dd>
+  <dt>/home/ana/.ssh</dt><dd>A pasta onde o SSH procura as chaves da ana.</dd>
+</dl>
+
+<p>Agora, do notebook, conecte direto como <code>ana</code>:</p>
+
+<pre class="term">$ ssh ana@10.85.140.27
+The authenticity of host '10.85.140.27 (10.85.140.27)' can't be established.
+ED25519 key fingerprint is SHA256:Xq3n…kP8.
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes     « só na primeira vez
+Warning: Permanently added '10.85.140.27' (ED25519) to the list of known hosts.
+Welcome to Ubuntu 26.04 LTS (GNU/Linux 7.0.0-14-generic x86_64)
+…</pre>
+
+<p><strong>Confira se deu certo:</strong> rode um comando remoto. Se aparecer <code>ana</code> sem pedir senha do servidor, a chave funciona:</p>
+
+<pre class="term">$ ssh ana@10.85.140.27 whoami
+ana</pre>
+
+<h4>Endurecer o SSH</h4>
+<p>Vamos garantir, num arquivo nosso, que ninguém entra como root nem por senha. Arquivos em <code>/etc/ssh/sshd_config.d/</code> são lidos em ordem alfabética, e o <strong>primeiro</strong> valor encontrado vale. Por isso o nome começa com <code>10-</code>.</p>
+
+<pre class="term" data-user="ana" data-host="lab">$ sudo nano /etc/ssh/sshd_config.d/10-seguranca.conf</pre>
+
+<pre class="file" data-file="/etc/ssh/sshd_config.d/10-seguranca.conf"># Ninguém entra direto como root
+PermitRootLogin no
+# Só chave, nunca senha
+PasswordAuthentication no
+KbdInteractiveAuthentication no</pre>
+
+<pre class="term" data-user="ana" data-host="lab">$ sudo sshd -t
+« testa a configuração; silêncio = sem erro
+$ sudo systemctl reload ssh</pre>
+
+<div class="warning">
+<strong>Não feche a sessão atual</strong>
+<p>Antes de sair, abra <strong>outro</strong> terminal no notebook e teste <code>ssh ana@10.85.140.27</code>. Se a nova conexão falhar, você ainda tem a antiga aberta para consertar.</p>
+</div>
+
+<div class="cenario">
+<strong>Se deu errado: "Permission denied (publickey)"</strong>
+<pre class="term">$ ssh ana@10.85.140.27
+ana@10.85.140.27: Permission denied (publickey).</pre>
+<p><strong>O que aconteceu:</strong> o servidor não aceitou a chave. As causas mais comuns são a chave no arquivo errado, ou a pasta <code>.ssh</code> e o <code>authorized_keys</code> com dono ou permissão errados. O SSH recusa chaves em pastas que outras pessoas podem alterar.</p>
+<p><strong>Como confirmar:</strong> <code>ssh -v ana@10.85.140.27</code> mostra quais chaves o notebook ofereceu. Na VM, como <code>ubuntu</code>: <code>sudo ls -la /home/ana/.ssh</code> e <code>sudo journalctl -u ssh -n 20</code>.</p>
+<p><strong>Como resolver:</strong> refaça os dois comandos <code>install</code> desta etapa.</p>
+</div>
+</li>
+
+<li>
+<h3>Ligar o firewall</h3>
+<p><strong>O que vamos fazer e por quê:</strong> por padrão, o firewall vem desligado. Vamos bloquear tudo o que chega e liberar só o SSH. <strong>Libere o SSH antes de ligar</strong>; senão você se tranca para fora.</p>
+
+<pre class="term" data-user="ana" data-host="lab">$ sudo ufw status
+Status: inactive
+$ sudo ufw app list
+Available applications:
+  OpenSSH
+$ sudo ufw allow OpenSSH
+Rules updated
+Rules updated (v6)
+$ sudo ufw enable
+Command may disrupt existing ssh connections. Proceed with operation (y|n)? y
+Firewall is active and enabled on system startup</pre>
+
+<p><strong>Confira se deu certo:</strong></p>
+
+<pre class="term" data-user="ana" data-host="lab">$ sudo ufw status
+Status: active
+
+To                         Action      From
+--                         ------      ----
+OpenSSH                    ALLOW       Anywhere
+OpenSSH (v6)               ALLOW       Anywhere (v6)</pre>
+
+<p>Do notebook, uma nova conexão <code>ssh ana@10.85.140.27</code> deve continuar funcionando.</p>
+
+<div class="cenario">
+<strong>Se deu errado: você se trancou para fora</strong>
+<p><strong>O que aconteceu:</strong> o firewall foi ligado sem a regra do SSH.</p>
+<p><strong>Como resolver:</strong> no laboratório, o Multipass tem uma porta dos fundos que não passa pela rede: <code>multipass exec lab -- sudo ufw allow OpenSSH</code>. Num servidor real, você precisaria do console do provedor de nuvem. É por isso que a ordem importa.</p>
+</div>
+</li>
+
+<li>
+<h3>Instalar o nginx</h3>
+<p><strong>O que vamos fazer e por quê:</strong> o <a href="nginx.html">nginx</a> é o programa que responde aos navegadores. Depois de instalado, liberamos as portas 80 (HTTP) e 443 (HTTPS) no firewall.</p>
+
+<pre class="term" data-user="ana" data-host="lab">$ sudo apt install -y nginx
+…
+Setting up nginx (1.28.0-1ubuntu1) ...               « a versão varia
+$ systemctl is-active nginx
+active
+$ sudo ufw allow 'Nginx Full'
+Rules updated
+Rules updated (v6)</pre>
+
+<p>O nome <code>Nginx Full</code> está entre aspas por causa do espaço. Ele libera as portas 80 e 443 de uma vez.</p>
+
+<p><strong>Confira se deu certo:</strong> do <strong>notebook</strong>, peça só o cabeçalho da página com <code>curl -I</code>:</p>
+
+<pre class="term">$ curl -I http://10.85.140.27
+HTTP/1.1 200 OK                                     « 200 = a página existe e foi entregue
+Server: nginx/1.28.0 (Ubuntu)
+Content-Type: text/html
+…</pre>
+
+<div class="cenario">
+<strong>Se deu errado: "Connection timed out" ou "Failed to connect"</strong>
+<p><strong>O que aconteceu:</strong> ou o firewall não liberou a porta 80, ou o nginx não está rodando.</p>
+<p><strong>Como confirmar:</strong> na VM, <code>sudo ufw status</code> deve mostrar <code>Nginx Full</code>, e <code>sudo ss -tlnp | grep :80</code> deve mostrar o nginx escutando.</p>
+<p><strong>Como resolver:</strong> <code>sudo ufw allow 'Nginx Full'</code> e <code>sudo systemctl start nginx</code>.</p>
+</div>
+</li>
+
+<li>
+<h3>Publicar o seu site</h3>
+<p><strong>O que vamos fazer e por quê:</strong> cada site ganha uma pasta em <code>/var/www</code> e um arquivo de configuração próprio. Assim, um servidor pode hospedar vários sites sem misturar nada.</p>
+
+<p>Crie a pasta e a página. A pasta fica com a <code>ana</code> como dona, para você editar sem <code>sudo</code>:</p>
+
+<pre class="term" data-user="ana" data-host="lab">$ sudo mkdir -p /var/www/meusite
+$ sudo chown -R ana:ana /var/www/meusite
+$ nano /var/www/meusite/index.html</pre>
+
+<pre class="file" data-file="/var/www/meusite/index.html">&lt;!doctype html&gt;
+&lt;html lang="pt-BR"&gt;
+&lt;head&gt;&lt;meta charset="utf-8"&gt;&lt;title&gt;Meu site&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;
+  &lt;h1&gt;Funcionou!&lt;/h1&gt;
+  &lt;p&gt;Servidor montado no laboratório do Guia Ubuntu.&lt;/p&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre>
+
+<p>Agora, a configuração do site no nginx (um <em>server block</em>):</p>
+
+<pre class="term" data-user="ana" data-host="lab">$ sudo nano /etc/nginx/sites-available/meusite</pre>
+
+<pre class="file" data-file="/etc/nginx/sites-available/meusite">server {
+    listen 80;
+    listen [::]:80;
+    server_name meusite.lab;          # o nome do site
+
+    root /var/www/meusite;            # a pasta com os arquivos
+    index index.html;
+
+    access_log /var/log/nginx/meusite.access.log;
+    error_log  /var/log/nginx/meusite.error.log;
+
+    location / {
+        try_files $uri $uri/ =404;    # arquivo, pasta ou "não encontrado"
+    }
+}</pre>
+
+<p>No Ubuntu, um site só fica ativo quando existe um <a href="links.html">link</a> para ele em <code>sites-enabled</code>. Vamos ativar o nosso e desativar o site padrão:</p>
+
+<pre class="term" data-user="ana" data-host="lab">$ sudo ln -s /etc/nginx/sites-available/meusite /etc/nginx/sites-enabled/
+$ sudo rm /etc/nginx/sites-enabled/default
+« apaga só o link; o original continua em sites-available
+$ sudo nginx -t
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+$ sudo systemctl reload nginx</pre>
+
+<div class="tip">
+<strong>Sempre <code>nginx -t</code> antes do reload</strong>
+<p>O <code>-t</code> testa a configuração sem aplicar. Se houver erro, o site atual continua no ar e você conserta com calma.</p>
+</div>
+
+<p>O nome <code>meusite.lab</code> não existe na internet. Para o notebook encontrá-lo, adicione uma linha no <code>/etc/hosts</code> do <strong>notebook</strong>:</p>
+
+<pre class="term">$ echo "10.85.140.27 meusite.lab" | sudo tee -a /etc/hosts
+[sudo: authenticate] Senha:
+10.85.140.27 meusite.lab</pre>
+
+<p><strong>Confira se deu certo:</strong></p>
+
+<pre class="term">$ curl http://meusite.lab
+&lt;!doctype html&gt;
+&lt;html lang="pt-BR"&gt;
+…
+  &lt;h1&gt;Funcionou!&lt;/h1&gt;                                 « a SUA página, não a do nginx</pre>
+
+<p>Abra <code>http://meusite.lab</code> no navegador do notebook também.</p>
+
+<div class="cenario">
+<strong>Se deu errado: aparece "Welcome to nginx!" em vez do seu site</strong>
+<p><strong>O que aconteceu:</strong> o site padrão ainda está ativo e respondeu primeiro.</p>
+<p><strong>Como confirmar:</strong> <code>ls -l /etc/nginx/sites-enabled/</code> deve mostrar só <code>meusite</code>.</p>
+<p><strong>Como resolver:</strong> <code>sudo rm /etc/nginx/sites-enabled/default</code> e <code>sudo systemctl reload nginx</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Se deu errado: "403 Forbidden"</strong>
+<p><strong>O que aconteceu:</strong> o nginx (que roda como <code>www-data</code>) não consegue ler a pasta, ou não há <code>index.html</code>.</p>
+<p><strong>Como confirmar:</strong> <code>sudo tail /var/log/nginx/meusite.error.log</code> mostra o motivo, por exemplo <code>permission denied</code> ou <code>directory index … is forbidden</code>.</p>
+<p><strong>Como resolver:</strong> confira o nome do arquivo e use <code>ls -ld /var/www/meusite</code>: a pasta precisa de permissão de leitura e entrada para "outros" (<code>drwxr-xr-x</code>).</p>
+</div>
+</li>
+
+<li>
+<h3>Ler os logs</h3>
+<p><strong>O que vamos fazer e por quê:</strong> todo acesso ao site vira uma linha no log. É assim que você descobre quem acessou, o que pediu e o que deu errado.</p>
+
+<pre class="term" data-user="ana" data-host="lab">$ sudo tail -f /var/log/nginx/meusite.access.log</pre>
+
+<p>Deixe esse comando rodando e, no notebook, acesse uma página que existe e outra que não existe:</p>
+
+<pre class="term">$ curl -s -o /dev/null -w "%{http_code}\n" http://meusite.lab/
+200
+$ curl -s -o /dev/null -w "%{http_code}\n" http://meusite.lab/nada
+404</pre>
+
+<p>Na VM, aparecem duas linhas novas:</p>
+
+<pre class="term" data-user="ana" data-host="lab">$ sudo tail -f /var/log/nginx/meusite.access.log
+10.85.140.1 - - [15/Oct/2026:13:42:13 +0000] "GET / HTTP/1.1" 200 214 "-" "curl/8.14.1"
+10.85.140.1 - - [15/Oct/2026:13:42:20 +0000] "GET /nada HTTP/1.1" 404 162 "-" "curl/8.14.1"
+^C                                                  « Ctrl+C para parar de acompanhar</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Trecho</th><th>Significado</th></tr>
+<tr><td><code>10.85.140.1</code></td><td>IP de quem acessou (o notebook, visto pela VM)</td></tr>
+<tr><td><code>[15/Oct/2026:13:42:13 +0000]</code></td><td>Data e hora, no fuso UTC</td></tr>
+<tr><td><code>"GET /nada HTTP/1.1"</code></td><td>O que foi pedido</td></tr>
+<tr><td><code>404</code></td><td>A resposta: 200 = ok, 404 = não existe, 403 = proibido, 500 = erro no servidor</td></tr>
+<tr><td><code>162</code></td><td>Tamanho da resposta em bytes</td></tr>
+<tr><td><code>"curl/8.14.1"</code></td><td>O programa que fez o pedido (navegador, curl, robô…)</td></tr>
+</table>
+</div>
+
+<p><strong>Confira se deu certo:</strong> conte quantos erros 404 já aconteceram:</p>
+
+<pre class="term" data-user="ana" data-host="lab">$ sudo awk '$9 == 404' /var/log/nginx/meusite.access.log | wc -l
+1</pre>
+</li>
+
+<li>
+<h3>HTTPS com certificado autoassinado</h3>
+<p><strong>O que vamos fazer e por quê:</strong> o HTTPS cifra a conversa entre o navegador e o servidor. Um certificado de verdade exige um domínio público; no laboratório, criamos um <strong>autoassinado</strong>: ele cifra igual, mas o navegador avisa que não conhece quem o assinou.</p>
+
+<pre class="term" data-user="ana" data-host="lab">$ sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/ssl/private/meusite.key \
+    -out /etc/ssl/certs/meusite.crt \
+    -subj "/CN=meusite.lab"
+…</pre>
+
+<dl class="anatomy">
+  <dt>openssl req -x509</dt><dd>Gera um certificado autoassinado.</dd>
+  <dt>-nodes</dt><dd>Sem senha na chave; senão o nginx pediria a senha a cada reinício.</dd>
+  <dt>-days 365</dt><dd>Validade de um ano.</dd>
+  <dt>-newkey rsa:2048</dt><dd>Cria uma chave nova junto.</dd>
+  <dt>-keyout / -out</dt><dd>Onde salvar a chave privada e o certificado.</dd>
+  <dt>-subj "/CN=meusite.lab"</dt><dd>Para qual nome o certificado vale.</dd>
+</dl>
+
+<p>Acrescente um segundo bloco <code>server</code> no fim de <code>/etc/nginx/sites-available/meusite</code>:</p>
+
+<pre class="file" data-file="/etc/nginx/sites-available/meusite (acrescentar no fim)">server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name meusite.lab;
+
+    ssl_certificate     /etc/ssl/certs/meusite.crt;
+    ssl_certificate_key /etc/ssl/private/meusite.key;
+
+    root /var/www/meusite;
+    index index.html;
+    access_log /var/log/nginx/meusite.access.log;
+    error_log  /var/log/nginx/meusite.error.log;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}</pre>
+
+<pre class="term" data-user="ana" data-host="lab">$ sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful</pre>
+
+<p><strong>Confira se deu certo:</strong> do notebook. Sem <code>-k</code>, o curl recusa o certificado; com <code>-k</code> (de <em>insecure</em>), ele aceita mesmo assim:</p>
+
+<pre class="term">$ curl https://meusite.lab
+curl: (60) SSL certificate problem: self-signed certificate     « esperado: ninguém conhecido assinou
+…
+$ curl -sk https://meusite.lab | grep h1
+  &lt;h1&gt;Funcionou!&lt;/h1&gt;</pre>
+
+<h4>E com um domínio de verdade?</h4>
+<p>Num servidor na internet, com um domínio apontando para o IP dele e as portas 80 e 443 abertas, o certificado é gratuito e reconhecido por todos os navegadores. O <code>certbot</code>, do Let's Encrypt, faz tudo, inclusive a renovação automática. Veja <a href="https.html">HTTPS (Let's Encrypt)</a>.</p>
+
+<pre class="term" data-user="ana" data-host="servidor">$ sudo apt install -y certbot python3-certbot-nginx
+$ sudo certbot --nginx -d meudominio.com.br</pre>
+</li>
+
+<li>
+<h3>Revisão final</h3>
+<p><strong>O que vamos fazer e por quê:</strong> conferir tudo de uma vez, como faria antes de entregar o servidor a alguém.</p>
+
+<pre class="term">$ ssh ana@10.85.140.27 'sudo ufw status | head -1; systemctl is-active nginx ssh'
+Status: active
+active
+active
+$ curl -s -o /dev/null -w "%{http_code}\n" http://meusite.lab
+200
+$ curl -sk -o /dev/null -w "%{http_code}\n" https://meusite.lab
+200
+$ ssh root@10.85.140.27
+root@10.85.140.27: Permission denied (publickey).                « root bloqueado, como queríamos</pre>
+</li>
+
+</ol>
+
+<hr>
+
+<h2>O que você aprendeu</h2>
+<ul>
+  <li>Criar um administrador com <code>adduser</code> + <code>usermod -aG sudo</code>.</li>
+  <li>Instalar uma chave SSH com dono e permissões corretas, e desligar senha e root no SSH.</li>
+  <li>Ligar o ufw <strong>depois</strong> de liberar o SSH.</li>
+  <li>Instalar o nginx, criar um <em>server block</em>, ativá-lo com um link e testar com <code>nginx -t</code>.</li>
+  <li>Ler o log de acesso e interpretar os códigos 200, 403 e 404.</li>
+  <li>Gerar um certificado autoassinado e servir o site em HTTPS.</li>
+</ul>
+
+<h2>Desafios extras</h2>
+<ol>
+  <li>Redirecione todo acesso HTTP para HTTPS com <code>return 301 https://$host$request_uri;</code> no bloco da porta 80.</li>
+  <li>Crie um segundo site, <code>blog.lab</code>, na mesma VM, com pasta e logs próprios.</li>
+  <li>Instale o <code>fail2ban</code> e veja-o bloquear tentativas de login (veja <a href="seguranca.html">Segurança do Servidor</a>).</li>
+  <li>Faça um script que mostre, por dia, quantos acessos o site recebeu.</li>
+</ol>
+
+<h2>Desfazer e limpar</h2>
+<p>No notebook, remova a linha do <code>/etc/hosts</code> e apague a VM (ou volte ao snapshot, para reaproveitá-la):</p>
+
+<pre class="term">$ sudo sed -i '/meusite.lab/d' /etc/hosts
+$ ssh-keygen -R 10.85.140.27
+« esquece a "impressão digital" do servidor
+$ multipass delete --purge lab</pre>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Testar antes de aplicar</h3>
+<p>Complete o comando que testa a configuração do nginx sem aplicá-la:</p>
+<div class="ex-code">sudo nginx <input data-answer="-t" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Liberar o SSH no firewall</h3>
+<p>Complete o comando que deve rodar <strong>antes</strong> de <code>sudo ufw enable</code>:</p>
+<div class="ex-code">sudo ufw allow <input data-answer="OpenSSH|ssh|22|22/tcp" aria-label="regra"></div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">3. Por que usamos <code>usermod -aG sudo ana</code> e não <code>usermod -G sudo ana</code>?</p>
+<label><input type="radio" name="q3"> Porque <code>-G</code> não existe.</label>
+<label><input type="radio" name="q3"> Porque <code>-a</code> deixa o comando mais rápido.</label>
+<label><input type="radio" name="q3"> Porque sem <code>-a</code> a ana sairia de todos os outros grupos.</label>
+<label><input type="radio" name="q3"> Porque <code>-a</code> cria a usuária se ela não existir.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">4. O log mostra <code>"GET /admin HTTP/1.1" 404</code>. O que isso quer dizer?</p>
+<label><input type="radio" name="q4"> Alguém pediu a página /admin e ela não existe.</label>
+<label><input type="radio" name="q4"> O servidor caiu.</label>
+<label><input type="radio" name="q4"> O firewall bloqueou o acesso.</label>
+<label><input type="radio" name="q4"> A página /admin foi entregue com sucesso.</label>
+</div>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

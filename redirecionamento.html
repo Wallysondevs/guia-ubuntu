@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Redirecionamento — &gt;, &gt;&gt;, 2&gt;, &lt; e /dev/null | Guia Ubuntu</title>
+<meta name="description" content="Aprenda redirecionamento no terminal do Ubuntu: entrada, saída e erro, os operadores > >> 2> 2>&1 &lt; e /dev/null, com sessões explicadas, erros reais e terminal simulado.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Redirecionamento</span></h1>
+
+<p class="intro">Normalmente, o que um comando responde aparece na tela. <strong>Redirecionar</strong> é mandar essa resposta para outro lugar, como um arquivo, ou pegar a entrada de um arquivo em vez do teclado. Com três ou quatro símbolos você salva relatórios, separa erros e cria arquivos de configuração.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que são os três canais de todo comando: entrada, saída e erro.</li>
+  <li>A diferença entre <code>&gt;</code> (substitui) e <code>&gt;&gt;</code> (acrescenta).</li>
+  <li>Como separar ou juntar erros com <code>2&gt;</code>, <code>2&gt;&amp;1</code> e <code>/dev/null</code>.</li>
+  <li>Por que <code>sudo echo … &gt; /etc/arquivo</code> dá "Permissão negada", e como resolver.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Os três canais de um comando</h2>
+<p>Todo programa que roda no terminal nasce com três "canos" ligados. Cada um tem um <strong>número</strong>, e é por esse número que você o redireciona.</p>
+
+<pre class="syntax">               ┌───────────┐ ── 1 · saída (stdout) ──►  tela
+  teclado ──►  │  comando  │
+  0 · entrada  └───────────┘ ── 2 · erro (stderr)  ──►  tela</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Número</th><th>Nome</th><th>Em inglês</th><th>Para onde vai, sem redirecionar</th></tr>
+<tr><td><code>0</code></td><td>Entrada padrão</td><td><em>standard input</em>, stdin</td><td>Vem do teclado</td></tr>
+<tr><td><code>1</code></td><td>Saída padrão</td><td><em>standard output</em>, stdout</td><td>Vai para a tela: a resposta "normal"</td></tr>
+<tr><td><code>2</code></td><td>Saída de erro</td><td><em>standard error</em>, stderr</td><td>Vai para a tela também: as mensagens de erro</td></tr>
+</table>
+</div>
+
+<p>Como a saída e o erro aparecem na mesma tela, parecem uma coisa só. Mas são canais separados, e isso vai fazer diferença daqui a pouco.</p>
+
+<hr>
+
+<h2>Gravar a saída num arquivo: <code>&gt;</code></h2>
+<p>O sinal <code>&gt;</code> (maior que) pega a saída do comando e grava num arquivo, em vez de mostrar na tela.</p>
+
+<dl class="anatomy">
+  <dt>ls Documentos</dt><dd>O comando, que normalmente mostraria a lista na tela.</dd>
+  <dt>&gt;</dt><dd>"Mande a saída (canal 1) para…"</dd>
+  <dt>lista.txt</dt><dd>…este arquivo. Se não existir, é criado.</dd>
+</dl>
+
+<pre class="term">$ ls Documentos &gt; lista.txt
+$ cat lista.txt
+acesso.log
+notas.txt
+projetos
+relatorio.odt</pre>
+
+<p>Repare em duas coisas:</p>
+<ul>
+  <li>O primeiro comando <strong>não mostrou nada</strong>: a lista foi para o arquivo, não para a tela.</li>
+  <li>No arquivo, cada nome está numa linha. Quando a saída não é a tela, o <code>ls</code> não organiza em colunas nem colore.</li>
+</ul>
+
+<h3>Atenção: <code>&gt;</code> substitui o conteúdo</h3>
+<p>Se o arquivo já existe, o <code>&gt;</code> apaga tudo o que havia nele antes de gravar. Ele não pergunta.</p>
+
+<pre class="term">$ echo "primeira linha" &gt; teste.txt
+$ echo "segunda linha" &gt; teste.txt
+$ cat teste.txt
+segunda linha                       « a primeira sumiu</pre>
+
+<div class="warning">
+<strong>O arquivo é esvaziado antes de o comando rodar</strong>
+<p>O shell prepara o redirecionamento <strong>antes</strong> de executar o comando. Por isso, <code>sort frutas.txt &gt; frutas.txt</code> apaga o arquivo: quando o <code>sort</code> vai ler, ele já está vazio. Grave sempre num arquivo diferente.</p>
+</div>
+
+<hr>
+
+<h2>Acrescentar ao final: <code>&gt;&gt;</code></h2>
+<p>Dois sinais, <code>&gt;&gt;</code>, gravam <strong>no fim</strong> do arquivo, sem apagar o que já estava lá. É o que você quer para diários, logs e listas.</p>
+
+<dl class="anatomy">
+  <dt>echo "kiwi"</dt><dd>Produz uma linha de texto.</dd>
+  <dt>&gt;&gt;</dt><dd>"Acrescente ao final de…" (<em>append</em>).</dd>
+  <dt>frutas.txt</dt><dd>O arquivo. Também é criado se não existir.</dd>
+</dl>
+
+<pre class="term">$ echo "kiwi" &gt;&gt; frutas.txt
+$ tail -n 3 frutas.txt
+maçã
+banana
+kiwi                                « a linha nova entrou no fim</pre>
+
+<p>Um uso clássico é registrar quando algo aconteceu:</p>
+
+<pre class="term">$ echo "$(date +%F) backup feito" &gt;&gt; diario.txt
+$ cat diario.txt
+2026-10-15 backup feito</pre>
+
+<div class="try" data-goal="contains:~/downloads.txt=manual.pdf,contains:~/downloads.txt=fim da lista">
+<p class="try-task"><strong>Missão:</strong> grave a lista de arquivos da pasta <code>Downloads</code> num arquivo chamado <code>downloads.txt</code>. Depois acrescente, no fim dele, a linha <code>fim da lista</code>. Confira com <code>cat downloads.txt</code>.</p>
+</div>
+
+<hr>
+
+<h2>Prova: o erro "vaza" para a tela</h2>
+<p>Agora vamos pedir dois itens ao <code>ls</code>: a pasta <code>Documentos</code>, que existe, e <code>nada</code>, que não existe. A saída vai para um arquivo. Veja o que acontece:</p>
+
+<pre class="term">$ ls Documentos nada &gt; saida.txt
+ls: não é possível acessar 'nada': Arquivo ou diretório inexistente    « apareceu mesmo assim!
+$ cat saida.txt
+Documentos:
+acesso.log
+notas.txt
+projetos
+relatorio.odt                                                         « o arquivo só tem a parte boa</pre>
+
+<p>O <code>&gt;</code> redireciona só o canal <strong>1</strong> (saída). A mensagem de erro sai pelo canal <strong>2</strong>, que continua apontando para a tela. Para mexer no erro, você precisa dizer o número dele.</p>
+
+<hr>
+
+<h2>Redirecionar erros: <code>2&gt;</code></h2>
+
+<dl class="anatomy">
+  <dt>ls Documentos nada</dt><dd>Um comando que vai produzir saída e erro.</dd>
+  <dt>2&gt;</dt><dd>"Mande o canal 2 (erros) para…". Sem espaço entre o 2 e o &gt;.</dd>
+  <dt>erros.txt</dt><dd>…este arquivo.</dd>
+</dl>
+
+<pre class="term">$ ls Documentos nada 2&gt; erros.txt
+Documentos:
+acesso.log  notas.txt  projetos  relatorio.odt                         « a saída boa veio para a tela
+$ cat erros.txt
+ls: não é possível acessar 'nada': Arquivo ou diretório inexistente   « o erro foi para o arquivo</pre>
+
+<p>Para não apagar erros antigos, use <code>2&gt;&gt;</code>, que acrescenta.</p>
+
+<h3>Jogar fora: <code>/dev/null</code></h3>
+<p><code>/dev/null</code> é um arquivo especial que descarta tudo o que recebe. É o "buraco negro" do Linux. Ele é útil quando você só quer o resultado e não se importa com os avisos.</p>
+
+<p>Exemplo: procurar o arquivo <code>hostname</code> no sistema inteiro. Sem redirecionar, as pastas proibidas enchem a tela de "Permissão negada":</p>
+
+<pre class="term">$ find / -name hostname
+find: ‘/root’: Permissão negada                « ruído
+/etc/hostname
+$ find / -name hostname 2&gt;/dev/null
+/etc/hostname                                  « só o que interessa</pre>
+
+<div class="tip">
+<strong>Descartar a saída também</strong>
+<p><code>comando &gt; /dev/null</code> descarta a resposta normal e deixa os erros. É útil quando você só quer saber se o comando deu certo, olhando o código <code>$?</code>.</p>
+</div>
+
+<div class="try" data-goal="contains:~/erros.txt=nada">
+<p class="try-task"><strong>Missão:</strong> rode <code>ls Imagens nada</code> mandando <strong>só os erros</strong> para o arquivo <code>erros.txt</code>. A lista de imagens deve continuar aparecendo na tela. Depois, rode <code>find / -name hosts</code> sem que nenhuma mensagem de erro apareça.</p>
+</div>
+
+<hr>
+
+<h2>Saída e erro no mesmo arquivo: <code>2&gt;&amp;1</code></h2>
+<p>Às vezes você quer tudo junto, por exemplo num log. Para isso, primeiro mande a saída para o arquivo e, depois, diga que o erro (2) vai para o mesmo lugar da saída (1).</p>
+
+<dl class="anatomy">
+  <dt>ls Documentos nada</dt><dd>O comando.</dd>
+  <dt>&gt; tudo.txt</dt><dd>Primeiro: a saída (1) vai para <code>tudo.txt</code>.</dd>
+  <dt>2&gt;&amp;1</dt><dd>Depois: o erro (2) vai para onde o 1 aponta agora. O <code>&amp;</code> indica que <code>1</code> é um canal, não um arquivo chamado "1".</dd>
+</dl>
+
+<pre class="term">$ ls Documentos nada &gt; tudo.txt 2&gt;&amp;1
+$ cat tudo.txt
+ls: não é possível acessar 'nada': Arquivo ou diretório inexistente
+Documentos:
+acesso.log
+notas.txt
+projetos
+relatorio.odt</pre>
+
+<p>O Bash tem um atalho que faz a mesma coisa: <code>&amp;&gt;</code>.</p>
+
+<pre class="term">$ ls Documentos nada &amp;&gt; tudo.txt</pre>
+
+<div class="warning">
+<strong>A ordem importa</strong>
+<p><code>comando 2&gt;&amp;1 &gt; arquivo</code> <strong>não</strong> junta os dois. O <code>2&gt;&amp;1</code> é lido primeiro, quando o 1 ainda aponta para a tela. Então o erro continua na tela, e só a saída vai para o arquivo. Escreva sempre <code>&gt; arquivo 2&gt;&amp;1</code>.</p>
+</div>
+
+<hr>
+
+<h2>Ler a entrada de um arquivo: <code>&lt;</code></h2>
+<p>O <code>&lt;</code> faz o caminho contrário: em vez do teclado, a entrada (canal 0) vem de um arquivo. Muitos comandos aceitam o nome do arquivo direto, mas há uma diferença sutil:</p>
+
+<pre class="term">$ wc -l frutas.txt
+7 frutas.txt                 « o wc abriu o arquivo e sabe o nome dele
+$ wc -l &lt; frutas.txt
+7                            « o wc só recebeu o conteúdo, sem nome</pre>
+
+<p>A segunda forma é ótima para scripts, quando você quer só o número:</p>
+
+<pre class="term">$ echo "Tenho $(wc -l &lt; frutas.txt) frutas na lista"
+Tenho 7 frutas na lista</pre>
+
+<hr>
+
+<h2>Texto no próprio comando: here-doc e here-string</h2>
+<p>O <strong>here-doc</strong> (<em>"documento aqui"</em>) envia várias linhas digitadas como entrada. Ele começa com <code>&lt;&lt;FIM</code> e termina na linha que tem só <code>FIM</code>. Junto com <code>&gt;</code>, é a forma mais prática de criar um arquivo de várias linhas dentro de um script.</p>
+
+<dl class="anatomy">
+  <dt>cat</dt><dd>Repete o que recebe.</dd>
+  <dt>&lt;&lt;FIM</dt><dd>"A entrada são as próximas linhas, até aparecer FIM." O nome FIM é livre; <code>EOF</code> é o mais comum.</dd>
+  <dt>&gt; config.txt</dt><dd>Grava o resultado no arquivo.</dd>
+</dl>
+
+<pre class="term">$ cat &lt;&lt;FIM &gt; config.txt
+&gt; nome=loja
+&gt; porta=8080
+&gt; FIM
+$ cat config.txt
+nome=loja
+porta=8080</pre>
+
+<p>O <code>&gt;</code> no começo das linhas do meio é o prompt de continuação do Bash. Você não digita esse sinal.</p>
+
+<p>A <strong>here-string</strong>, <code>&lt;&lt;&lt;</code>, manda uma única linha:</p>
+
+<pre class="term">$ tr a-z A-Z &lt;&lt;&lt; "ola mundo"
+OLA MUNDO</pre>
+
+<p>O simulador desta página ainda não entende here-doc nem here-string. Teste esses dois no seu terminal.</p>
+
+<hr>
+
+<h2>Formas diferentes de criar um arquivo com texto</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td><code>echo</code> + <code>&gt;</code></td><td><code>echo "porta=80" &gt; app.conf</code></td><td>É uma linha só.</td></tr>
+<tr><td><code>printf</code> + <code>&gt;</code></td><td><code>printf "a\nb\n" &gt; lista.txt</code></td><td>São poucas linhas e você quer controlar as quebras.</td></tr>
+<tr><td>here-doc</td><td><code>cat &lt;&lt;EOF &gt; app.conf</code> … <code>EOF</code></td><td>São várias linhas, dentro de um script.</td></tr>
+<tr><td><code>tee</code></td><td><code>echo "x" | sudo tee /etc/app.conf</code></td><td>O arquivo é do root (veja abaixo).</td></tr>
+<tr><td>Editor</td><td><code>nano app.conf</code></td><td>Você vai digitar e revisar com calma.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Redirecionamento com <code>sudo</code></h2>
+<p>Este é um dos erros mais comuns de quem está começando:</p>
+
+<pre class="term">$ sudo echo "8.8.8.8 dns" &gt;&gt; /etc/hosts
+bash: /etc/hosts: Permissão negada</pre>
+
+<p><strong>Por quê?</strong> O <code>sudo</code> vale só para o <code>echo</code>. Quem abre o arquivo <code>/etc/hosts</code> para escrever é o <strong>seu</strong> shell, que roda como você, sem poder de administrador. E ele faz isso antes até de o <code>sudo</code> começar.</p>
+
+<p><strong>Como resolver:</strong> deixe o <code>echo</code> como usuário comum e use o <code>tee</code> com sudo para escrever. O <code>-a</code> do tee acrescenta, como o <code>&gt;&gt;</code>:</p>
+
+<pre class="term">$ echo "8.8.8.8 dns" | sudo tee -a /etc/hosts
+[sudo: authenticate] Senha:
+8.8.8.8 dns                     « o tee também mostra o que gravou</pre>
+
+<p>O <code>|</code> (pipe) e o <code>tee</code> são explicados em <a href="pipes.html">Pipes e xargs</a>.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>O arquivo ficou vazio</strong>
+<pre class="term">$ sort frutas.txt &gt; frutas.txt
+$ cat frutas.txt
+$ wc -l frutas.txt
+0 frutas.txt                      « o arquivo foi esvaziado</pre>
+<p><strong>O que aconteceu:</strong> o <code>&gt;</code> esvaziou <code>frutas.txt</code> antes de o <code>sort</code> ler.</p>
+<p><strong>Como resolver:</strong> grave em outro arquivo e depois renomeie: <code>sort frutas.txt &gt; ordenado.txt &amp;&amp; mv ordenado.txt frutas.txt</code>. O conteúdo perdido não volta, a não ser que você tenha <a href="backup.html">backup</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>"impossível sobrescrever arquivo existente"</strong>
+<pre class="term">$ echo "teste" &gt; tudo.txt
+bash: tudo.txt: impossível sobrescrever arquivo existente</pre>
+<p><strong>O que aconteceu:</strong> a proteção <code>noclobber</code> está ligada (alguém rodou <code>set -o noclobber</code> ou colocou isso no <code>~/.bashrc</code>). Ela impede que o <code>&gt;</code> apague arquivos que já existem.</p>
+<p><strong>Como resolver:</strong> se tiver certeza, force com <code>&gt;|</code>: <code>echo "teste" &gt;| tudo.txt</code>. Para desligar a proteção: <code>set +o noclobber</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Arquivo ou diretório inexistente" ao gravar</strong>
+<pre class="term">$ ls &gt; relatorios/hoje.txt
+bash: relatorios/hoje.txt: Arquivo ou diretório inexistente</pre>
+<p><strong>O que aconteceu:</strong> o <code>&gt;</code> cria o arquivo, mas não cria pastas. A pasta <code>relatorios</code> não existe.</p>
+<p><strong>Como resolver:</strong> <code>mkdir -p relatorios</code> e repita o comando.</p>
+</div>
+
+<div class="cenario">
+<strong>Usei <code>2&gt;&amp;1</code> e o erro continuou na tela</strong>
+<pre class="term">$ ls Documentos nada 2&gt;&amp;1 &gt; tudo.txt
+ls: não é possível acessar 'nada': Arquivo ou diretório inexistente</pre>
+<p><strong>O que aconteceu:</strong> a ordem está trocada. Quando o <code>2&gt;&amp;1</code> foi lido, o canal 1 ainda era a tela.</p>
+<p><strong>Como resolver:</strong> <code>ls Documentos nada &gt; tudo.txt 2&gt;&amp;1</code>, ou o atalho <code>&amp;&gt; tudo.txt</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Operador</th><th>O que faz</th><th>Exemplo</th></tr>
+<tr><td><code>&gt;</code></td><td>Saída para arquivo (substitui)</td><td><code>ls &gt; lista.txt</code></td></tr>
+<tr><td><code>&gt;&gt;</code></td><td>Saída para arquivo (acrescenta)</td><td><code>echo "x" &gt;&gt; log.txt</code></td></tr>
+<tr><td><code>2&gt;</code></td><td>Erros para arquivo (substitui)</td><td><code>cmd 2&gt; erros.txt</code></td></tr>
+<tr><td><code>2&gt;&gt;</code></td><td>Erros para arquivo (acrescenta)</td><td><code>cmd 2&gt;&gt; erros.txt</code></td></tr>
+<tr><td><code>&gt; arq 2&gt;&amp;1</code></td><td>Saída e erros no mesmo arquivo</td><td><code>cmd &gt; tudo.log 2&gt;&amp;1</code></td></tr>
+<tr><td><code>&amp;&gt;</code></td><td>Atalho do Bash para o anterior</td><td><code>cmd &amp;&gt; tudo.log</code></td></tr>
+<tr><td><code>2&gt;/dev/null</code></td><td>Descarta os erros</td><td><code>find / -name x 2&gt;/dev/null</code></td></tr>
+<tr><td><code>&gt;/dev/null</code></td><td>Descarta a saída</td><td><code>cmd &gt;/dev/null</code></td></tr>
+<tr><td><code>&lt;</code></td><td>Entrada a partir de arquivo</td><td><code>wc -l &lt; frutas.txt</code></td></tr>
+<tr><td><code>&lt;&lt;EOF</code></td><td>Here-doc: várias linhas como entrada</td><td><code>cat &lt;&lt;EOF &gt; a.txt</code></td></tr>
+<tr><td><code>&lt;&lt;&lt;</code></td><td>Here-string: uma linha como entrada</td><td><code>tr a-z A-Z &lt;&lt;&lt; "oi"</code></td></tr>
+<tr><td><code>&gt;|</code></td><td>Sobrescreve mesmo com <code>noclobber</code></td><td><code>echo x &gt;| a.txt</code></td></tr>
+</table>
+</div>
+
+<div class="try" data-goal="contains:~/ranking.txt=banana,contains:~/log.txt=nada">
+<p class="try-task"><strong>Missão final:</strong> (1) grave em <code>ranking.txt</code> o resultado de <code>sort frutas.txt | uniq -c</code>. (2) Rode <code>ls Documentos nada</code> gravando saída <strong>e</strong> erro juntos em <code>log.txt</code>. Confira os dois arquivos com <code>cat</code>.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Acrescentar sem apagar</h3>
+<p>Complete para adicionar a linha "reunião às 15h" ao fim de <code>agenda.txt</code>, sem perder o que já está lá:</p>
+<div class="ex-code">echo "reunião às 15h" <input data-answer="&gt;&gt;" aria-label="operador"> agenda.txt</div>
+</div>
+
+<div class="exercise">
+<h3>2. Esconder os erros</h3>
+<p>Complete para buscar arquivos <code>.conf</code> no sistema inteiro sem ver as mensagens de "Permissão negada":</p>
+<div class="ex-code">find / -name "*.conf" <input data-answer="2&gt;/dev/null|2&gt; /dev/null" aria-label="redirecionamento"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Tudo no mesmo log</h3>
+<p>Complete para gravar saída e erros de <code>./backup.sh</code> no arquivo <code>backup.log</code>:</p>
+<div class="ex-code">./backup.sh &gt; backup.log <input data-answer="2&gt;&amp;1" aria-label="redirecionamento do erro"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Você rodou <code>ls Documentos nada &gt; saida.txt</code>. O que acontece com a mensagem de erro sobre "nada"?</p>
+<label><input type="radio" name="q4"> Vai para o arquivo <code>saida.txt</code>.</label>
+<label><input type="radio" name="q4"> Aparece na tela, porque o <code>&gt;</code> só redireciona o canal 1.</label>
+<label><input type="radio" name="q4"> É descartada.</label>
+<label><input type="radio" name="q4"> O comando inteiro falha e nada é gravado.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. Por que <code>sudo echo "x" &gt; /etc/teste</code> dá "Permissão negada"?</p>
+<label><input type="radio" name="q5"> Porque o <code>echo</code> não pode ser usado com sudo.</label>
+<label><input type="radio" name="q5"> Porque a senha do sudo estava errada.</label>
+<label><input type="radio" name="q5"> Porque <code>/etc</code> não aceita arquivos novos.</label>
+<label><input type="radio" name="q5"> Porque quem abre o arquivo é o seu shell, que não tem o poder do sudo.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Todo comando tem três canais: 0 (entrada), 1 (saída) e 2 (erro).</li>
+  <li><code>&gt;</code> grava substituindo, <code>&gt;&gt;</code> grava acrescentando. Os dois criam o arquivo, mas não a pasta.</li>
+  <li><code>2&gt;</code> mexe só nos erros; <code>2&gt;/dev/null</code> joga os erros fora.</li>
+  <li>Para juntar tudo: <code>&gt; arquivo 2&gt;&amp;1</code>, nessa ordem, ou <code>&amp;&gt; arquivo</code>.</li>
+  <li><code>&lt;</code> usa um arquivo como entrada. Para escrever em arquivos do root, use <code>| sudo tee</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

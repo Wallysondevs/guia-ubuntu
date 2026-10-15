@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projeto: Servidor de Arquivos (Samba) | Guia Ubuntu</title>
+<meta name="description" content="Laboratório passo a passo: compartilhe uma pasta na rede com Samba no Ubuntu, com grupo de acesso, senha própria, firewall e acesso pelo app Arquivos e pelo Windows. Inclui a alternativa NFS.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Projeto <span class="hl">Servidor de Arquivos</span></h1>
+
+<p class="intro">Uma pasta na rede, que todo mundo da casa ou do escritório abre como se fosse local, no Ubuntu, no Windows ou no Mac. O programa que faz isso é o <strong>Samba</strong>, que fala o mesmo "idioma" de compartilhamento do Windows (o protocolo SMB).</p>
+
+<div class="tip">
+<strong>Ao terminar você terá</strong>
+<ul>
+  <li>A pasta <code>/srv/compartilhado</code> acessível na rede como <code>smb://IP/compartilhado</code>.</li>
+  <li>Acesso só para quem está no grupo <code>equipe</code>, com senha.</li>
+  <li>Arquivos criados por qualquer pessoa da equipe editáveis pelas outras.</li>
+  <li>A pasta aberta no app Arquivos do notebook.</li>
+</ul>
+</div>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Item</th><th>Detalhe</th></tr>
+<tr><td>Tempo estimado</td><td>45 min</td></tr>
+<tr><td>Pré-requisitos</td><td><a href="projetos.html">Como Usar os Projetos</a>, <a href="usuarios.html">Usuários e Grupos</a>, <a href="permissoes.html">Entendendo Permissões</a>, <a href="chmod.html">chmod</a>, <a href="ufw.html">ufw</a></td></tr>
+<tr><td>Onde roda</td><td>VM <code>lab</code> (servidor) + notebook (cliente)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>As etapas</h2>
+
+<ol class="passo">
+
+<li>
+<h3>Preparar a VM</h3>
+<p><strong>O que vamos fazer e por quê:</strong> criar a VM e descobrir o IP dela, que será o endereço do servidor de arquivos.</p>
+<pre class="term">$ multipass launch 26.04 --name lab --disk 10G --memory 2G
+Launched: lab
+$ multipass list
+Name                    State             IPv4             Image
+lab                     Running           10.85.140.27     Ubuntu 26.04 LTS
+$ multipass shell lab</pre>
+<p>Troque <code>10.85.140.27</code> pelo IP da sua VM em todos os comandos.</p>
+</li>
+
+<li>
+<h3>Instalar o Samba</h3>
+<p><strong>O que vamos fazer e por quê:</strong> o pacote <code>samba</code> traz o serviço <code>smbd</code>, que atende os pedidos de arquivos.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo apt update &amp;&amp; sudo apt install -y samba
+…
+$ systemctl is-active smbd
+active</pre>
+<p><strong>Confira se deu certo:</strong> <code>sudo ss -tlnp | grep smbd</code> deve mostrar as portas <code>445</code> e <code>139</code> em <code>LISTEN</code>.</p>
+</li>
+
+<li>
+<h3>Criar a pasta, o grupo e os usuários</h3>
+<p><strong>O que vamos fazer e por quê:</strong> quem pode entrar na pasta é decidido em duas camadas: o Samba e as <a href="permissoes.html">permissões do Linux</a>. Vamos criar um grupo <code>equipe</code>, dar a pasta a esse grupo e colocar a ana nele.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo groupadd equipe
+$ sudo adduser --comment "Ana" ana
+…
+$ sudo usermod -aG equipe ana
+$ sudo mkdir -p /srv/compartilhado
+$ sudo chgrp equipe /srv/compartilhado
+$ sudo chmod 2775 /srv/compartilhado
+$ ls -ld /srv/compartilhado
+drwxrwsr-x 2 root equipe 4096 Oct 15 14:02 /srv/compartilhado     « o "s" no lugar do x do grupo</pre>
+
+<dl class="anatomy">
+  <dt>chmod</dt><dd>Muda as permissões.</dd>
+  <dt>2</dt><dd>O bit <strong>setgid</strong>: tudo que for criado dentro da pasta herda o grupo <code>equipe</code>.</dd>
+  <dt>7</dt><dd>O dono (root) lê, escreve e entra.</dd>
+  <dt>7</dt><dd>O grupo (equipe) lê, escreve e entra.</dd>
+  <dt>5</dt><dd>Os outros só leem e entram.</dd>
+  <dt>/srv/compartilhado</dt><dd>A pasta. <code>/srv</code> é o lugar padrão para dados servidos pela máquina.</dd>
+</dl>
+
+<p>Sem o setgid, um arquivo criado pela ana ficaria no grupo <code>ana</code>, e o resto da equipe não conseguiria editá-lo.</p>
+</li>
+
+<li>
+<h3>Configurar o compartilhamento</h3>
+<p><strong>O que vamos fazer e por quê:</strong> o Samba lê <code>/etc/samba/smb.conf</code>. Cada bloco entre colchetes é um compartilhamento. Faça uma cópia antes e acrescente o nosso bloco no fim do arquivo.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo cp /etc/samba/smb.conf /etc/samba/smb.conf.bak
+$ sudo nano /etc/samba/smb.conf</pre>
+
+<pre class="file" data-file="/etc/samba/smb.conf (acrescentar no fim)">[compartilhado]
+   # Texto que aparece ao listar os compartilhamentos
+   comment = Pasta da equipe
+   # A pasta de verdade, no disco do servidor
+   path = /srv/compartilhado
+   # Aparece na lista de compartilhamentos
+   browseable = yes
+   # Permite gravar
+   read only = no
+   # Só membros do grupo equipe (o @ indica grupo)
+   valid users = @equipe
+   # Permissões de arquivos e pastas criados pela rede
+   create mask = 0664
+   directory mask = 2775</pre>
+
+<p>O <code>testparm</code> confere o arquivo antes de reiniciar o serviço:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ testparm -s 2&gt;&amp;1 | head -4
+Load smb config files from /etc/samba/smb.conf
+Loaded services file OK.                          « sem erros de sintaxe
+Weak crypto is allowed by GnuTLS (e.g. NTLM as a compatibility fallback)
+…
+$ sudo systemctl restart smbd</pre>
+
+<div class="cenario">
+<strong>Se deu errado: testparm mostra "Unknown parameter encountered"</strong>
+<p><strong>O que aconteceu:</strong> algum nome de opção foi digitado errado, como <code>read-only</code> em vez de <code>read only</code>.</p>
+<p><strong>Como resolver:</strong> a mensagem cita o nome errado. Corrija no arquivo e rode o <code>testparm -s</code> de novo.</p>
+</div>
+</li>
+
+<li>
+<h3>Criar a senha do Samba</h3>
+<p><strong>O que vamos fazer e por quê:</strong> o Samba tem um cadastro de senhas próprio, separado do Linux. O usuário precisa existir no Linux <strong>e</strong> no Samba. A senha pode ser diferente da de login.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo smbpasswd -a ana
+New SMB password:
+Retype new SMB password:
+Added user ana.
+$ sudo pdbedit -L
+ana:1001:Ana                                      « usuários cadastrados no Samba</pre>
+</li>
+
+<li>
+<h3>Liberar no firewall</h3>
+<p><strong>O que vamos fazer e por quê:</strong> se o ufw estiver ativo, ele bloqueia as portas do Samba. O pacote já traz um perfil pronto com as portas certas.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo ufw app list
+Available applications:
+  OpenSSH
+  Samba
+$ sudo ufw allow Samba
+Rules updated
+Rules updated (v6)</pre>
+<p>Se o ufw estiver desligado (<code>Status: inactive</code>), a regra fica guardada e passa a valer quando você ligar.</p>
+</li>
+
+<li>
+<h3>Acessar pelo notebook</h3>
+<p><strong>O que vamos fazer e por quê:</strong> testar como um usuário faria. Primeiro pelo terminal, com o <code>smbclient</code>, que mostra mensagens de erro claras. Depois pelo app Arquivos.</p>
+<pre class="term">$ sudo apt install -y smbclient
+…
+$ smbclient -L //10.85.140.27 -U ana
+Password for [WORKGROUP\ana]:
+
+	Sharename       Type      Comment
+	---------       ----      -------
+	print$          Disk      Printer Drivers
+	compartilhado   Disk      Pasta da equipe            « o nosso compartilhamento
+	IPC$            IPC       IPC Service (lab server (Samba, Ubuntu))
+SMB1 disabled -- no workgroup available</pre>
+
+<p>Agora, no <strong>app Arquivos</strong>:</p>
+<ol>
+  <li>Clique em <strong>Outros locais</strong>, no fim da barra lateral.</li>
+  <li>Em <strong>Conectar ao servidor</strong>, digite <code>smb://10.85.140.27/compartilhado</code> e clique em <strong>Conectar</strong>.</li>
+  <li>Escolha <strong>Usuário registrado</strong>, informe <code>ana</code>, o domínio <code>WORKGROUP</code> e a senha do <code>smbpasswd</code>.</li>
+</ol>
+<p>No Windows, digite <code>\\10.85.140.27\compartilhado</code> na barra do Explorador de Arquivos.</p>
+
+<p><strong>Confira se deu certo:</strong> crie um arquivo pelo Arquivos do notebook (por exemplo, <code>ata.txt</code>) e veja-o no servidor:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ ls -l /srv/compartilhado
+total 4
+-rw-rw-r-- 1 ana equipe 23 Oct 15 14:20 ata.txt     « dono ana, grupo equipe (graças ao setgid)</pre>
+</li>
+
+<li>
+<h3>Testar quem NÃO pode entrar</h3>
+<p><strong>O que vamos fazer e por quê:</strong> segurança se testa pelos dois lados. Vamos criar a bia, fora do grupo <code>equipe</code>, e confirmar que ela é barrada.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo adduser --comment "Bia" bia
+…
+$ sudo smbpasswd -a bia
+New SMB password:
+Retype new SMB password:
+Added user bia.</pre>
+<pre class="term">$ smbclient //10.85.140.27/compartilhado -U bia -c ls
+Password for [WORKGROUP\bia]:
+tree connect failed: NT_STATUS_ACCESS_DENIED       « barrada: bia não está em @equipe</pre>
+<p>Para liberar a bia, bastaria <code>sudo usermod -aG equipe bia</code> no servidor.</p>
+</li>
+
+</ol>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>NT_STATUS_LOGON_FAILURE</strong>
+<p><strong>O que aconteceu:</strong> usuário ou senha errados, ou o usuário existe no Linux mas não foi cadastrado no Samba.</p>
+<p><strong>Como confirmar:</strong> <code>sudo pdbedit -L</code> lista quem existe no Samba.</p>
+<p><strong>Como resolver:</strong> <code>sudo smbpasswd -a usuario</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>NT_STATUS_ACCESS_DENIED</strong>
+<p><strong>O que aconteceu:</strong> o login funcionou, mas o usuário não está em <code>valid users</code> (no nosso caso, no grupo <code>equipe</code>).</p>
+<p><strong>Como confirmar:</strong> <code>groups usuario</code> no servidor.</p>
+</div>
+
+<div class="cenario">
+<strong>Consigo abrir, mas não consigo salvar</strong>
+<p><strong>O que aconteceu:</strong> o Samba deixa gravar (<code>read only = no</code>), mas o Linux não deixa: a pasta não pertence ao grupo, ou falta o <code>w</code> para o grupo.</p>
+<p><strong>Como confirmar:</strong> <code>ls -ld /srv/compartilhado</code> deve mostrar <code>drwxrwsr-x … equipe</code>.</p>
+<p><strong>Como resolver:</strong> refaça o <code>chgrp</code> e o <code>chmod 2775</code> da etapa 3.</p>
+</div>
+
+<div class="cenario">
+<strong>Demora e dá "Connection timed out"</strong>
+<p><strong>O que aconteceu:</strong> o firewall está bloqueando, ou o IP está errado.</p>
+<p><strong>Como confirmar:</strong> <code>ping 10.85.140.27</code> do notebook e <code>sudo ufw status</code> no servidor.</p>
+</div>
+
+<hr>
+
+<h2>Alternativa: NFS</h2>
+<p>Entre máquinas Linux, o <strong>NFS</strong> (<em>Network File System</em>) é mais simples e rápido. Ele não tem senha por usuário: o acesso é liberado por IP e as permissões são as do Linux, pelo número do usuário (UID).</p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo apt install -y nfs-kernel-server
+$ echo "/srv/compartilhado 10.85.140.0/24(rw,sync,no_subtree_check)" | sudo tee -a /etc/exports
+$ sudo exportfs -ra
+$ sudo exportfs -v
+/srv/compartilhado
+		10.85.140.0/24(sync,wdelay,hide,no_subtree_check,sec=sys,rw,secure,root_squash,no_all_squash)</pre>
+
+<pre class="term">$ sudo apt install -y nfs-common
+$ sudo mount -t nfs 10.85.140.27:/srv/compartilhado /mnt
+$ ls /mnt
+ata.txt</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>Samba (SMB)</th><th>NFS</th></tr>
+<tr><td>Clientes</td><td>Windows, Mac, Linux, celular</td><td>Principalmente Linux</td></tr>
+<tr><td>Autenticação</td><td>Usuário e senha</td><td>Por IP; permissões pelo UID</td></tr>
+<tr><td>Configuração</td><td>Mais opções</td><td>Uma linha em <code>/etc/exports</code></td></tr>
+<tr><td>Uso típico</td><td>Rede de casa ou escritório misto</td><td>Servidores Linux entre si</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>O que você aprendeu</h2>
+<ul>
+  <li>Instalar o Samba e criar um compartilhamento em <code>smb.conf</code>.</li>
+  <li>Usar grupo + setgid (<code>chmod 2775</code>) para uma pasta de equipe.</li>
+  <li>Cadastrar senhas do Samba com <code>smbpasswd</code> e validar o arquivo com <code>testparm</code>.</li>
+  <li>Acessar com <code>smbclient</code>, pelo app Arquivos e pelo Windows.</li>
+  <li>Testar o acesso negado, não só o permitido.</li>
+</ul>
+
+<h2>Desafios extras</h2>
+<ol>
+  <li>Crie um segundo compartilhamento, <code>publico</code>, só leitura e sem senha (<code>guest ok = yes</code>, <code>read only = yes</code>).</li>
+  <li>Monte o compartilhamento no notebook automaticamente no boot, com <code>cifs-utils</code> e uma linha no fstab usando <code>nofail</code>.</li>
+  <li>Faça o <a href="projeto-backup.html">Backup Automático</a> copiar <code>/srv/compartilhado</code> toda noite.</li>
+</ol>
+
+<h2>Desfazer e limpar</h2>
+<pre class="term">$ sudo umount /mnt
+$ multipass delete --purge lab</pre>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Cadastrar no Samba</h3>
+<p>Complete para criar a senha do Samba do usuário <code>ana</code>:</p>
+<div class="ex-code">sudo smbpasswd <input data-answer="-a" aria-label="opção"> ana</div>
+</div>
+
+<div class="exercise">
+<h3>2. Só o grupo</h3>
+<p>Complete a linha do <code>smb.conf</code> que libera só o grupo <code>equipe</code>:</p>
+<div class="ex-code">valid users = <input data-answer="@equipe" aria-label="valor"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">3. Para que serve o <code>2</code> em <code>chmod 2775</code>?</p>
+<label><input type="radio" name="q3"> Dá permissão dupla ao dono.</label>
+<label><input type="radio" name="q3"> Faz os arquivos criados dentro herdarem o grupo da pasta.</label>
+<label><input type="radio" name="q3"> Esconde a pasta na rede.</label>
+<label><input type="radio" name="q3"> Permite dois acessos ao mesmo tempo.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">4. O login funciona, mas aparece <code>NT_STATUS_ACCESS_DENIED</code>. Qual é a causa mais provável?</p>
+<label><input type="radio" name="q4"> Senha errada.</label>
+<label><input type="radio" name="q4"> Samba desligado.</label>
+<label><input type="radio" name="q4"> Firewall bloqueando.</label>
+<label><input type="radio" name="q4"> O usuário não está em <code>valid users</code>.</label>
+</div>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

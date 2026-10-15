@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Curingas — *, ?, [ ] e { } no terminal | Guia Ubuntu</title>
+<meta name="description" content="Aprenda os curingas do terminal do Ubuntu: asterisco, interrogação, colchetes e chaves, a diferença entre curinga e chaves, e como conferir com echo antes de apagar, com terminal simulado.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Curingas</span></h1>
+
+<p class="intro">Curingas são símbolos que representam "qualquer coisa" num nome de arquivo. Com eles, <code>*.jpg</code> significa "todos os arquivos que terminam em .jpg". Eles funcionam com qualquer comando: <code>ls</code>, <code>cp</code>, <code>mv</code>, <code>rm</code>… Em inglês, o recurso se chama <em>globbing</em>.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Os quatro símbolos: <code>*</code>, <code>?</code>, <code>[ ]</code> e <code>{ }</code>.</li>
+  <li>Quem transforma o curinga em nomes: o shell, e não o comando.</li>
+  <li>A diferença entre curingas (acham o que existe) e chaves (geram nomes novos).</li>
+  <li>Como conferir com <code>echo</code> antes de rodar algo perigoso.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>A ideia: o shell troca o padrão pelos nomes</h2>
+<p>Quando você digita <code>ls *.mp4</code>, o <code>ls</code> nunca vê o asterisco. O <strong>shell</strong> (o bash, programa que lê o que você digita) procura os arquivos que combinam com o padrão e troca <code>*.mp4</code> pela lista de nomes. Só depois ele chama o <code>ls</code>.</p>
+
+<pre class="syntax">você digita:     ls *.mp4
+o shell troca:   ls aula10.mp4 aula1.mp4 aula2.mp4 aula3.mp4
+o ls recebe:     4 nomes de arquivo</pre>
+
+<p>O <code>echo</code> só repete o que recebe. Por isso ele é a melhor forma de ver em que um curinga vai virar:</p>
+
+<pre class="term" data-cwd="~/aulas">$ ls
+Resumo-final.txt  aula1.pdf   aula2.mp4  aula3.mp4  resumo.txt
+aula1.mp4         aula10.mp4  aula2.pdf  notas.TXT
+$ echo *.mp4
+aula10.mp4 aula1.mp4 aula2.mp4 aula3.mp4         « os nomes que o comando vai receber</pre>
+
+<p>A ordem do <code>echo</code> é diferente da do <code>ls</code>: o shell ordena os nomes pelas regras do português (ignorando pontos e maiúsculas), e o <code>ls</code> do Ubuntu 26.04 ordena pelo código de cada caractere. O conteúdo é o mesmo.</p>
+
+<hr>
+
+<h2><code>*</code>: qualquer coisa</h2>
+<p>O asterisco combina com <strong>qualquer sequência de caracteres</strong>, inclusive nenhuma.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Padrão</th><th>Combina com</th></tr>
+<tr><td><code>*.mp4</code></td><td>Tudo que termina em <code>.mp4</code></td></tr>
+<tr><td><code>aula*</code></td><td>Tudo que começa com <code>aula</code></td></tr>
+<tr><td><code>*resumo*</code></td><td>Tudo que tem <code>resumo</code> em qualquer lugar do nome</td></tr>
+<tr><td><code>*</code></td><td>Todos os arquivos visíveis da pasta</td></tr>
+</table>
+</div>
+
+<pre class="term" data-cwd="~/aulas">$ echo *.txt
+Resumo-final.txt resumo.txt
+$ ls -l aula1*
+-rw-rw-r-- 1 ana ana 0 Oct 15 10:30 aula1.mp4
+-rw-rw-r-- 1 ana ana 0 Oct 15 10:30 aula1.pdf
+-rw-rw-r-- 1 ana ana 0 Oct 15 10:30 aula10.mp4</pre>
+
+<div class="note">
+<strong>O <code>*</code> não pega arquivos ocultos</strong>
+<p>Nomes que começam com ponto (<code>.bashrc</code>) ficam de fora de <code>*</code>. Para incluí-los, o padrão precisa começar com ponto: <code>.*</code>.</p>
+</div>
+
+<hr>
+
+<h2><code>?</code>: exatamente um caractere</h2>
+<p>O ponto de interrogação vale por <strong>um</strong> caractere, qualquer um. Dois <code>??</code> valem por dois.</p>
+
+<pre class="term" data-cwd="~/aulas">$ echo aula?.mp4
+aula1.mp4 aula2.mp4 aula3.mp4                  « um caractere entre "aula" e ".mp4"
+$ echo aula??.mp4
+aula10.mp4                                     « exatamente dois</pre>
+
+<hr>
+
+<h2><code>[ ]</code>: um caractere de uma lista</h2>
+<p>Os colchetes valem por <strong>um</strong> caractere, mas só os que estão listados dentro deles.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Padrão</th><th>Combina com um caractere que seja…</th></tr>
+<tr><td><code>[12]</code></td><td><code>1</code> ou <code>2</code></td></tr>
+<tr><td><code>[0-9]</code></td><td>Qualquer dígito</td></tr>
+<tr><td><code>[a-z]</code> / <code>[A-Z]</code></td><td>Letra minúscula / maiúscula</td></tr>
+<tr><td><code>[!1]</code> ou <code>[^1]</code></td><td>Qualquer um, <strong>menos</strong> <code>1</code></td></tr>
+<tr><td><code>[tT]</code></td><td><code>t</code> ou <code>T</code> (útil contra maiúsculas)</td></tr>
+</table>
+</div>
+
+<pre class="term" data-cwd="~/aulas">$ echo aula[12].*
+aula1.mp4 aula1.pdf aula2.mp4 aula2.pdf
+$ echo [A-Z]*
+Resumo-final.txt                               « só o que começa com maiúscula
+$ echo *.[tT][xX][tT]
+notas.TXT Resumo-final.txt resumo.txt          « .txt em maiúsculas ou minúsculas</pre>
+
+<div class="try" data-setup="mkdir aulas;;cd aulas;;touch aula1.mp4 aula2.mp4 aula3.mp4 aula10.mp4 aula1.pdf aula2.pdf resumo.txt Resumo-final.txt notas.TXT;;mkdir videos" data-goal="file:~/aulas/videos/aula1.mp4,file:~/aulas/videos/aula10.mp4,file:~/aulas/videos/aula3.mp4,absent:~/aulas/aula2.mp4">
+<p class="try-task"><strong>Missão:</strong> na pasta <code>aulas</code>, mova <strong>todos</strong> os vídeos <code>.mp4</code> para a pasta <code>videos</code> com um único comando. Antes, confira o padrão com <code>echo</code>.</p>
+</div>
+
+<hr>
+
+<h2><code>{ }</code>: chaves geram nomes</h2>
+<p>As chaves parecem curinga, mas funcionam diferente. Elas <strong>geram</strong> uma lista de palavras, quer os arquivos existam ou não:</p>
+
+<pre class="term" data-cwd="~/aulas">$ echo aula{1,2,3}.mp4
+aula1.mp4 aula2.mp4 aula3.mp4
+$ echo aula{4,5}.mp4
+aula4.mp4 aula5.mp4                            « esses arquivos nem existem
+$ echo foto{01..03}.jpg
+foto01.jpg foto02.jpg foto03.jpg</pre>
+
+<h3>Curinga × chaves</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>Curinga (<code>* ? [ ]</code>)</th><th>Chaves (<code>{ }</code>)</th></tr>
+<tr><td>O que faz</td><td>Procura arquivos que <strong>existem</strong></td><td>Gera palavras, existam ou não</td></tr>
+<tr><td>Bom para</td><td><code>ls</code>, <code>cp</code>, <code>mv</code>, <code>rm</code> em arquivos existentes</td><td>Criar vários (<code>mkdir</code>, <code>touch</code>) e escrever menos</td></tr>
+<tr><td>Se nada combinar</td><td>O padrão passa como texto</td><td>Sempre gera as palavras</td></tr>
+</table>
+</div>
+
+<pre class="term" data-cwd="~/aulas">$ ls aula{4,5}.mp4
+ls: não é possível acessar 'aula4.mp4': Arquivo ou diretório inexistente
+ls: não é possível acessar 'aula5.mp4': Arquivo ou diretório inexistente
+$ mkdir modulo{1..3}
+$ echo modulo*
+modulo1 modulo2 modulo3</pre>
+
+<p>Os dois combinam bem: <code>echo *.{mp4,pdf}</code> pega todos os vídeos e PDFs.</p>
+
+<hr>
+
+<h2>Quando nada combina</h2>
+<p>Se nenhum arquivo combina, o bash passa o padrão <strong>como texto</strong> para o comando. O resultado depende do comando:</p>
+
+<pre class="term" data-cwd="~/aulas">$ echo *.mkv
+*.mkv                                          « nenhum .mkv: o padrão passou como texto
+$ ls *.mkv
+ls: não é possível acessar '*.mkv': Arquivo ou diretório inexistente</pre>
+
+<p>Para o <code>ls</code>, a mensagem parece estranha: ele procurou um arquivo chamado literalmente <code>*.mkv</code>. Agora você sabe por quê.</p>
+
+<h3>Aspas desligam os curingas</h3>
+<p>Entre aspas, <code>*</code>, <code>?</code> e <code>[ ]</code> são caracteres comuns. Isso é necessário quando <strong>o comando</strong>, e não o shell, deve receber o padrão, como no <code>find</code>:</p>
+
+<pre class="term" data-cwd="~/aulas">$ echo "*.mp4"
+*.mp4
+$ find ~ -name "*.pdf"</pre>
+
+<hr>
+
+<h2>Curingas em subpastas: <code>**</code></h2>
+<p>O <code>*</code> não atravessa pastas: <code>*.css</code> só olha a pasta atual. Com a opção <code>globstar</code> ligada, <code>**</code> significa "esta pasta e todas as de dentro":</p>
+
+<pre class="term" data-cwd="~/site">$ echo **/*.css
+a/y.css                                        « sem globstar, ** é igual a *
+$ shopt -s globstar
+$ echo **/*.css
+a/b/z.css a/y.css x.css                        « agora entra em todas as subpastas</pre>
+
+<p>Para ligar sempre, coloque <code>shopt -s globstar</code> no <code>~/.bashrc</code>. A alternativa clássica é o <code>find</code> (veja <a href="find.html">find e locate</a>).</p>
+
+<hr>
+
+<h2>A regra de ouro: <code>echo</code> antes de <code>rm</code></h2>
+<p>Um curinga mal escrito pode pegar arquivos que você não queria. Antes de qualquer comando que apaga ou move, rode o mesmo padrão com <code>echo</code> ou <code>ls</code>:</p>
+
+<ol class="passo">
+  <li>Escreva o padrão com <code>echo</code>: <code>echo *.tmp</code>.</li>
+  <li>Leia a lista. É exatamente isso que você quer apagar?</li>
+  <li>Aperte <kbd>↑</kbd> para trazer o comando de volta, troque <code>echo</code> por <code>rm</code> e rode.</li>
+</ol>
+
+<div class="warning">
+<strong>Um espaço muda tudo</strong>
+<p><code>rm *.tmp</code> apaga os <code>.tmp</code>. <code>rm * .tmp</code> (com espaço) apaga <strong>todos</strong> os arquivos da pasta e depois tenta apagar um arquivo chamado <code>.tmp</code>. Confira sempre com <code>echo</code>.</p>
+</div>
+
+<div class="try" data-setup="mkdir limpeza;;cd limpeza;;touch rel.txt rel.tmp foto.jpg cache1.tmp cache2.tmp notas.txt" data-goal="absent:~/limpeza/rel.tmp,absent:~/limpeza/cache1.tmp,absent:~/limpeza/cache2.tmp,file:~/limpeza/rel.txt,file:~/limpeza/notas.txt,file:~/limpeza/foto.jpg">
+<p class="try-task"><strong>Missão:</strong> na pasta <code>limpeza</code>, apague todos os arquivos <code>.tmp</code> e mais nada. Siga a regra de ouro: primeiro <code>echo</code>, depois <code>rm</code>.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"não é possível acessar '*.mp3'"</strong>
+<pre class="term" data-cwd="~/aulas">$ ls *.mp3
+ls: não é possível acessar '*.mp3': Arquivo ou diretório inexistente</pre>
+<p><strong>O que aconteceu:</strong> nenhum arquivo combina com o padrão. Lembre que maiúsculas importam: <code>*.mp3</code> não pega <code>MUSICA.MP3</code>.</p>
+<p><strong>Como resolver:</strong> confira com <code>ls</code> e, se precisar, use <code>*.[mM][pP]3</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Lista de argumentos muito longa"</strong>
+<pre class="term" data-cwd="~/fotos">$ rm *.jpg
+bash: /usr/bin/rm: Lista de argumentos muito longa</pre>
+<p><strong>O que aconteceu:</strong> o padrão virou centenas de milhares de nomes, mais do que o sistema aceita numa linha de comando.</p>
+<p><strong>Como resolver:</strong> deixe o <code>find</code> fazer o trabalho: <code>find . -maxdepth 1 -name "*.jpg" -delete</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O curinga não pegou os arquivos ocultos</strong>
+<p><strong>O que aconteceu:</strong> <code>*</code> ignora nomes que começam com ponto.</p>
+<p><strong>Como resolver:</strong> use também <code>.*</code>, como em <code>ls -d .* *</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Símbolo</th><th>Significado</th><th>Exemplo</th></tr>
+<tr><td><code>*</code></td><td>Qualquer sequência de caracteres</td><td><code>*.jpg</code></td></tr>
+<tr><td><code>?</code></td><td>Exatamente um caractere</td><td><code>foto?.jpg</code></td></tr>
+<tr><td><code>[abc]</code></td><td>Um caractere da lista</td><td><code>foto[123].jpg</code></td></tr>
+<tr><td><code>[a-z]</code></td><td>Um caractere do intervalo</td><td><code>[0-9]*</code></td></tr>
+<tr><td><code>[!abc]</code></td><td>Um caractere fora da lista</td><td><code>[!.]*</code></td></tr>
+<tr><td><code>{a,b}</code></td><td>Gera cada alternativa</td><td><code>{jan,fev}.txt</code></td></tr>
+<tr><td><code>{1..5}</code></td><td>Gera uma sequência</td><td><code>aula{01..10}</code></td></tr>
+<tr><td><code>**</code></td><td>Esta pasta e todas as de dentro (com <code>globstar</code>)</td><td><code>**/*.css</code></td></tr>
+<tr><td><code>"…"</code> ou <code>'…'</code></td><td>Desliga os curingas</td><td><code>find . -name "*.log"</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Todos os PDFs</h3>
+<p>Complete para copiar todos os PDFs da pasta atual para <code>~/Documentos</code>:</p>
+<div class="ex-code">cp <input data-answer="*.pdf" aria-label="padrão"> ~/Documentos/</div>
+</div>
+
+<div class="exercise">
+<h3>2. Um caractere</h3>
+<p>Complete para listar <code>cap1.md</code> a <code>cap9.md</code>, mas não <code>cap10.md</code>:</p>
+<div class="ex-code">ls cap<input data-answer="?|[0-9]|[1-9]" aria-label="curinga">.md</div>
+</div>
+
+<div class="exercise">
+<h3>3. Conferir antes</h3>
+<p>Qual comando você roda antes de <code>rm *.bak</code> para ver o que seria apagado, sem apagar nada?</p>
+<div class="ex-code"><input data-answer="echo *.bak|ls *.bak|ls -l *.bak" aria-label="comando"></div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Na pasta só existem <code>a.txt</code> e <code>b.txt</code>. O que <code>echo {a,b,c}.txt</code> mostra?</p>
+<label><input type="radio" name="q4"> <code>a.txt b.txt</code></label>
+<label><input type="radio" name="q4"> Um erro, porque <code>c.txt</code> não existe.</label>
+<label><input type="radio" name="q4"> <code>a.txt b.txt c.txt</code></label>
+<label><input type="radio" name="q4"> <code>{a,b,c}.txt</code></label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. Quem transforma <code>*.jpg</code> na lista de arquivos?</p>
+<label><input type="radio" name="q5"> O comando, como <code>ls</code> ou <code>rm</code>.</label>
+<label><input type="radio" name="q5"> O shell (bash), antes de chamar o comando.</label>
+<label><input type="radio" name="q5"> O kernel.</label>
+<label><input type="radio" name="q5"> O app Arquivos.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>*</code> = qualquer coisa; <code>?</code> = um caractere; <code>[ ]</code> = um caractere de uma lista.</li>
+  <li>Quem expande os curingas é o shell. <code>echo padrão</code> mostra o resultado.</li>
+  <li>Chaves <code>{ }</code> geram nomes que não precisam existir; curingas só acham os que existem.</li>
+  <li>Sem nenhum arquivo correspondente, o padrão passa como texto.</li>
+  <li>Antes de <code>rm</code> ou <code>mv</code> com curinga: <code>echo</code> primeiro.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

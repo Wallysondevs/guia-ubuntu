@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Quiz — 30 perguntas práticas por nível | Guia Ubuntu</title>
+<meta name="description" content="Quiz do Guia Ubuntu: 30 perguntas práticas divididas em Iniciante, Intermediário e Avançado, com correção na hora e link para revisar cada assunto.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Quiz</span></h1>
+
+<p class="intro">São 30 perguntas práticas, 10 por nível. Quase todas mostram uma situação real: um comando, uma saída ou um erro, e perguntam o que está acontecendo. A correção aparece assim que você escolhe uma opção, e cada pergunta tem o link da aula para revisar.</p>
+
+<p>Acertos: <strong id="placar">0 de 30</strong></p>
+
+<div class="note">
+<strong>Como usar</strong>
+<ul>
+  <li>Faça só o nível que você terminou: <a href="#n1">Nível 1</a>, <a href="#n2">Nível 2</a> ou <a href="#n3">Nível 3</a>.</li>
+  <li>Errou? Tente outra opção e depois abra o link "Revise" da pergunta.</li>
+  <li>O placar conta as perguntas certas desta visita; recarregar a página zera tudo.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2 id="n1">Nível 1 · Iniciante</h2>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">1. O que este comando mostra?</p>
+<pre class="term">$ pwd
+/home/ana/Documentos</pre>
+<label><input type="radio" name="q1"> A lista de arquivos de Documentos.</label>
+<label><input type="radio" name="q1"> Em qual pasta você está agora.</label>
+<label><input type="radio" name="q1"> O dono da pasta Documentos.</label>
+<label><input type="radio" name="q1"> O caminho até o programa pwd.</label>
+<p class="mc-ajuda">Revise: <a href="navegar.html">pwd e cd</a></p>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">2. A Ana rodou os comandos abaixo. Por que o pgrep não mostrou nada, se o Chromium está aberto?</p>
+<pre class="term">$ pgrep chromium
+$ echo $?
+1</pre>
+<label><input type="radio" name="q2"> O pgrep só funciona com sudo.</label>
+<label><input type="radio" name="q2"> O Chromium trava o pgrep.</label>
+<label><input type="radio" name="q2"> Faltou o -l.</label>
+<label><input type="radio" name="q2"> O processo se chama chrome; pgrep procura pelo nome do processo, e -f procuraria na linha de comando.</label>
+<p class="mc-ajuda">Revise: <a href="processos.html">ps, pgrep, top</a></p>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">3. Qual comando cria a pasta <code>fotos/2026/janeiro</code> mesmo que <code>fotos</code> ainda não exista?</p>
+<label><input type="radio" name="q3"> mkdir -p fotos/2026/janeiro</label>
+<label><input type="radio" name="q3"> mkdir fotos/2026/janeiro</label>
+<label><input type="radio" name="q3"> touch fotos/2026/janeiro</label>
+<label><input type="radio" name="q3"> mkdir -v fotos/2026/janeiro</label>
+<p class="mc-ajuda">Revise: <a href="criar.html">touch e mkdir</a></p>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">4. O que aconteceu aqui?</p>
+<pre class="term">$ ls Documentos
+$ </pre>
+<label><input type="radio" name="q4"> O comando deu erro.</label>
+<label><input type="radio" name="q4"> A pasta Documentos não existe.</label>
+<label><input type="radio" name="q4"> O ls não terminou.</label>
+<label><input type="radio" name="q4"> A pasta existe e está vazia: o ls não mostra nada.</label>
+<p class="mc-ajuda">Revise: <a href="ls.html">ls</a></p>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Você digitou <code>rm relatorio.odt</code> por engano. Como recuperar?</p>
+<label><input type="radio" name="q5"> Na lixeira do app Arquivos.</label>
+<label><input type="radio" name="q5"> Com Ctrl+Z no terminal.</label>
+<label><input type="radio" name="q5"> Só de um backup: o rm não usa lixeira.</label>
+<label><input type="radio" name="q5"> Com rm -u relatorio.odt.</label>
+<p class="mc-ajuda">Revise: <a href="remover.html">rm e rmdir</a></p>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">6. Por que esta mensagem apareceu?</p>
+<pre class="term">$ cd documentos
+bash: cd: documentos: Arquivo ou diretório inexistente</pre>
+<label><input type="radio" name="q6"> O Linux diferencia maiúsculas: a pasta se chama Documentos.</label>
+<label><input type="radio" name="q6"> Falta permissão de acesso.</label>
+<label><input type="radio" name="q6"> O cd não aceita pastas da home.</label>
+<label><input type="radio" name="q6"> A pasta está oculta.</label>
+<p class="mc-ajuda">Revise: <a href="caminhos.html">Caminhos</a></p>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">7. O sudo pediu a senha e nada aparece enquanto você digita. O que fazer?</p>
+<label><input type="radio" name="q7"> Fechar o terminal: ele travou.</label>
+<label><input type="radio" name="q7"> Digitar com Caps Lock.</label>
+<label><input type="radio" name="q7"> Apertar Ctrl+C e usar su.</label>
+<label><input type="radio" name="q7"> Digitar normalmente e apertar Enter; o terminal esconde a senha.</label>
+<p class="mc-ajuda">Revise: <a href="sudo.html">sudo</a></p>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">8. A interface gráfica congelou. Qual é o primeiro passo?</p>
+<label><input type="radio" name="q8"> Segurar o botão de energia.</label>
+<label><input type="radio" name="q8"> Ctrl+Alt+F3 para abrir um TTY e encerrar o programa culpado.</label>
+<label><input type="radio" name="q8"> Tirar o cabo de energia.</label>
+<label><input type="radio" name="q8"> Alt+F4 várias vezes.</label>
+<p class="mc-ajuda">Revise: <a href="travamentos.html">Quando o Sistema Trava</a></p>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">9. O que significa o <code>d</code> no início desta linha?</p>
+<pre class="term">$ ls -l
+drwxr-xr-x 2 ana ana 4096 Oct 12 08:03 Downloads</pre>
+<label><input type="radio" name="q9"> É uma pasta (diretório).</label>
+<label><input type="radio" name="q9"> O arquivo foi apagado.</label>
+<label><input type="radio" name="q9"> É um disco.</label>
+<label><input type="radio" name="q9"> O dono pode deletar.</label>
+<p class="mc-ajuda">Revise: <a href="permissoes.html">Entendendo Permissões</a></p>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">10. Qual é a forma recomendada de atualizar os programas instalados pelo apt?</p>
+<label><input type="radio" name="q10"> sudo apt install --all</label>
+<label><input type="radio" name="q10"> apt upgrade sem sudo</label>
+<label><input type="radio" name="q10"> sudo apt update e depois sudo apt upgrade</label>
+<label><input type="radio" name="q10"> sudo dpkg --update</label>
+<p class="mc-ajuda">Revise: <a href="apt.html">apt</a></p>
+</div>
+
+<hr>
+
+<h2 id="n2">Nível 2 · Intermediário</h2>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">11. O que este pipeline mostra?</p>
+<pre class="term">$ cut -d ' ' -f 1 acesso.log | sort | uniq -c | sort -nr | head -3</pre>
+<label><input type="radio" name="q11"> As 3 primeiras linhas do log.</label>
+<label><input type="radio" name="q11"> Os 3 IPs que mais aparecem no log, com a contagem.</label>
+<label><input type="radio" name="q11"> O log em ordem alfabética.</label>
+<label><input type="radio" name="q11"> Quantas linhas o log tem.</label>
+<p class="mc-ajuda">Revise: <a href="pipes.html">Pipes e xargs</a></p>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">12. Depois de <code>ls nada &gt; saida.txt</code>, a mensagem de erro apareceu na tela, e não no arquivo. Por quê?</p>
+<label><input type="radio" name="q12"> O &gt; só funciona com sudo.</label>
+<label><input type="radio" name="q12"> O arquivo estava cheio.</label>
+<label><input type="radio" name="q12"> O &gt; redireciona só a saída normal (1); o erro vai pela saída 2. Use 2&gt; ou 2&gt;&amp;1.</label>
+<label><input type="radio" name="q12"> O ls não tem saída de erro.</label>
+<p class="mc-ajuda">Revise: <a href="redirecionamento.html">Redirecionamento</a></p>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">13. O que <code>chmod 640 relatorio.txt</code> deixa?</p>
+<label><input type="radio" name="q13"> Dono lê e escreve; grupo só lê; outros nada.</label>
+<label><input type="radio" name="q13"> Todos leem e escrevem.</label>
+<label><input type="radio" name="q13"> Só o root lê.</label>
+<label><input type="radio" name="q13"> Dono executa; grupo escreve.</label>
+<p class="mc-ajuda">Revise: <a href="chmod.html">chmod</a></p>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">14. Você rodou <code>sudo usermod -G docker ana</code>, sem o <code>-a</code>. O que aconteceu?</p>
+<label><input type="radio" name="q14"> Nada: o -a é opcional.</label>
+<label><input type="radio" name="q14"> A ana foi apagada.</label>
+<label><input type="radio" name="q14"> O Docker foi reinstalado.</label>
+<label><input type="radio" name="q14"> A ana saiu de todos os outros grupos, inclusive do sudo.</label>
+<p class="mc-ajuda">Revise: <a href="usuarios.html">Usuários e Grupos</a></p>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">15. Qual comando mostra por que o serviço <code>nginx</code> não subiu?</p>
+<label><input type="radio" name="q15"> systemctl enable nginx</label>
+<label><input type="radio" name="q15"> journalctl -u nginx -n 20</label>
+<label><input type="radio" name="q15"> ps nginx</label>
+<label><input type="radio" name="q15"> apt show nginx</label>
+<p class="mc-ajuda">Revise: <a href="journalctl.html">Logs (journalctl)</a></p>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">16. <code>ping 8.8.8.8</code> funciona, mas <code>ping ubuntu.com</code> dá "Nome ou serviço desconhecido". O problema está em…</p>
+<label><input type="radio" name="q16"> …no cabo.</label>
+<label><input type="radio" name="q16"> …no gateway.</label>
+<label><input type="radio" name="q16"> …na placa de rede.</label>
+<label><input type="radio" name="q16"> …no DNS.</label>
+<p class="mc-ajuda">Revise: <a href="redes.html">Conceitos de Rede</a></p>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">17. Qual a diferença entre <code>rsync -a pasta destino/</code> e <code>rsync -a pasta/ destino/</code>?</p>
+<label><input type="radio" name="q17"> Com a barra, copia o conteúdo de pasta; sem a barra, cria destino/pasta.</label>
+<label><input type="radio" name="q17"> Nenhuma.</label>
+<label><input type="radio" name="q17"> A barra faz apagar o destino.</label>
+<label><input type="radio" name="q17"> Sem a barra, o rsync usa SSH.</label>
+<p class="mc-ajuda">Revise: <a href="scp-rsync.html">scp e rsync</a></p>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">18. Este script funciona no terminal, mas não no cron. Causa mais provável?</p>
+<pre class="term">$ crontab -l
+0 2 * * * backup.sh</pre>
+<label><input type="radio" name="q18"> O cron não roda à noite.</label>
+<label><input type="radio" name="q18"> Faltou sudo.</label>
+<label><input type="radio" name="q18"> O cron não conhece o caminho: use /home/ana/bin/backup.sh.</label>
+<label><input type="radio" name="q18"> O crontab só aceita Python.</label>
+<p class="mc-ajuda">Revise: <a href="cron.html">Agendar Tarefas (cron)</a></p>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">19. O que <code>echo $?</code> mostra logo depois de um comando?</p>
+<label><input type="radio" name="q19"> A senha do usuário.</label>
+<label><input type="radio" name="q19"> O PID do último comando.</label>
+<label><input type="radio" name="q19"> O número de argumentos.</label>
+<label><input type="radio" name="q19"> O código de saída: 0 deu certo, outro número deu erro.</label>
+<p class="mc-ajuda">Revise: <a href="criar.html">touch e mkdir</a></p>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">20. Qual linha agenda algo para toda segunda-feira às 8h?</p>
+<label><input type="radio" name="q20"> 8 0 * * 1</label>
+<label><input type="radio" name="q20"> 0 8 * * 1</label>
+<label><input type="radio" name="q20"> * 8 1 * *</label>
+<label><input type="radio" name="q20"> 0 8 1 * *</label>
+<p class="mc-ajuda">Revise: <a href="cron.html">Agendar Tarefas (cron)</a></p>
+</div>
+
+<hr>
+
+<h2 id="n3">Nível 3 · Avançado</h2>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">21. Você vai ativar o ufw num servidor que só acessa por SSH. O que fazer antes de <code>ufw enable</code>?</p>
+<label><input type="radio" name="q21"> Reiniciar o servidor.</label>
+<label><input type="radio" name="q21"> Desligar o SSH.</label>
+<label><input type="radio" name="q21"> sudo ufw allow OpenSSH (liberar o SSH).</label>
+<label><input type="radio" name="q21"> Apagar /etc/ufw.</label>
+<p class="mc-ajuda">Revise: <a href="ufw.html">Firewall (ufw)</a></p>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">22. O boot parou em "You are in emergency mode" depois que você editou o /etc/fstab. Causa provável?</p>
+<label><input type="radio" name="q22"> Uma linha do fstab aponta para um disco que não existe ou tem erro.</label>
+<label><input type="radio" name="q22"> Falta de memória.</label>
+<label><input type="radio" name="q22"> Senha errada.</label>
+<label><input type="radio" name="q22"> O GRUB foi apagado.</label>
+<p class="mc-ajuda">Revise: <a href="montar.html">mount e fstab</a></p>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">23. O que <code>lvextend -r -L +10G /dev/vg0/dados</code> faz?</p>
+<label><input type="radio" name="q23"> Cria um disco novo de 10 GB.</label>
+<label><input type="radio" name="q23"> Aumenta o volume lógico em 10 GB e o sistema de arquivos junto.</label>
+<label><input type="radio" name="q23"> Reduz o volume em 10 GB.</label>
+<label><input type="radio" name="q23"> Formata o volume.</label>
+<p class="mc-ajuda">Revise: <a href="lvm.html">LVM</a></p>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">24. O nginx responde "502 Bad Gateway". O que isso indica?</p>
+<label><input type="radio" name="q24"> O domínio não existe.</label>
+<label><input type="radio" name="q24"> O certificado venceu.</label>
+<label><input type="radio" name="q24"> O firewall bloqueou a porta 80.</label>
+<label><input type="radio" name="q24"> O nginx está vivo, mas a aplicação por trás dele (upstream) não respondeu.</label>
+<p class="mc-ajuda">Revise: <a href="nginx.html">Servidor Web (nginx)</a></p>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">25. Qual é a principal diferença entre um container e uma VM?</p>
+<label><input type="radio" name="q25"> O container divide o kernel com a máquina; a VM tem kernel próprio.</label>
+<label><input type="radio" name="q25"> O container é mais lento.</label>
+<label><input type="radio" name="q25"> A VM não precisa de memória.</label>
+<label><input type="radio" name="q25"> Não há diferença.</label>
+<p class="mc-ajuda">Revise: <a href="docker.html">Docker</a></p>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">26. <code>docker ps</code> dá "permission denied … docker.sock". Solução?</p>
+<label><input type="radio" name="q26"> Reinstalar o Docker.</label>
+<label><input type="radio" name="q26"> chmod 777 /var/run/docker.sock.</label>
+<label><input type="radio" name="q26"> Adicionar seu usuário ao grupo docker e entrar de novo na sessão.</label>
+<label><input type="radio" name="q26"> Usar docker -f ps.</label>
+<p class="mc-ajuda">Revise: <a href="docker.html">Docker</a></p>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">27. Num RAID 1 com dois discos de 1 TB, quanto espaço você tem e quantos discos pode perder?</p>
+<label><input type="radio" name="q27"> 2 TB, nenhum.</label>
+<label><input type="radio" name="q27"> 1 TB, um disco.</label>
+<label><input type="radio" name="q27"> 1 TB, dois discos.</label>
+<label><input type="radio" name="q27"> 500 GB, um disco.</label>
+<p class="mc-ajuda">Revise: <a href="raid.html">RAID (mdadm)</a></p>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">28. Depois de uma atualização a tela ficou preta. Primeira tentativa no GRUB?</p>
+<label><input type="radio" name="q28"> Reinstalar o Ubuntu.</label>
+<label><input type="radio" name="q28"> Apagar /boot.</label>
+<label><input type="radio" name="q28"> Desligar o Secure Boot para sempre.</label>
+<label><input type="radio" name="q28"> Iniciar com o kernel anterior em Advanced options.</label>
+<p class="mc-ajuda">Revise: <a href="boot-grub.html">Boot, GRUB e Kernel</a></p>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">29. O que significa um playbook Ansible ser idempotente?</p>
+<label><input type="radio" name="q29"> Ele só roda uma vez.</label>
+<label><input type="radio" name="q29"> Ele precisa de internet.</label>
+<label><input type="radio" name="q29"> Rodar de novo não muda o que já está no estado certo.</label>
+<label><input type="radio" name="q29"> Ele apaga tudo antes de rodar.</label>
+<p class="mc-ajuda">Revise: <a href="ansible.html">Ansible</a></p>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">30. Você esqueceu a senha e o sistema não tem outro administrador. Qual é o caminho?</p>
+<label><input type="radio" name="q30"> Modo de recuperação no GRUB, shell de root, mount -o remount,rw / e passwd.</label>
+<label><input type="radio" name="q30"> sudo passwd sem senha.</label>
+<label><input type="radio" name="q30"> Reinstalar o Ubuntu sem formatar.</label>
+<label><input type="radio" name="q30"> Ctrl+Alt+Del três vezes.</label>
+<p class="mc-ajuda">Revise: <a href="recuperacao.html">Recuperar um Sistema</a></p>
+</div>
+
+<hr>
+
+<h2>E agora?</h2>
+<ul>
+  <li>Acertou quase tudo do seu nível? Siga para o próximo, ou faça um dos <a href="projetos.html">Projetos</a>.</li>
+  <li>Errou várias do mesmo assunto? Volte à aula indicada e refaça os exercícios e as missões do terminal simulado.</li>
+  <li>Travou num problema real? Veja a <a href="problemas.html">Solução de Problemas</a>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

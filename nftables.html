@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu nftables — firewall do kernel na prática | Guia Ubuntu</title>
+<meta name="description" content="Aprenda nftables no Ubuntu: tabelas, cadeias e regras explicadas parte por parte, relação com ufw e iptables, arquivo /etc/nftables.conf comentado e como não perder o acesso remoto.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">nftables</span></h1>
+
+<p class="intro">O <strong>nftables</strong> é o firewall que vive dentro do kernel Linux. Ele decide, pacote por pacote, o que entra, o que sai e o que passa pela máquina. O <code>ufw</code>, que você viu em <a href="ufw.html">Firewall (ufw)</a>, é uma camada simples por cima dele. Nesta aula você vai falar direto com o nftables usando o comando <code>nft</code>.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Como ufw, iptables e nftables se relacionam no Ubuntu 26.04.</li>
+  <li>O que são tabelas, cadeias (chains) e regras, e como ler um <code>nft list ruleset</code>.</li>
+  <li>Como escrever um <code>/etc/nftables.conf</code> que libera SSH, HTTP e HTTPS e bloqueia o resto.</li>
+  <li>Como testar regras num servidor remoto sem ficar trancado do lado de fora.</li>
+</ul>
+</div>
+
+<p>Os exemplos acontecem na máquina fictícia <strong>servidor</strong>, com a usuária <strong>ana</strong>. Todos os comandos do <code>nft</code> exigem <code>sudo</code>.</p>
+
+<hr>
+
+<h2>Antes do comando: quem é quem</h2>
+<p>No Linux existem várias ferramentas de firewall, e isso confunde. Na verdade há <strong>um só</strong> motor no kernel, chamado <em>netfilter</em>. As ferramentas são formas diferentes de dar ordens a ele:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Ferramenta</th><th>O que é</th><th>No Ubuntu 26.04</th></tr>
+<tr><td><code>nft</code> (nftables)</td><td>A interface moderna do netfilter</td><td>Instalado. O serviço <code>nftables</code> vem desativado.</td></tr>
+<tr><td><code>iptables</code></td><td>A interface antiga</td><td>É um "tradutor": grava as regras no nftables (<code>iptables v1.8.11 (nf_tables)</code>).</td></tr>
+<tr><td><code>ufw</code></td><td>Firewall simplificado (<em>Uncomplicated Firewall</em>)</td><td>Usa o <code>iptables</code>, que por sua vez escreve no nftables.</td></tr>
+</table>
+</div>
+
+<p>Você confere isso na sua máquina:</p>
+
+<pre class="term" data-host="servidor">$ iptables --version
+iptables v1.8.11 (nf_tables)                 « o iptables grava no nftables
+$ readlink -f /usr/sbin/iptables
+/usr/sbin/xtables-nft-multi
+$ systemctl is-active ufw nftables
+active                                       « ufw ligado
+inactive                                     « serviço nftables desligado</pre>
+
+<div class="warning">
+<strong>Escolha um só</strong>
+<p>Não use o <code>ufw</code> e um <code>/etc/nftables.conf</code> próprio ao mesmo tempo. Os dois criam regras no mesmo motor, e um pode bloquear o que o outro liberou. Para seguir com o nftables puro, desative o ufw antes: <code>sudo ufw disable</code>.</p>
+</div>
+
+<hr>
+
+<h2>Tabelas, cadeias e regras</h2>
+<p>O nftables organiza tudo em três níveis, como pastas dentro de pastas:</p>
+
+<ol class="passo">
+  <li><strong>Tabela</strong> (<em>table</em>): uma caixa com nome e família. A família diz que tipo de tráfego ela vê: <code>ip</code> (IPv4), <code>ip6</code> (IPv6) ou <code>inet</code> (os dois). Use <code>inet</code> quase sempre.</li>
+  <li><strong>Cadeia</strong> (<em>chain</em>): uma lista de regras ligada a um ponto do caminho do pacote, o <em>hook</em>. <code>input</code> = pacotes chegando para esta máquina; <code>output</code> = saindo dela; <code>forward</code> = passando por ela rumo a outra.</li>
+  <li><strong>Regra</strong> (<em>rule</em>): uma condição e uma ação. "Se for TCP na porta 22, aceite."</li>
+</ol>
+
+<p>Cada cadeia tem uma <strong>política</strong> (<em>policy</em>): o que fazer com um pacote que não bateu em nenhuma regra. <code>accept</code> deixa passar; <code>drop</code> descarta em silêncio.</p>
+
+<h3>Ler as regras atuais: <code>nft list ruleset</code></h3>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>O nftables só responde ao administrador.</dd>
+  <dt>nft</dt><dd>O programa que conversa com o nftables.</dd>
+  <dt>list ruleset</dt><dd>"Liste o conjunto de regras": mostra todas as tabelas, cadeias e regras ativas.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo nft list ruleset
+[sudo: authenticate] Senha:
+table inet filter {                                         « tabela "filter", família inet
+	chain input {                                           « cadeia ligada à entrada
+		type filter hook input priority filter; policy accept;
+	}
+	chain forward {
+		type filter hook forward priority filter; policy accept;
+	}
+	chain output {
+		type filter hook output priority filter; policy accept;
+	}
+}</pre>
+
+<p>Essa é a tabela vazia de exemplo que o Ubuntu traz em <code>/etc/nftables.conf</code>. Nenhuma cadeia tem regra e todas as políticas são <code>accept</code>: nada é bloqueado. Com o ufw ativo, a saída é bem maior e cheia de cadeias chamadas <code>ufw-…</code>.</p>
+
+<h3>O que o comando devolve</h3>
+<p>Sem <code>sudo</code>, o <code>nft</code> não consegue nem ler as regras e devolve código 1:</p>
+
+<pre class="term" data-host="servidor">$ nft list ruleset
+Operation not permitted (you must be root)
+netlink: Error: cache initialization failed: Operation not permitted
+$ echo $?
+1</pre>
+
+<hr>
+
+<h2>Uma regra, parte por parte</h2>
+<p>Vamos adicionar uma regra à cadeia <code>input</code> que aceita conexões SSH (porta 22):</p>
+
+<dl class="anatomy">
+  <dt>sudo nft</dt><dd>O programa, como administrador.</dd>
+  <dt>add rule</dt><dd>Adiciona uma regra no <strong>fim</strong> da cadeia. <code>insert rule</code> põe no começo.</dd>
+  <dt>inet filter input</dt><dd>Onde: família <code>inet</code>, tabela <code>filter</code>, cadeia <code>input</code>.</dd>
+  <dt>tcp dport 22</dt><dd>A condição: protocolo TCP com porta de destino (<em>destination port</em>) 22.</dd>
+  <dt>accept</dt><dd>A ação: deixar passar.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo nft add rule inet filter input tcp dport 22 accept
+$ sudo nft list chain inet filter input
+table inet filter {
+	chain input {
+		type filter hook input priority filter; policy accept;
+		tcp dport 22 accept                              « a regra nova
+	}
+}</pre>
+
+<p>De novo, silêncio é sucesso. O <code>list chain</code> mostra só uma cadeia, o que é mais fácil de ler que o <code>list ruleset</code> inteiro.</p>
+
+<h3>Apagar uma regra: o número <em>handle</em></h3>
+<p>Para apagar uma regra, você precisa do número dela, o <em>handle</em> ("alça"). A opção <code>-a</code> mostra esses números:</p>
+
+<pre class="term" data-host="servidor">$ sudo nft -a list chain inet filter input
+table inet filter {
+	chain input { # handle 1
+		type filter hook input priority filter; policy accept;
+		tcp dport 22 accept # handle 4                   « o número da regra
+	}
+}
+$ sudo nft delete rule inet filter input handle 4</pre>
+
+<div class="note">
+<strong>Regras digitadas somem no reboot</strong>
+<p>Tudo o que você adiciona com <code>nft add</code> vale só até reiniciar. Para regras permanentes, escreva o arquivo <code>/etc/nftables.conf</code> e ative o serviço, como na próxima seção.</p>
+</div>
+
+<hr>
+
+<h2>Um firewall completo em <code>/etc/nftables.conf</code></h2>
+<p>O jeito profissional é descrever todas as regras num arquivo e carregar o arquivo inteiro de uma vez. Este exemplo libera SSH, HTTP e HTTPS, aceita respostas de conexões que o próprio servidor abriu e descarta todo o resto:</p>
+
+<pre class="file" data-file="/etc/nftables.conf">#!/usr/sbin/nft -f
+
+# Apaga todas as regras antigas antes de carregar as novas
+flush ruleset
+
+table inet filter {
+    chain input {
+        # Tudo o que não for aceito abaixo é descartado
+        type filter hook input priority filter; policy drop;
+
+        # Respostas de conexões já abertas (ex.: o apt baixando pacotes)
+        ct state established,related accept
+        # Pacotes sem sentido
+        ct state invalid drop
+
+        # A interface "lo" é a própria máquina conversando com ela mesma
+        iif "lo" accept
+
+        # ping e mensagens de controle do IPv4 e IPv6
+        meta l4proto { icmp, ipv6-icmp } accept
+
+        # SSH, com limite contra tentativas em massa
+        tcp dport 22 ct state new limit rate 15/minute accept
+
+        # Site: HTTP e HTTPS
+        tcp dport { 80, 443 } accept
+    }
+
+    chain forward {
+        # Este servidor não é roteador: não repassa nada
+        type filter hook forward priority filter; policy drop;
+    }
+
+    chain output {
+        # O servidor pode iniciar qualquer conexão de saída
+        type filter hook output priority filter; policy accept;
+    }
+}</pre>
+
+<p>Os pontos que mais confundem:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Trecho</th><th>Significado</th></tr>
+<tr><td><code>policy drop</code></td><td>Padrão "negar tudo". Só passa o que uma regra aceitar.</td></tr>
+<tr><td><code>ct state established,related</code></td><td><code>ct</code> = <em>connection tracking</em>, o rastreio de conexões. Aceita as respostas do que o servidor pediu. Sem isso, o <code>apt update</code> para de funcionar.</td></tr>
+<tr><td><code>iif "lo"</code></td><td><em>Input interface</em> = loopback. Muitos programas conversam consigo mesmos por <code>127.0.0.1</code>.</td></tr>
+<tr><td><code>{ 80, 443 }</code></td><td>Um <em>conjunto</em> (set): vale para qualquer valor da lista.</td></tr>
+<tr><td><code>limit rate 15/minute</code></td><td>Aceita até 15 conexões SSH novas por minuto; o excedente cai na política <code>drop</code>.</td></tr>
+</table>
+</div>
+
+<h3>Verificar, carregar e tornar permanente</h3>
+
+<dl class="anatomy">
+  <dt>sudo nft</dt><dd>O programa, como administrador.</dd>
+  <dt>-c</dt><dd><em>Check</em>: só confere a sintaxe, sem aplicar nada.</dd>
+  <dt>-f /etc/nftables.conf</dt><dd><em>File</em>: lê as regras deste arquivo.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo nft -c -f /etc/nftables.conf
+$ echo $?
+0                                                    « sintaxe correta
+$ sudo nft -f /etc/nftables.conf                     « aplica agora
+$ sudo systemctl enable nftables                     « carrega o arquivo em todo boot
+Created symlink '/etc/systemd/system/sysinit.target.wants/nftables.service' → '/usr/lib/systemd/system/nftables.service'.</pre>
+
+<div class="warning">
+<strong>Servidor remoto: você pode se trancar do lado de fora</strong>
+<p>Com <code>policy drop</code>, um erro na regra do SSH derruba a sua conexão na hora, e você não consegue mais entrar. Num servidor que você só acessa por SSH, sempre use a técnica de segurança da próxima seção.</p>
+</div>
+
+<hr>
+
+<h2>Testar sem medo: a "rede de segurança"</h2>
+<p>A ideia é agendar a volta das regras antigas para daqui a 5 minutos, aplicar as novas e, se tudo estiver bem, cancelar a volta. Se você perder o acesso, basta esperar: as regras antigas voltam sozinhas.</p>
+
+<ol class="passo">
+  <li>Guarde as regras atuais num arquivo:
+<pre class="term" data-host="servidor">$ sudo nft list ruleset | sudo tee /root/regras-antigas.nft &gt; /dev/null</pre></li>
+  <li>Agende a restauração para daqui a 5 minutos com um timer temporário do systemd:
+<pre class="term" data-host="servidor">$ sudo systemd-run --on-active=5min /usr/sbin/nft -f /root/regras-antigas.nft
+Running timer as unit: run-r3f1c2b9a.timer
+Will run service as unit: run-r3f1c2b9a.service</pre></li>
+  <li>Aplique as regras novas:
+<pre class="term" data-host="servidor">$ sudo nft -f /etc/nftables.conf</pre></li>
+  <li>Abra uma <strong>segunda</strong> janela e faça um SSH novo para o servidor. Se entrar, as regras estão boas. Cancele a restauração:
+<pre class="term" data-host="servidor">$ sudo systemctl stop run-r3f1c2b9a.timer</pre></li>
+</ol>
+
+<p>Se a nova conexão não entrar, não faça nada: em 5 minutos o timer recarrega as regras antigas.</p>
+
+<hr>
+
+<h2>Formas diferentes de fazer</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td>ufw</td><td><code>sudo ufw allow 443/tcp</code></td><td>Regras simples de portas, que é o caso da maioria dos servidores.</td></tr>
+<tr><td><code>nft add rule</code></td><td><code>sudo nft add rule inet filter input tcp dport 8080 accept</code></td><td>Testar uma regra rapidamente (some no reboot).</td></tr>
+<tr><td>Arquivo <code>/etc/nftables.conf</code></td><td><code>sudo nft -f /etc/nftables.conf</code></td><td>Firewall completo, revisável e versionado no Git.</td></tr>
+<tr><td>Modo interativo</td><td><code>sudo nft -i</code></td><td>Explorar comandos sem repetir <code>sudo nft</code>.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Erro de sintaxe no arquivo</strong>
+<pre class="term" data-host="servidor">$ sudo nft -c -f /etc/nftables.conf
+/etc/nftables.conf:21:31-31: Error: syntax error, unexpected newline
+        tcp dport 22 acept
+                          ^</pre>
+<p><strong>O que aconteceu:</strong> a palavra <code>acept</code> está escrita errado. O <code>nft</code> diz o arquivo, a linha (21) e a coluna, e aponta com <code>^</code> onde se perdeu.</p>
+<p><strong>Como resolver:</strong> corrija a linha e rode <code>nft -c</code> de novo antes de aplicar. Um arquivo com erro <strong>não é carregado pela metade</strong>: o nftables aplica tudo ou nada.</p>
+</div>
+
+<div class="cenario">
+<strong>"apt update" parou de funcionar depois do firewall</strong>
+<p><strong>O que aconteceu:</strong> a cadeia <code>input</code> tem <code>policy drop</code>, mas falta a regra <code>ct state established,related accept</code>. O servidor pede os pacotes, e as respostas são descartadas na volta.</p>
+<p><strong>Como resolver:</strong> coloque a regra de <code>ct state</code> logo no início da cadeia <code>input</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Uma porta liberada continua fechada</strong>
+<pre class="term" data-host="servidor">$ sudo nft list ruleset | grep -c ufw
+84                                                  « o ufw também está ativo</pre>
+<p><strong>O que aconteceu:</strong> o ufw continua ativo e as cadeias dele descartam o pacote antes. Também pode ser que o serviço nem esteja escutando na porta.</p>
+<p><strong>Como resolver:</strong> escolha uma ferramenta só (<code>sudo ufw disable</code>) e confira se há programa escutando com <code>sudo ss -tlnp</code> (veja <a href="ip.html">ip, ping, ss</a>).</p>
+</div>
+
+<div class="cenario">
+<strong>As regras sumiram depois de reiniciar</strong>
+<p><strong>O que aconteceu:</strong> regras criadas com <code>nft add</code> só existem na memória.</p>
+<p><strong>Como resolver:</strong> escreva-as em <code>/etc/nftables.conf</code> e ative o serviço com <code>sudo systemctl enable nftables</code>. Para salvar o que está ativo agora: <code>sudo nft list ruleset</code>, conferir e colar no arquivo.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>nft list ruleset</code></td><td>Mostra todas as regras ativas</td></tr>
+<tr><td><code>nft list tables</code></td><td>Lista só os nomes das tabelas</td></tr>
+<tr><td><code>nft list chain inet filter input</code></td><td>Mostra uma cadeia</td></tr>
+<tr><td><code>nft -a list …</code></td><td>Inclui os números <em>handle</em></td></tr>
+<tr><td><code>nft add rule FAMÍLIA TABELA CADEIA …</code></td><td>Adiciona regra no fim</td></tr>
+<tr><td><code>nft insert rule …</code></td><td>Adiciona regra no começo</td></tr>
+<tr><td><code>nft delete rule … handle N</code></td><td>Apaga a regra N</td></tr>
+<tr><td><code>nft add table inet nome</code></td><td>Cria uma tabela</td></tr>
+<tr><td><code>nft flush ruleset</code></td><td>Apaga <strong>todas</strong> as regras (tudo fica liberado)</td></tr>
+<tr><td><code>nft -c -f arquivo</code></td><td>Confere a sintaxe sem aplicar</td></tr>
+<tr><td><code>nft -f arquivo</code></td><td>Aplica um arquivo de regras</td></tr>
+<tr><td><code>nft -i</code></td><td>Modo interativo</td></tr>
+</table>
+</div>
+
+<h3>Condições mais usadas</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Condição</th><th>Significa</th></tr>
+<tr><td><code>tcp dport 22</code> / <code>udp dport 53</code></td><td>Porta de destino</td></tr>
+<tr><td><code>tcp dport { 80, 443 }</code></td><td>Qualquer porta da lista</td></tr>
+<tr><td><code>ip saddr 192.168.0.0/24</code></td><td>Endereço de origem (<em>source address</em>) IPv4</td></tr>
+<tr><td><code>iif "eth0"</code></td><td>Interface de entrada</td></tr>
+<tr><td><code>ct state established,related</code></td><td>Respostas de conexões existentes</td></tr>
+<tr><td><code>limit rate 10/minute</code></td><td>Limite de frequência</td></tr>
+</table>
+</div>
+<p>Ações: <code>accept</code> (aceita), <code>drop</code> (descarta em silêncio), <code>reject</code> (recusa avisando o remetente), <code>log prefix "texto "</code> (registra no log e segue para a próxima regra).</p>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Ler as regras</h3>
+<p>Complete o comando que mostra todas as regras ativas:</p>
+<div class="ex-code">sudo nft <input data-answer="list ruleset" aria-label="subcomando"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Liberar uma porta</h3>
+<p>Complete para aceitar conexões TCP na porta 8080 na cadeia <code>input</code> da tabela <code>inet filter</code>:</p>
+<div class="ex-code">sudo nft add rule inet filter input tcp dport <input data-answer="8080" aria-label="porta"> <input data-answer="accept" aria-label="ação"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Conferir antes de aplicar</h3>
+<p>Complete para só verificar a sintaxe do arquivo, sem aplicar:</p>
+<div class="ex-code">sudo nft <input data-answer="-c|--check" aria-label="opção"> -f /etc/nftables.conf</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. A cadeia <code>input</code> tem <code>policy drop</code> e nenhuma regra. O que acontece com uma conexão SSH nova?</p>
+<label><input type="radio" name="q4"> Ela é aceita, porque o SSH é liberado por padrão.</label>
+<label><input type="radio" name="q4"> Ela é descartada, porque nenhuma regra a aceitou.</label>
+<label><input type="radio" name="q4"> O nftables pergunta ao administrador.</label>
+<label><input type="radio" name="q4"> Ela é recusada com uma mensagem de erro para o cliente.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. No Ubuntu 26.04, o <code>ufw</code>…</p>
+<label><input type="radio" name="q5"> substitui o kernel na filtragem de pacotes.</label>
+<label><input type="radio" name="q5"> só funciona com IPv4.</label>
+<label><input type="radio" name="q5"> não tem relação com o nftables.</label>
+<label><input type="radio" name="q5"> usa o iptables, que grava as regras no nftables.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Há um só motor de firewall no kernel; <code>ufw</code>, <code>iptables</code> e <code>nft</code> são formas de configurá-lo. Use um só.</li>
+  <li>Tabela (família <code>inet</code>) → cadeia (<code>input</code>, <code>forward</code>, <code>output</code>) → regras (condição + ação).</li>
+  <li><code>policy drop</code> + <code>ct state established,related accept</code> + portas liberadas = firewall "negar por padrão".</li>
+  <li>Regras permanentes vão em <code>/etc/nftables.conf</code>; confira com <code>nft -c -f</code> e ative com <code>systemctl enable nftables</code>.</li>
+  <li>Em servidor remoto, agende a volta das regras antigas antes de aplicar as novas.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

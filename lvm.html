@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu LVM — volumes lógicos, aumentar disco e snapshots | Guia Ubuntu</title>
+<meta name="description" content="Aprenda LVM no Ubuntu: PV, VG e LV explicados com analogia, pvcreate, vgcreate, lvcreate, lvextend -r, snapshots e um laboratório seguro com losetup.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">LVM</span></h1>
+
+<p class="intro"><strong>LVM</strong> (<em>Logical Volume Manager</em>, "gerenciador de volumes lógicos") é uma camada entre os discos e os sistemas de arquivos. Com ele, você junta vários discos num "bolo" de espaço e corta pedaços do tamanho que quiser. A maior vantagem: dá para <strong>aumentar uma partição com o servidor ligado</strong>, sem formatar nada.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que são PV, VG e LV, com uma analogia simples.</li>
+  <li>Como montar um laboratório de LVM com arquivos, sem discos extras.</li>
+  <li>Criar, aumentar e remover volumes com <code>pvcreate</code>, <code>vgcreate</code>, <code>lvcreate</code> e <code>lvextend</code>.</li>
+  <li>Aproveitar o espaço que o instalador do Ubuntu Server deixa sobrando.</li>
+  <li>Tirar um snapshot antes de uma mudança arriscada e voltar atrás.</li>
+</ul>
+</div>
+
+<p>Você já deve conhecer <a href="particionar.html">Particionar e Formatar</a> e <a href="montar.html">mount e fstab</a>. Os exemplos acontecem na máquina fictícia <strong>servidor</strong>, com dois discos novos: <code>/dev/sdb</code> e <code>/dev/sdc</code>, de 50 GB cada.</p>
+
+<hr>
+
+<h2>Conceito: caixas d'água e torneiras</h2>
+<p>Sem LVM, cada partição é um pedaço fixo de um disco. Se ela encher, você precisa mover dados ou reformatar. O LVM troca essa rigidez por três camadas:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Camada</th><th>Sigla</th><th>Analogia</th><th>Exemplo</th></tr>
+<tr><td>Volume físico</td><td><strong>PV</strong> (<em>physical volume</em>)</td><td>Cada caixa d'água</td><td><code>/dev/sdb</code>, <code>/dev/sdc</code></td></tr>
+<tr><td>Grupo de volumes</td><td><strong>VG</strong> (<em>volume group</em>)</td><td>As caixas ligadas por canos, formando um reservatório só</td><td><code>dados</code> (100 GB)</td></tr>
+<tr><td>Volume lógico</td><td><strong>LV</strong> (<em>logical volume</em>)</td><td>Cada torneira, com a vazão que você escolher</td><td><code>arquivos</code> (20 GB), <code>backup</code> (30 GB)</td></tr>
+</table>
+</div>
+
+<p>O sistema de arquivos (ext4, xfs) fica <strong>dentro do LV</strong>, como ficaria dentro de uma partição. A diferença é que o LV pode crescer enquanto houver espaço livre no VG, e o VG pode crescer quando você adiciona outro disco.</p>
+
+<pre class="file" data-file="esquema">  disco /dev/sdb (50G)     disco /dev/sdc (50G)        ← PVs
+          \                     /
+           +---- VG "dados" (100G) ----+                 ← VG
+           |            |              |
+     LV arquivos   LV backup     (livre 50G)             ← LVs
+        ext4          ext4
+   /srv/arquivos   /srv/backup                           ← montagem</pre>
+
+<div class="tip">
+<strong>Você talvez já use LVM</strong>
+<p>O instalador do Ubuntu Server usa LVM por padrão. Rode <code>sudo lvs</code>: se aparecer <code>ubuntu-lv</code> no grupo <code>ubuntu-vg</code>, seu sistema está num volume lógico.</p>
+</div>
+
+<hr>
+
+<h2>Laboratório seguro com <code>losetup</code></h2>
+<p>Para treinar sem discos extras, crie dois arquivos e transforme-os em "discos" com <code>losetup</code> (de <em>loop setup</em>). Um <strong>dispositivo loop</strong> faz um arquivo se comportar como um disco.</p>
+
+<dl class="anatomy">
+  <dt>sudo losetup</dt><dd>O programa que liga arquivos a dispositivos loop.</dd>
+  <dt>-f</dt><dd><em>find</em>: usa o primeiro <code>/dev/loopN</code> livre.</dd>
+  <dt>--show</dt><dd>Mostra qual nome foi usado.</dd>
+  <dt>disco1.img</dt><dd>O arquivo que vai virar disco.</dd>
+</dl>
+
+<pre class="term" data-host="servidor" data-cwd="~/lab">$ truncate -s 2G disco1.img disco2.img
+$ sudo losetup -f --show disco1.img
+[sudo: authenticate] Senha:
+/dev/loop20                                     « o número varia: os snaps já usam vários loops
+$ sudo losetup -f --show disco2.img
+/dev/loop21</pre>
+
+<p>Nos exemplos abaixo, troque <code>/dev/sdb</code> e <code>/dev/sdc</code> por <code>/dev/loop20</code> e <code>/dev/loop21</code>. Ao terminar, desmonte tudo, remova o VG (seção "Remover") e solte os loops com <code>sudo losetup -d /dev/loop20 /dev/loop21</code>. Instale o LVM se ainda não tiver: <code>sudo apt install lvm2</code>.</p>
+
+<hr>
+
+<h2>Passo 1: criar os volumes físicos (PV)</h2>
+<p>Marcar um disco como PV grava um pequeno cabeçalho do LVM no início dele.</p>
+
+<dl class="anatomy">
+  <dt>sudo pvcreate</dt><dd>"<em>physical volume create</em>": prepara discos para o LVM.</dd>
+  <dt>/dev/sdb /dev/sdc</dt><dd>Os discos (ou partições). Pode passar vários de uma vez.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo pvcreate /dev/sdb /dev/sdc
+  Physical volume "/dev/sdb" successfully created.
+  Physical volume "/dev/sdc" successfully created.
+$ sudo pvs
+  PV         VG        Fmt  Attr PSize   PFree
+  /dev/sda3  ubuntu-vg lvm2 a--  &lt;62,00g      0     « o disco do sistema (já em uso)
+  /dev/sdb             lvm2 ---   50,00g  50,00g    « novo, ainda sem grupo (coluna VG vazia)
+  /dev/sdc             lvm2 ---   50,00g  50,00g</pre>
+
+<div class="warning">
+<strong>Atenção</strong>
+<p><code>pvcreate</code> inutiliza o que estiver no disco. Confira com <code>lsblk</code> que <code>/dev/sdb</code> é mesmo o disco novo.</p>
+</div>
+
+<h2>Passo 2: criar o grupo (VG)</h2>
+<dl class="anatomy">
+  <dt>sudo vgcreate</dt><dd>"<em>volume group create</em>".</dd>
+  <dt>dados</dt><dd>O nome do grupo. Você escolhe.</dd>
+  <dt>/dev/sdb /dev/sdc</dt><dd>Os PVs que formam o grupo.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo vgcreate dados /dev/sdb /dev/sdc
+  Volume group "dados" successfully created
+$ sudo vgs
+  VG        #PV #LV #SN Attr   VSize   VFree
+  dados       2   0   0 wz--n-  99,99g 99,99g     « 2 discos, 0 volumes, quase 100 GB livres
+  ubuntu-vg   1   1   0 wz--n- &lt;62,00g     0</pre>
+
+<p>Lendo as colunas: <code>#PV</code> é a quantidade de discos, <code>#LV</code> a de volumes lógicos, <code>#SN</code> a de snapshots, <code>VSize</code> o tamanho total e <code>VFree</code> o espaço ainda não usado. O <code>&lt;</code> antes de um número significa "um pouco menos que".</p>
+
+<h2>Passo 3: criar o volume lógico (LV)</h2>
+<dl class="anatomy">
+  <dt>sudo lvcreate</dt><dd>"<em>logical volume create</em>".</dd>
+  <dt>-n arquivos</dt><dd><code>-n</code> (<em>name</em>): o nome do volume.</dd>
+  <dt>-L 20G</dt><dd><code>-L</code> (maiúsculo): tamanho exato, 20 GB.</dd>
+  <dt>dados</dt><dd>O grupo de onde sai o espaço.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo lvcreate -n arquivos -L 20G dados
+  Logical volume "arquivos" created.
+$ sudo lvs dados
+  LV       VG    Attr       LSize  Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  arquivos dados -wi-a----- 20,00g</pre>
+
+<p>O volume aparece como um dispositivo com dois nomes, que apontam para o mesmo lugar:</p>
+<pre class="term" data-host="servidor">$ ls -l /dev/dados/arquivos /dev/mapper/dados-arquivos
+lrwxrwxrwx 1 root root 7 Oct 15 10:30 /dev/dados/arquivos -&gt; ../dm-1
+lrwxrwxrwx 1 root root 7 Oct 15 10:30 /dev/mapper/dados-arquivos -&gt; ../dm-1</pre>
+
+<h3>Tamanho fixo ou porcentagem?</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Significado</th></tr>
+<tr><td><code>-L</code> tamanho</td><td><code>-L 20G</code></td><td>Exatamente 20 GB</td></tr>
+<tr><td><code>-l</code> porcentagem do livre</td><td><code>-l 50%FREE</code></td><td>Metade do espaço livre do VG</td></tr>
+<tr><td><code>-l</code> tudo</td><td><code>-l 100%FREE</code></td><td>Todo o espaço livre que sobrou</td></tr>
+<tr><td><code>-l</code> porcentagem do grupo</td><td><code>-l 30%VG</code></td><td>30% do tamanho total do VG</td></tr>
+</table>
+</div>
+
+<h2>Passo 4: formatar e montar</h2>
+<p>Daqui em diante, o LV é tratado como qualquer partição:</p>
+<pre class="term" data-host="servidor">$ sudo mkfs.ext4 -L arquivos /dev/dados/arquivos
+mke2fs 1.47.2 (1-Jan-2025)
+A criar sistema de ficheiros com 5242880 4k blocos e 1310720 inodes
+…
+$ sudo mkdir -p /srv/arquivos
+$ sudo mount /dev/dados/arquivos /srv/arquivos
+$ df -h /srv/arquivos
+Sist. Arq.                  Tam. Usado Disp. Uso% Montado em
+/dev/mapper/dados-arquivos   20G   24K   19G   1% /srv/arquivos</pre>
+
+<p>Para montar sempre no boot, adicione ao <code>/etc/fstab</code> (no LVM, o caminho <code>/dev/mapper/…</code> é estável, e o UUID também funciona):</p>
+<pre class="file" data-file="/etc/fstab (linha nova)">/dev/mapper/dados-arquivos  /srv/arquivos  ext4  defaults,nofail  0  2</pre>
+
+<hr>
+
+<h2>Aumentar um volume com o sistema ligado</h2>
+<p>Esta é a razão de existir do LVM. O volume <code>arquivos</code> está quase cheio e o VG tem espaço livre:</p>
+
+<dl class="anatomy">
+  <dt>sudo lvextend</dt><dd>"<em>logical volume extend</em>": aumenta um LV.</dd>
+  <dt>-r</dt><dd><em>resizefs</em>: aumenta também o sistema de arquivos. <strong>Sem ele</strong>, o LV cresce mas o <code>df</code> continua mostrando o tamanho antigo.</dd>
+  <dt>-L +10G</dt><dd>Com <code>+</code>: <strong>acrescenta</strong> 10 GB. Sem <code>+</code> (<code>-L 30G</code>), define o tamanho final.</dd>
+  <dt>dados/arquivos</dt><dd>Qual volume: grupo/volume.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo lvextend -r -L +10G dados/arquivos
+  Size of logical volume dados/arquivos changed from 20,00 GiB (5120 extents) to 30,00 GiB (7680 extents).
+  Extending file system ext4 to 30,00 GiB (32212254720 bytes) on dados/arquivos...
+resize2fs 1.47.2 (1-Jan-2025)
+Filesystem at /dev/mapper/dados-arquivos is mounted on /srv/arquivos; on-line resizing required
+old_desc_blocks = 3, new_desc_blocks = 4
+The filesystem on /dev/mapper/dados-arquivos is now 7864320 (4k) blocks long.
+
+  Extended file system ext4 on dados/arquivos.
+  Logical volume dados/arquivos successfully resized.
+$ df -h /srv/arquivos
+Sist. Arq.                  Tam. Usado Disp. Uso% Montado em
+/dev/mapper/dados-arquivos   30G   24K   28G   1% /srv/arquivos     « cresceu sem desmontar</pre>
+
+<p>As mensagens exatas variam com a versão do <code>lvm2</code>; o que importa são as duas últimas linhas, que confirmam o sistema de arquivos e o volume aumentados.</p>
+
+<h3>Formas diferentes de aumentar</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Comando</th><th>Quando usar</th></tr>
+<tr><td>Num passo só</td><td><code>sudo lvextend -r -L +10G dados/arquivos</code></td><td>Sempre que possível</td></tr>
+<tr><td>Usar todo o livre</td><td><code>sudo lvextend -r -l +100%FREE dados/arquivos</code></td><td>Esse é o único volume que precisa crescer</td></tr>
+<tr><td>Em dois passos</td><td><code>sudo lvextend -L +10G dados/arquivos</code> e depois <code>sudo resize2fs /dev/dados/arquivos</code></td><td>Você esqueceu o <code>-r</code> (no xfs, o segundo passo é <code>sudo xfs_growfs /srv/arquivos</code>)</td></tr>
+</table>
+</div>
+
+<h3>Acabou o espaço do grupo? Adicione um disco</h3>
+<pre class="term" data-host="servidor">$ sudo pvcreate /dev/sdd
+  Physical volume "/dev/sdd" successfully created.
+$ sudo vgextend dados /dev/sdd
+  Volume group "dados" successfully extended
+$ sudo vgs dados
+  VG    #PV #LV #SN Attr   VSize    VFree
+  dados   3   1   0 wz--n- &lt;149,99g 119,99g      « 3 discos agora</pre>
+
+<div class="warning">
+<strong>Diminuir é perigoso</strong>
+<p>Encolher (<code>lvreduce</code>) exige desmontar, e um erro de tamanho destrói dados. O <code>xfs</code> não pode ser encolhido. Se precisar, faça backup antes e use <code>lvreduce -r</code>, que reduz o sistema de arquivos junto.</p>
+</div>
+
+<hr>
+
+<h2>Cenário real: o Ubuntu Server "usou só metade do disco"</h2>
+<p>O instalador do Ubuntu Server cria o volume do sistema com só parte do espaço, de propósito, para deixar folga. Muita gente estranha:</p>
+
+<pre class="term" data-host="servidor">$ df -h /
+Sist. Arq.                         Tam. Usado Disp. Uso% Montado em
+/dev/mapper/ubuntu--vg-ubuntu--lv   98G   12G   82G  13% /          « o disco tem 200 GB!
+$ sudo vgs
+  VG        #PV #LV #SN Attr   VSize    VFree
+  ubuntu-vg   1   1   0 wz--n- &lt;198,00g 100,00g                     « 100 GB guardados</pre>
+
+<p>O espaço não sumiu: está livre no VG. Para entregar tudo ao <code>/</code>:</p>
+<pre class="term" data-host="servidor">$ sudo lvextend -r -l +100%FREE ubuntu-vg/ubuntu-lv
+  Size of logical volume ubuntu-vg/ubuntu-lv changed from 100,00 GiB (25600 extents) to &lt;198,00 GiB (50687 extents).
+  …
+  Logical volume ubuntu-vg/ubuntu-lv successfully resized.
+$ df -h /
+Sist. Arq.                         Tam. Usado Disp. Uso% Montado em
+/dev/mapper/ubuntu--vg-ubuntu--lv  195G   12G  175G   7% /</pre>
+
+<p>Repare nos traços dobrados em <code>ubuntu--vg-ubuntu--lv</code>: no <code>/dev/mapper</code>, o traço separa grupo e volume, então um traço que faz parte do nome vira <code>--</code>.</p>
+
+<hr>
+
+<h2>Snapshots: uma foto antes da mudança</h2>
+<p>Um <strong>snapshot</strong> congela o estado de um volume. Útil antes de uma atualização arriscada: se der errado, você volta. Ele só guarda o que <strong>mudou</strong> depois da foto, por isso pode ser bem menor que o original.</p>
+
+<dl class="anatomy">
+  <dt>sudo lvcreate</dt><dd>O mesmo comando de criar volume.</dd>
+  <dt>-s</dt><dd><em>snapshot</em>: cria uma foto, não um volume novo vazio.</dd>
+  <dt>-n arquivos-antes</dt><dd>Nome do snapshot.</dd>
+  <dt>-L 5G</dt><dd>Espaço para guardar as mudanças. Se encher, o snapshot fica inválido.</dd>
+  <dt>dados/arquivos</dt><dd>O volume a fotografar.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo lvcreate -s -n arquivos-antes -L 5G dados/arquivos
+  Logical volume "arquivos-antes" created.
+$ sudo lvs dados
+  LV             VG    Attr       LSize  Pool Origin   Data%  Meta%  Move Log Cpy%Sync Convert
+  arquivos       dados owi-aos--- 30,00g
+  arquivos-antes dados swi-a-s---  5,00g      arquivos 0,01               « Data%: quanto do snapshot já foi usado</pre>
+
+<p>Agora você faz a mudança arriscada. Depois, uma de duas:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Deu certo</th><th>Deu errado</th></tr>
+<tr><td>Apague o snapshot: <code>sudo lvremove dados/arquivos-antes</code></td><td>Volte no tempo: <code>sudo lvconvert --merge dados/arquivos-antes</code>. Se o volume estiver em uso, a volta acontece na próxima vez que ele for ativado (desmonte e monte de novo, ou reinicie).</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Snapshot não é backup</strong>
+<p>O snapshot fica nos mesmos discos. Se o disco quebrar, a foto vai junto. Use-o para mudanças rápidas e mantenha backups de verdade (veja <a href="backup.html">Backup</a>).</p>
+</div>
+
+<hr>
+
+<h2>Remover volumes e grupos</h2>
+<p>A ordem é a inversa da criação: desmonte, remova o LV, depois o VG, depois os PVs.</p>
+<pre class="term" data-host="servidor">$ sudo umount /srv/arquivos
+$ sudo lvremove dados/arquivos
+Do you really want to remove active logical volume dados/arquivos? [y/n]: y
+  Logical volume "arquivos" successfully removed.
+$ sudo vgremove dados
+  Volume group "dados" successfully removed
+$ sudo pvremove /dev/sdb /dev/sdc
+  Labels on physical volume "/dev/sdb" successfully wiped.
+  Labels on physical volume "/dev/sdc" successfully wiped.</pre>
+
+<div class="warning">
+<strong>Atenção</strong>
+<p><code>lvremove</code> apaga o volume e tudo dentro dele. Lembre de tirar a linha correspondente do <code>/etc/fstab</code>.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Insufficient free space"</strong>
+<pre class="term" data-host="servidor">$ sudo lvextend -r -L +80G dados/arquivos
+  Insufficient free space: 20480 extents needed, but only 17919 available</pre>
+<p><strong>O que aconteceu:</strong> o VG não tem espaço livre suficiente. <em>Extents</em> são os "tijolos" de 4 MB em que o LVM divide o espaço.</p>
+<p><strong>Como confirmar:</strong> <code>sudo vgs dados</code>, coluna <code>VFree</code>.</p>
+<p><strong>Como resolver:</strong> peça menos (<code>-l +100%FREE</code> usa tudo o que há) ou adicione um disco com <code>pvcreate</code> + <code>vgextend</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"excluded by a filter" ou "partition signature detected"</strong>
+<pre class="term" data-host="servidor">$ sudo pvcreate /dev/sdb
+  Cannot use /dev/sdb: device is partitioned</pre>
+<p><strong>O que aconteceu:</strong> o disco tem uma tabela de partições (ou restos de outro formato). O LVM se recusa a usar o disco inteiro para não apagá-la por engano.</p>
+<p><strong>Como resolver:</strong> use uma partição (<code>/dev/sdb1</code>) ou, se o disco pode ser apagado, limpe-o com <code>sudo wipefs -a /dev/sdb</code> e tente de novo.</p>
+</div>
+
+<div class="cenario">
+<strong>O LV cresceu, mas o <code>df</code> mostra o tamanho antigo</strong>
+<p><strong>O que aconteceu:</strong> o <code>lvextend</code> rodou sem <code>-r</code>. O volume cresceu, mas o sistema de arquivos dentro dele não.</p>
+<p><strong>Como resolver:</strong> <code>sudo resize2fs /dev/dados/arquivos</code> (ext4) ou <code>sudo xfs_growfs /srv/arquivos</code> (xfs). Os dois funcionam com o volume montado.</p>
+</div>
+
+<div class="cenario">
+<strong>"command not found" no pvcreate</strong>
+<p><strong>O que aconteceu:</strong> o pacote <code>lvm2</code> não está instalado (comum no Ubuntu Desktop).</p>
+<p><strong>Como resolver:</strong> <code>sudo apt install lvm2</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência rápida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>sudo pvcreate /dev/sdb</code></td><td>Prepara um disco ou partição como PV</td></tr>
+<tr><td><code>sudo pvs</code> / <code>sudo pvdisplay</code></td><td>Lista PVs (resumo / detalhado)</td></tr>
+<tr><td><code>sudo vgcreate NOME /dev/sdb …</code></td><td>Cria um grupo</td></tr>
+<tr><td><code>sudo vgextend NOME /dev/sdd</code></td><td>Adiciona disco ao grupo</td></tr>
+<tr><td><code>sudo vgs</code> / <code>sudo vgdisplay</code></td><td>Lista grupos</td></tr>
+<tr><td><code>sudo lvcreate -n LV -L 20G VG</code></td><td>Cria volume de 20 GB</td></tr>
+<tr><td><code>sudo lvcreate -n LV -l 100%FREE VG</code></td><td>Cria volume com todo o espaço livre</td></tr>
+<tr><td><code>sudo lvextend -r -L +10G VG/LV</code></td><td>Aumenta volume e sistema de arquivos</td></tr>
+<tr><td><code>sudo lvreduce -r -L -5G VG/LV</code></td><td>Diminui (com cuidado e backup)</td></tr>
+<tr><td><code>sudo lvcreate -s -n SNAP -L 5G VG/LV</code></td><td>Cria snapshot</td></tr>
+<tr><td><code>sudo lvconvert --merge VG/SNAP</code></td><td>Volta o volume ao estado do snapshot</td></tr>
+<tr><td><code>sudo lvs</code> / <code>sudo lvdisplay</code></td><td>Lista volumes</td></tr>
+<tr><td><code>sudo lvremove VG/LV</code> · <code>vgremove</code> · <code>pvremove</code></td><td>Remove volume, grupo, PV</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. A ordem das camadas</h3>
+<p>Complete a ordem das camadas, usando as siglas:</p>
+<div class="ex-code">disco → <input data-answer="PV|pv" aria-label="camada 1"> → <input data-answer="VG|vg" aria-label="camada 2"> → <input data-answer="LV|lv" aria-label="camada 3"> → sistema de arquivos</div>
+</div>
+
+<div class="exercise">
+<h3>2. Aumentar sem esquecer o sistema de arquivos</h3>
+<p>Complete para acrescentar 15 GB ao volume <code>web</code> do grupo <code>dados</code>, aumentando o ext4 junto:</p>
+<div class="ex-code">sudo lvextend <input data-answer="-r -L +15G|-r -L+15G|-L +15G -r|-rL +15G|--resizefs -L +15G" aria-label="opções"> dados/web</div>
+</div>
+
+<div class="exercise">
+<h3>3. Todo o espaço livre</h3>
+<p>Complete para criar o volume <code>backup</code> usando todo o espaço livre do grupo <code>dados</code>:</p>
+<div class="ex-code">sudo lvcreate -n backup -l <input data-answer="100%FREE" aria-label="tamanho"> dados</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Depois de <code>sudo lvextend -L +10G dados/arquivos</code> (sem <code>-r</code>), o <code>df -h</code> mostra o tamanho antigo. Por quê?</p>
+<label><input type="radio" name="q4"> O comando falhou em silêncio.</label>
+<label><input type="radio" name="q4"> É preciso reiniciar o servidor.</label>
+<label><input type="radio" name="q4"> O volume cresceu, mas o sistema de arquivos dentro dele não.</label>
+<label><input type="radio" name="q4"> O <code>df</code> só atualiza uma vez por dia.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. Para que serve um snapshot LVM?</p>
+<label><input type="radio" name="q5"> Guardar o estado do volume antes de uma mudança e poder voltar a ele.</label>
+<label><input type="radio" name="q5"> Substituir o backup em outro disco.</label>
+<label><input type="radio" name="q5"> Deixar o volume mais rápido.</label>
+<label><input type="radio" name="q5"> Juntar dois discos num só.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>LVM tem três camadas: <strong>PV</strong> (discos) → <strong>VG</strong> (o reservatório) → <strong>LV</strong> (os volumes que você formata e monta).</li>
+  <li><code>lvextend -r</code> aumenta volume e sistema de arquivos juntos, com tudo montado.</li>
+  <li>Sem espaço no VG? <code>pvcreate</code> + <code>vgextend</code> com um disco novo.</li>
+  <li>No Ubuntu Server, <code>lvextend -r -l +100%FREE ubuntu-vg/ubuntu-lv</code> usa o espaço que o instalador deixou livre.</li>
+  <li>Snapshots ajudam em mudanças arriscadas, mas não substituem backup.</li>
+  <li>Treine com <code>truncate</code> + <code>losetup</code> antes de mexer em discos reais.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

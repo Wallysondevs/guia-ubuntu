@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projeto: Backup Automático | Guia Ubuntu</title>
+<meta name="description" content="Laboratório passo a passo: script de backup com rsync, log, rotação de 7 dias, agendamento com systemd timer, aviso de falha e teste de restauração.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Projeto <span class="hl">Backup Automático</span></h1>
+
+<p class="intro">Um backup que você precisa lembrar de fazer não é backup. E um backup que nunca foi restaurado é só uma esperança. Neste laboratório você monta uma rotina que copia os dados todo dia sozinha, apaga cópias velhas, avisa quando falha, e, o mais importante, <strong>prova que a restauração funciona</strong>.</p>
+
+<div class="tip">
+<strong>Ao terminar você terá</strong>
+<ul>
+  <li>Um script <code>backup-dados.sh</code> que copia uma pasta com <code>rsync</code> para uma pasta com a data no nome.</li>
+  <li>Um log com o resultado de cada execução.</li>
+  <li>Rotação: cópias com mais de 7 dias são apagadas sozinhas.</li>
+  <li>Um <strong>systemd timer</strong> que roda o backup todo dia às 02:00, e um aviso quando ele falhar.</li>
+  <li>Uma restauração testada, arquivo por arquivo.</li>
+</ul>
+</div>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Item</th><th>Detalhe</th></tr>
+<tr><td>Tempo estimado</td><td>1h</td></tr>
+<tr><td>Pré-requisitos</td><td><a href="projetos.html">Como Usar os Projetos</a>, <a href="script-intro.html">Primeiro Script</a>, <a href="scp-rsync.html">scp e rsync</a>, <a href="criar-servico.html">Criar um Serviço</a>, <a href="backup.html">Backup</a></td></tr>
+<tr><td>Onde roda</td><td>VM <code>lab</code> do Multipass (prompt <code>ubuntu@lab</code>)</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>No mundo real</strong>
+<p>Aqui a pasta <code>/backup</code> fica no mesmo disco, para simplificar. Na vida real, o destino deve ser <strong>outro disco</strong> (HD externo, outro servidor). Backup no mesmo disco não sobrevive a um disco queimado. Veja a regra 3-2-1 em <a href="backup.html">Backup</a>.</p>
+</div>
+
+<hr>
+
+<h2>As etapas</h2>
+
+<ol class="passo">
+
+<li>
+<h3>Preparar a VM e os dados de exemplo</h3>
+<p><strong>O que vamos fazer e por quê:</strong> criar dados para proteger. Usamos arquivos de texto (fáceis de conferir) e um arquivo binário de 1 MB, simulando uma foto.</p>
+
+<pre class="term">$ multipass launch 26.04 --name lab --disk 10G --memory 2G
+Launched: lab
+$ multipass shell lab</pre>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ mkdir -p ~/dados/{contratos,fotos}
+$ for i in 1 2 3; do echo "Contrato número $i" &gt; ~/dados/contratos/contrato-0$i.txt; done
+$ head -c 1M /dev/urandom &gt; ~/dados/fotos/foto1.jpg
+$ tree ~/dados
+/home/ubuntu/dados
+├── contratos
+│   ├── contrato-01.txt
+│   ├── contrato-02.txt
+│   └── contrato-03.txt
+└── fotos
+    └── foto1.jpg
+
+3 directories, 4 files</pre>
+
+<p>O <code>head -c 1M /dev/urandom</code> pega 1 MB de bytes aleatórios; é um jeito rápido de criar um arquivo "pesado". Se o <code>tree</code> não existir, instale com <code>sudo apt install -y tree</code>.</p>
+
+<p><strong>Confira se deu certo:</strong> <code>du -sh ~/dados</code> deve mostrar cerca de <code>1.1M</code>.</p>
+</li>
+
+<li>
+<h3>Escrever o script de backup</h3>
+<p><strong>O que vamos fazer e por quê:</strong> juntar num arquivo tudo o que o backup precisa fazer. Assim o comando é sempre o mesmo, seja você ou o agendador que o executa.</p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo nano /usr/local/bin/backup-dados.sh</pre>
+
+<pre class="file" data-file="/usr/local/bin/backup-dados.sh">#!/usr/bin/env bash
+# Backup diário de /home/ubuntu/dados, com log e rotação de 7 dias.
+set -euo pipefail                    # para no primeiro erro
+
+ORIGEM="/home/ubuntu/dados/"         # a barra final copia o CONTEÚDO da pasta
+DESTINO="/backup"
+DIAS=7                               # quantos dias guardar
+LOG="/var/log/backup-dados.log"
+AGORA=$(date +%F_%H%M)               # ex.: 2026-10-15_0200
+
+log() { echo "$(date '+%F %T') $*" &gt;&gt; "$LOG"; }
+trap 'log "FALHOU na linha $LINENO"' ERR   # se algo der erro, registra antes de sair
+
+log "início: $DESTINO/$AGORA"
+mkdir -p "$DESTINO/$AGORA"
+rsync -a "$ORIGEM" "$DESTINO/$AGORA/"
+
+# Rotação: apaga pastas de backup com mais de $DIAS dias
+find "$DESTINO" -mindepth 1 -maxdepth 1 -type d -name '20*' -mtime +"$DIAS" -exec rm -rf {} +
+
+log "ok: $(du -sh "$DESTINO/$AGORA" | cut -f1) copiados"</pre>
+
+<p>Linha por linha, o que importa:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Trecho</th><th>Por quê</th></tr>
+<tr><td><code>set -euo pipefail</code></td><td>Sem isso, um erro no meio passaria despercebido e o log diria "ok". Veja <a href="script-intro.html">Primeiro Script</a>.</td></tr>
+<tr><td><code>"/home/ubuntu/dados/"</code></td><td>Com a barra final, o rsync copia o conteúdo. Sem ela, criaria <code>…/dados/dados</code>.</td></tr>
+<tr><td><code>date +%F_%H%M</code></td><td>Nome que se ordena sozinho por data: <code>2026-10-15_0200</code>.</td></tr>
+<tr><td><code>trap '…' ERR</code></td><td>Roda o <code>log</code> quando qualquer comando falha.</td></tr>
+<tr><td><code>rsync -a</code></td><td>Modo arquivo: preserva datas, donos e permissões.</td></tr>
+<tr><td><code>find … -mtime +7 -exec rm -rf {} +</code></td><td>Acha pastas modificadas há mais de 7 dias e apaga.</td></tr>
+</table>
+</div>
+
+<div class="warning">
+<strong>Cuidado com o <code>rm -rf</code> dentro de scripts</strong>
+<p>O <code>find</code> está limitado a <code>/backup</code>, a um nível de profundidade (<code>-maxdepth 1</code>) e a nomes que começam com <code>20</code>. Nunca rode um <code>rm -rf</code> com variável sem essas travas: se <code>$DESTINO</code> estivesse vazio, o comando apagaria outro lugar.</p>
+</div>
+
+<p>Dê permissão de execução e rode o script pela primeira vez, à mão:</p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo chmod 755 /usr/local/bin/backup-dados.sh
+$ sudo /usr/local/bin/backup-dados.sh
+$ echo $?
+0                                                 « 0 = terminou sem erro</pre>
+
+<p><strong>Confira se deu certo:</strong></p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ ls /backup
+2026-10-15_1052
+$ cat /var/log/backup-dados.log
+2026-10-15 10:52:31 início: /backup/2026-10-15_1052
+2026-10-15 10:52:31 ok: 1.1M copiados
+$ diff -r ~/dados /backup/2026-10-15_1052 &amp;&amp; echo "iguais"
+iguais                                            « diff não achou nenhuma diferença</pre>
+
+<div class="cenario">
+<strong>Se deu errado: "rsync: command not found"</strong>
+<p><strong>Como resolver:</strong> <code>sudo apt install -y rsync</code>. Depois rode o script de novo.</p>
+</div>
+
+<div class="cenario">
+<strong>Se deu errado: apareceu <code>/backup/2026-10-15_1052/dados/</code></strong>
+<p><strong>O que aconteceu:</strong> faltou a barra no fim de <code>ORIGEM</code>.</p>
+<p><strong>Como resolver:</strong> corrija para <code>"/home/ubuntu/dados/"</code> e apague a pasta errada com <code>sudo rm -r /backup/2026-10-15_1052</code>.</p>
+</div>
+</li>
+
+<li>
+<h3>Testar a rotação</h3>
+<p><strong>O que vamos fazer e por quê:</strong> não dá para esperar 8 dias para ver se a limpeza funciona. Vamos criar pastas "antigas" falsificando a data com <code>touch -d</code>.</p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo mkdir /backup/2026-09-30_0200 /backup/2026-10-12_0200
+$ sudo touch -d "15 days ago" /backup/2026-09-30_0200
+$ sudo touch -d "3 days ago" /backup/2026-10-12_0200
+$ sudo /usr/local/bin/backup-dados.sh
+$ ls /backup
+2026-10-12_0200  2026-10-15_1052  2026-10-15_1054   « a de 15 dias sumiu; a de 3 dias ficou</pre>
+
+<p><strong>Confira se deu certo:</strong> <code>2026-09-30_0200</code> não aparece mais, e <code>2026-10-12_0200</code> continua lá.</p>
+</li>
+
+<li>
+<h3>Agendar com um systemd timer</h3>
+<p><strong>O que vamos fazer e por quê:</strong> um <em>timer</em> é o despertador do systemd. Ele chama um <em>service</em> no horário marcado. Comparado ao cron, ele tem duas vantagens: guarda o log no journal e, com <code>Persistent=true</code>, roda o backup atrasado se a máquina estava desligada às 02:00.</p>
+
+<p>Primeiro, o serviço, que diz <strong>o que</strong> rodar:</p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo nano /etc/systemd/system/backup-dados.service</pre>
+
+<pre class="file" data-file="/etc/systemd/system/backup-dados.service">[Unit]
+Description=Backup da pasta dados
+OnFailure=backup-falhou.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/backup-dados.sh</pre>
+
+<p>Depois, o timer, que diz <strong>quando</strong>:</p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo nano /etc/systemd/system/backup-dados.timer</pre>
+
+<pre class="file" data-file="/etc/systemd/system/backup-dados.timer">[Unit]
+Description=Backup diário às 02:00
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Linha</th><th>Significado</th></tr>
+<tr><td><code>Type=oneshot</code></td><td>O serviço roda, termina e pronto; não fica rodando como um servidor.</td></tr>
+<tr><td><code>OnFailure=</code></td><td>Se o serviço falhar, ativa outro serviço (o aviso, na próxima etapa).</td></tr>
+<tr><td><code>OnCalendar=*-*-* 02:00:00</code></td><td>Qualquer ano, mês e dia, às 02:00. <code>daily</code> seria meia-noite.</td></tr>
+<tr><td><code>Persistent=true</code></td><td>Se a máquina estava desligada no horário, roda assim que ligar.</td></tr>
+</table>
+</div>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo systemctl daemon-reload
+$ sudo systemctl enable --now backup-dados.timer
+Created symlink '/etc/systemd/system/timers.target.wants/backup-dados.timer' → '/etc/systemd/system/backup-dados.timer'.</pre>
+
+<p>Repare: quem é habilitado é o <strong>timer</strong>, não o service. O timer é que chama o service.</p>
+
+<p><strong>Confira se deu certo:</strong></p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ systemctl list-timers backup-dados.timer
+NEXT                         LEFT LAST PASSED UNIT               ACTIVATES
+Fri 2026-10-16 02:00:00 UTC   15h -    -      backup-dados.timer backup-dados.service
+
+1 timers listed.
+$ sudo systemctl start backup-dados.service
+« roda agora, sem esperar as 02:00
+$ journalctl -u backup-dados.service -n 3 --no-pager
+Oct 15 11:03:10 lab systemd[1]: Starting backup-dados.service - Backup da pasta dados...
+Oct 15 11:03:10 lab systemd[1]: backup-dados.service: Deactivated successfully.
+Oct 15 11:03:10 lab systemd[1]: Finished backup-dados.service - Backup da pasta dados.</pre>
+
+<details>
+<summary>Prefere cron? A forma equivalente</summary>
+<p>Uma linha no crontab do root faz o agendamento, mas sem <code>Persistent</code> e sem <code>OnFailure</code>:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo crontab -e</pre>
+<pre class="file" data-file="crontab do root">0 2 * * * /usr/local/bin/backup-dados.sh</pre>
+<p>Veja <a href="cron.html">Agendar Tarefas (cron)</a>.</p>
+</details>
+</li>
+
+<li>
+<h3>Ser avisado quando falhar</h3>
+<p><strong>O que vamos fazer e por quê:</strong> um backup que falha em silêncio é o pior cenário: você descobre só quando precisa dele. O serviço <code>backup-falhou</code> registra um erro em destaque no journal e no log do backup.</p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo nano /etc/systemd/system/backup-falhou.service</pre>
+
+<pre class="file" data-file="/etc/systemd/system/backup-falhou.service">[Unit]
+Description=Aviso de falha no backup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/logger -p user.err -t backup "FALHA no backup-dados. Veja: journalctl -u backup-dados"
+ExecStart=/usr/bin/sh -c 'echo "$(date "+%%F %%T") ALERTA: o serviço de backup falhou" &gt;&gt; /var/log/backup-dados.log'</pre>
+
+<div class="note">
+<strong>Por que <code>%%</code>?</strong>
+<p>Dentro de arquivos do systemd, <code>%</code> tem significado especial. Para escrever um <code>%</code> de verdade (como em <code>%F</code> do <code>date</code>), é preciso dobrar: <code>%%F</code>.</p>
+</div>
+
+<p>Agora vamos <strong>provocar</strong> uma falha. O <code>chattr +i</code> torna a pasta imutável: nem o root consegue criar nada dentro dela.</p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo systemctl daemon-reload
+$ sudo chattr +i /backup
+$ sudo systemctl start backup-dados.service
+Job for backup-dados.service failed because the control process exited with error code.
+See "systemctl status backup-dados.service" and "journalctl -xeu backup-dados.service" for details.</pre>
+
+<p><strong>Confira se deu certo:</strong> o aviso precisa aparecer em dois lugares:</p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ journalctl -t backup -n 1 --no-pager
+Oct 15 11:10:42 lab backup[2214]: FALHA no backup-dados. Veja: journalctl -u backup-dados
+$ tail -3 /var/log/backup-dados.log
+2026-10-15 11:10:42 início: /backup/2026-10-15_1110
+2026-10-15 11:10:42 FALHOU na linha 15
+2026-10-15 11:10:42 ALERTA: o serviço de backup falhou
+$ sudo chattr -i /backup
+« desfaz a "pane"</pre>
+
+<p>Num servidor de verdade, o próximo passo seria mandar esse aviso por e-mail (com <code>msmtp</code>) ou para um chat. A estrutura é a mesma: troque o comando do <code>ExecStart</code> do <code>backup-falhou.service</code>.</p>
+
+<div class="cenario">
+<strong>Se deu errado: o backup falhou mas o aviso não apareceu</strong>
+<p><strong>Como confirmar:</strong> <code>systemctl status backup-falhou.service</code>. Se ele nem rodou, confira se o nome no <code>OnFailure=</code> é idêntico ao do arquivo e se você rodou <code>sudo systemctl daemon-reload</code> depois de criar os arquivos.</p>
+</div>
+</li>
+
+<li>
+<h3>Testar a restauração (obrigatório)</h3>
+<p><strong>O que vamos fazer e por quê:</strong> simular o dia em que alguém apaga um arquivo importante, e trazê-lo de volta. Depois, restaurar <strong>tudo</strong> numa pasta separada e comparar com o original. Só um backup restaurado com sucesso é um backup confiável.</p>
+
+<h4>Recuperar um arquivo apagado</h4>
+<pre class="term" data-user="ubuntu" data-host="lab">$ rm ~/dados/contratos/contrato-02.txt
+$ ls ~/dados/contratos
+contrato-01.txt  contrato-03.txt                   « o 02 sumiu
+$ ULTIMO=$(ls -1 /backup | tail -1)
+$ echo $ULTIMO
+2026-10-15_1103
+$ cp -a /backup/$ULTIMO/contratos/contrato-02.txt ~/dados/contratos/
+$ cat ~/dados/contratos/contrato-02.txt
+Contrato número 2                                 « voltou, com o conteúdo certo</pre>
+
+<p>O <code>ls -1 /backup | tail -1</code> funciona porque os nomes começam pela data: o último em ordem alfabética é o mais recente. O <code>cp -a</code> preserva data e dono do arquivo original.</p>
+
+<h4>Restaurar tudo e comparar</h4>
+<pre class="term" data-user="ubuntu" data-host="lab">$ rsync -a /backup/$ULTIMO/ /tmp/restaurado/
+$ diff -r ~/dados /tmp/restaurado &amp;&amp; echo "RESTAURAÇÃO OK"
+RESTAURAÇÃO OK
+$ sha256sum ~/dados/fotos/foto1.jpg /tmp/restaurado/fotos/foto1.jpg
+5f2c…a91e  /home/ubuntu/dados/fotos/foto1.jpg
+5f2c…a91e  /tmp/restaurado/fotos/foto1.jpg      « o mesmo código = arquivos idênticos, byte a byte</pre>
+
+<p>O <code>sha256sum</code> calcula uma "impressão digital" do arquivo. Se um único byte mudasse, o código seria completamente outro. É a prova de que a foto voltou intacta.</p>
+
+<div class="cenario">
+<strong>Se deu errado: o diff mostra diferenças</strong>
+<p><strong>O que aconteceu:</strong> o backup foi feito antes de você mudar algum arquivo, ou faltou a barra final em algum dos caminhos do <code>rsync</code>.</p>
+<p><strong>Como resolver:</strong> rode o backup de novo (<code>sudo systemctl start backup-dados.service</code>), atualize <code>ULTIMO</code> e repita a comparação.</p>
+</div>
+</li>
+
+</ol>
+
+<hr>
+
+<h2>O que você aprendeu</h2>
+<ul>
+  <li>Escrever um script robusto com <code>set -euo pipefail</code>, log e <code>trap … ERR</code>.</li>
+  <li>Copiar com <code>rsync -a</code> e entender a barra final.</li>
+  <li>Apagar backups antigos com <code>find -mtime</code> de forma segura.</li>
+  <li>Criar um <em>service</em> e um <em>timer</em> do systemd, com <code>Persistent</code> e <code>OnFailure</code>.</li>
+  <li>Provocar uma falha de propósito para testar o aviso.</li>
+  <li>Restaurar um arquivo e o backup inteiro, e provar que estão idênticos com <code>diff -r</code> e <code>sha256sum</code>.</li>
+</ul>
+
+<h2>Desafios extras</h2>
+<ol>
+  <li>Use <code>rsync --link-dest</code> para que arquivos que não mudaram não ocupem espaço de novo em cada cópia.</li>
+  <li>Mande o backup para outra VM por SSH: <code>rsync -a -e ssh … ubuntu@IP:/backup/</code>.</li>
+  <li>Compacte cada backup com <code>tar</code> e compare o espaço usado.</li>
+  <li>Experimente o <code>restic</code>, que faz backup com deduplicação e criptografia.</li>
+</ol>
+
+<h2>Desfazer e limpar</h2>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo systemctl disable --now backup-dados.timer
+$ sudo rm /etc/systemd/system/backup-{dados,falhou}.service /etc/systemd/system/backup-dados.timer
+$ sudo systemctl daemon-reload
+$ exit</pre>
+<pre class="term">$ multipass delete --purge lab</pre>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Nome com data</h3>
+<p>Complete para gerar um nome como <code>2026-10-15</code>:</p>
+<div class="ex-code">date +<input data-answer="%F|%Y-%m-%d" aria-label="formato"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Habilitar o agendamento</h3>
+<p>Complete para ligar o timer agora e em todo boot:</p>
+<div class="ex-code">sudo systemctl enable <input data-answer="--now" aria-label="opção"> backup-dados.timer</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">3. Qual é a diferença entre <code>rsync -a dados/ destino/</code> e <code>rsync -a dados destino/</code>?</p>
+<label><input type="radio" name="q3"> Nenhuma.</label>
+<label><input type="radio" name="q3"> Com a barra, copia o conteúdo; sem a barra, cria <code>destino/dados</code>.</label>
+<label><input type="radio" name="q3"> Sem a barra, o rsync apaga a origem.</label>
+<label><input type="radio" name="q3"> Com a barra, só copia arquivos ocultos.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">4. Quando você pode dizer que o backup funciona?</p>
+<label><input type="radio" name="q4"> Quando o script termina sem mensagem.</label>
+<label><input type="radio" name="q4"> Quando a pasta <code>/backup</code> tem arquivos.</label>
+<label><input type="radio" name="q4"> Quando o timer aparece em <code>list-timers</code>.</label>
+<label><input type="radio" name="q4"> Quando você restaurou os dados e conferiu que estão idênticos.</label>
+</div>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu awk — trabalhar com colunas | Guia Ubuntu</title>
+<meta name="description" content="Aprenda awk no Ubuntu: campos e registros, imprimir colunas, filtrar, somar e formatar, separadores, o problema dos decimais no Ubuntu em português e erros reais.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">awk</span></h1>
+
+<p class="intro">O <code>awk</code> enxerga cada linha de texto como uma <strong>linha de planilha</strong>, com colunas. Com ele você pega a terceira coluna, filtra as linhas em que um valor passa de 1000, soma uma coluna inteira ou monta um relatório. O nome vem das iniciais dos seus criadores: Aho, Weinberger e Kernighan.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que são registros e campos, e como o awk divide cada linha.</li>
+  <li>A estrutura <code>padrão { ação }</code>, explicada parte por parte.</li>
+  <li>A imprimir colunas, filtrar linhas, somar, tirar médias e formatar.</li>
+  <li>Por que, no Ubuntu em português, o awk pode somar <code>1200.50</code> como <code>1200</code>, e como corrigir.</li>
+</ul>
+</div>
+
+<p>No Ubuntu 26.04, o <code>awk</code> padrão é o <strong>mawk</strong>, uma versão rápida e enxuta. As sessões abaixo foram feitas com ele. O simulador do guia não tem o awk; pratique no seu terminal.</p>
+
+<hr>
+
+<h2>Registros e campos</h2>
+<p>Vamos usar este arquivo de vendas: nome, região e valor.</p>
+
+<pre class="term">$ cat vendas.txt
+ana    norte  1200.50
+bruno  sul    800
+carla  norte  450.25
+davi   leste  2100</pre>
+
+<p>Para o awk, cada <strong>linha</strong> é um <strong>registro</strong>. Cada pedaço separado por espaços é um <strong>campo</strong>, numerado a partir de 1. Vários espaços seguidos contam como um separador só.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Variável</th><th>Na linha "ana norte 1200.50"</th><th>Significado</th></tr>
+<tr><td><code>$1</code></td><td><code>ana</code></td><td>Primeiro campo</td></tr>
+<tr><td><code>$2</code></td><td><code>norte</code></td><td>Segundo campo</td></tr>
+<tr><td><code>$3</code></td><td><code>1200.50</code></td><td>Terceiro campo</td></tr>
+<tr><td><code>$0</code></td><td><code>ana    norte  1200.50</code></td><td>A linha inteira</td></tr>
+<tr><td><code>NF</code></td><td><code>3</code></td><td><em>Number of Fields</em>: quantos campos a linha tem</td></tr>
+<tr><td><code>$NF</code></td><td><code>1200.50</code></td><td>O último campo</td></tr>
+<tr><td><code>NR</code></td><td><code>1</code></td><td><em>Number of Record</em>: o número da linha</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Imprimir uma coluna</h2>
+
+<dl class="anatomy">
+  <dt>awk</dt><dd>O programa.</dd>
+  <dt>'{</dt><dd>Abre a <strong>ação</strong>. As aspas simples protegem o <code>$1</code> do shell.</dd>
+  <dt>print $1</dt><dd>A ação: imprima o campo 1.</dd>
+  <dt>}'</dt><dd>Fecha a ação.</dd>
+  <dt>vendas.txt</dt><dd>O arquivo. Sem ele, o awk lê a entrada (um pipe, por exemplo).</dd>
+</dl>
+
+<pre class="term">$ awk '{print $1}' vendas.txt
+ana
+bruno
+carla
+davi</pre>
+
+<p>A ação entre chaves roda para <strong>cada linha</strong>. Por isso saíram quatro nomes.</p>
+
+<h3>Várias colunas e texto junto</h3>
+<p>Separe os campos com vírgula para sair um espaço entre eles. Texto fixo vai entre aspas duplas:</p>
+
+<pre class="term">$ awk '{print $1, $3}' vendas.txt
+ana 1200.50
+bruno 800
+carla 450.25
+davi 2100
+$ awk '{print NR ": " $1}' vendas.txt
+1: ana
+2: bruno
+3: carla
+4: davi
+$ awk '{print NF, $NF}' vendas.txt
+3 1200.50              « 3 campos; o último é o valor
+3 800
+3 450.25
+3 2100</pre>
+
+<h3>Por que não usar <code>cut</code>?</h3>
+<p>O <code>cut</code> separa por <strong>um</strong> caractere exato. Com vários espaços seguidos, ele se perde. O awk não:</p>
+
+<pre class="term">$ cut -d " " -f 3 vendas.txt
+                       « vazio: entre "ana" e "norte" há vários espaços
+sul
+$ awk '{print $3}' vendas.txt
+1200.50
+800
+450.25
+2100</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Ferramenta</th><th>Melhor quando…</th></tr>
+<tr><td><code>cut -d ";" -f 2</code></td><td>O separador é um caractere fixo e único (CSV, <code>/etc/passwd</code>).</td></tr>
+<tr><td><code>awk '{print $2}'</code></td><td>As colunas são separadas por espaços variáveis (<code>ls -l</code>, <code>ps</code>, <code>df</code>).</td></tr>
+<tr><td><code>awk</code> com condições</td><td>Você também quer filtrar ou calcular.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Mudar o separador: <code>-F</code></h2>
+<p>O <code>/etc/passwd</code> separa os campos com <code>:</code>. A opção <code>-F</code> (de <em>field separator</em>) diz isso ao awk:</p>
+
+<dl class="anatomy">
+  <dt>awk</dt><dd>O programa.</dd>
+  <dt>-F:</dt><dd>O separador de campos é <code>:</code>.</dd>
+  <dt>'{print $1}'</dt><dd>Imprime o campo 1: o nome do usuário.</dd>
+  <dt>/etc/passwd</dt><dd>A lista de contas do sistema.</dd>
+</dl>
+
+<pre class="term">$ awk -F: '{print $1}' /etc/passwd | head -n 3
+root
+daemon
+bin</pre>
+
+<p>Para um CSV, use <code>-F,</code> ou <code>-F';'</code>. Para mudar o separador da <strong>saída</strong>, defina a variável <code>OFS</code>: <code>awk -v OFS=';' '{print $1, $3}' vendas.txt</code>.</p>
+
+<hr>
+
+<h2>Filtrar linhas: o padrão</h2>
+<p>Um programa awk completo tem a forma <code>padrão { ação }</code>. A ação só roda nas linhas em que o padrão é verdadeiro.</p>
+
+<dl class="anatomy">
+  <dt>$3 &gt; 1000</dt><dd>O <strong>padrão</strong>: o campo 3 é maior que 1000?</dd>
+  <dt>{print $1}</dt><dd>A <strong>ação</strong>, só para as linhas que passaram no teste.</dd>
+</dl>
+
+<pre class="term">$ awk '$3 &gt; 1000 {print $1}' vendas.txt
+ana
+davi
+$ awk '$2 == "norte"' vendas.txt
+ana    norte  1200.50              « sem ação, o awk imprime a linha inteira
+carla  norte  450.25
+$ awk '/an/' vendas.txt
+ana    norte  1200.50              « padrão entre barras: linhas que contêm "an"</pre>
+
+<p>Você pode combinar testes com <code>&amp;&amp;</code> (e) e <code>||</code> (ou). Exemplo: os usuários "de verdade" do sistema, que têm UID entre 1000 e 59999:</p>
+
+<pre class="term">$ awk -F: '$3 &gt;= 1000 &amp;&amp; $3 &lt; 60000 {print $1, $6}' /etc/passwd
+ana /home/ana</pre>
+
+<hr>
+
+<h2>Calcular: somas, médias e <code>END</code></h2>
+<p>O awk tem variáveis, e elas começam valendo zero. Duas palavras especiais marcam momentos fora do "loop" de linhas:</p>
+<ul>
+  <li><code>BEGIN { … }</code> roda <strong>antes</strong> da primeira linha (para cabeçalhos);</li>
+  <li><code>END { … }</code> roda <strong>depois</strong> da última (para totais).</li>
+</ul>
+
+<dl class="anatomy">
+  <dt>{s += $3}</dt><dd>Em cada linha, soma o campo 3 na variável <code>s</code>.</dd>
+  <dt>END</dt><dd>Quando as linhas acabarem…</dd>
+  <dt>{print "Total:", s}</dt><dd>…imprime o total.</dd>
+</dl>
+
+<pre class="term">$ awk '{s += $3} END {print "Total:", s}' vendas.txt
+Total: 4550                      « errado! o certo é 4550.75</pre>
+
+<p>Os centavos sumiram. Veja por quê no próximo item.</p>
+
+<div class="warning">
+<strong>Decimais no Ubuntu em português</strong>
+<p>Com o sistema em pt-BR, o mawk lê os números esperando o padrão brasileiro e para no ponto: <code>1200.50</code> vira <code>1200</code>. Na saída, ele usa vírgula: <code>1137,5</code>. Quando os dados usam ponto decimal, que é o mais comum em arquivos e logs, rode o awk com <code>LC_NUMERIC=C</code> na frente, para usar o padrão internacional.</p>
+</div>
+
+<pre class="term">$ LC_NUMERIC=C awk '{s += $3} END {print "Total:", s}' vendas.txt
+Total: 4550.75
+$ LC_NUMERIC=C awk '{s += $3; n++} END {print "Média:", s/n}' vendas.txt
+Média: 1137.69</pre>
+
+<p><code>n++</code> soma 1 em <code>n</code> a cada linha: é um contador de linhas.</p>
+
+<h3>Formatar a saída: <code>printf</code></h3>
+<p>O <code>printf</code> controla larguras e casas decimais. <code>%-6s</code> é um texto alinhado à esquerda em 6 posições; <code>%8.2f</code> é um número com 2 casas decimais em 8 posições; <code>\n</code> pula a linha.</p>
+
+<pre class="term">$ LC_NUMERIC=C awk 'BEGIN {print "NOME   VALOR"} {printf "%-6s %8.2f\n", $1, $3}' vendas.txt
+NOME   VALOR
+ana     1200.50
+bruno    800.00
+carla    450.25
+davi    2100.00</pre>
+
+<h3>Agrupar: total por região</h3>
+<p>Uma variável com colchetes, como <code>t[$2]</code>, guarda um valor para cada região (é um <strong>array</strong>). No <code>END</code>, o <code>for (r in t)</code> percorre todas:</p>
+
+<pre class="term">$ LC_NUMERIC=C awk '{t[$2] += $3} END {for (r in t) print r, t[r]}' vendas.txt
+leste 2100
+norte 1650.75
+sul 800</pre>
+
+<p>A ordem das regiões no <code>for … in</code> não é garantida. Se precisar, ordene depois: <code>… | sort</code>.</p>
+
+<hr>
+
+<h2>awk no dia a dia</h2>
+<p>O awk brilha na saída de outros comandos, que costuma vir em colunas:</p>
+
+<pre class="term">$ df -h / | awk 'NR == 2 {print $5}'
+28%                              « uso do disco principal: linha 2, coluna 5
+$ ls -l Downloads | awk '{s += $5} END {print s " bytes"}'
+6446140416 bytes                 « soma da coluna de tamanho do ls -l
+$ ps aux | LC_NUMERIC=C awk '$3 &gt; 2.0 {print $2, $11}'
+1534 /usr/bin/gnome-shell        « processos usando mais de 2% de CPU
+2210 /snap/chromium/3554/usr/lib/chromium-browser/chrome</pre>
+
+<p>No último exemplo, a coluna de CPU do <code>ps</code> usa ponto decimal (<code>5.4</code>). Por isso o <code>LC_NUMERIC=C</code> na frente do awk, como explicado acima.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"missing } near end of file"</strong>
+<pre class="term">$ awk '{print $1' vendas.txt
+awk: line 2: missing } near end of file</pre>
+<p><strong>O que aconteceu:</strong> faltou fechar a chave da ação.</p>
+<p><strong>Como resolver:</strong> confira se cada <code>{</code> tem seu <code>}</code> e se as aspas simples abrem e fecham.</p>
+</div>
+
+<div class="cenario">
+<strong>O awk imprimiu a linha inteira em vez da coluna</strong>
+<pre class="term">$ awk "{print $1}" vendas.txt
+ana    norte  1200.50
+bruno  sul    800
+…</pre>
+<p><strong>O que aconteceu:</strong> o programa foi escrito entre aspas <strong>duplas</strong>. O shell trocou <code>$1</code> pelo primeiro argumento do shell, que está vazio. O awk recebeu só <code>{print }</code>, que imprime a linha toda.</p>
+<p><strong>Como resolver:</strong> use sempre aspas simples no programa awk: <code>awk '{print $1}'</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>A soma ignorou os centavos</strong>
+<p><strong>O que aconteceu:</strong> com o Ubuntu em português, o mawk para no ponto decimal ao ler <code>1200.50</code>.</p>
+<p><strong>Como confirmar:</strong> <code>echo "1.5 2.5" | awk '{print $1 + $2}'</code> mostra <code>3</code>, e não <code>4</code>.</p>
+<p><strong>Como resolver:</strong> <code>LC_NUMERIC=C awk …</code>. Se for usar sempre, crie um apelido no <code>~/.bashrc</code>: <code>alias awk='LC_NUMERIC=C awk'</code> (veja <a href="bashrc.html">.bashrc, alias, PATH</a>).</p>
+</div>
+
+<div class="cenario">
+<strong>"cannot open"</strong>
+<pre class="term">$ awk '{print $1}' venda.txt
+awk: cannot open "venda.txt" (No such file or directory)</pre>
+<p><strong>O que aconteceu:</strong> o nome do arquivo está errado, ou você está em outra pasta.</p>
+<p><strong>Como resolver:</strong> use <kbd>Tab</kbd> para completar o nome e <code>pwd</code> para ver onde está.</p>
+</div>
+
+<div class="cenario">
+<strong>As colunas vieram trocadas num CSV</strong>
+<p><strong>O que aconteceu:</strong> sem <code>-F</code>, o awk separa por espaços. Num CSV, uma linha como <code>Ana Souza,Norte,1200</code> vira os campos "Ana" e "Souza,Norte,1200".</p>
+<p><strong>Como resolver:</strong> informe o separador: <code>awk -F, '{print $2}' dados.csv</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Item</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-F x</code></td><td>Separador de campos da entrada</td><td><code>awk -F: '{print $1}'</code></td></tr>
+<tr><td><code>-v var=valor</code></td><td>Define uma variável antes de começar</td><td><code>awk -v min=100 '$3 &gt; min'</code></td></tr>
+<tr><td><code>$1</code>, <code>$2</code>… <code>$NF</code></td><td>Campos; <code>$NF</code> é o último</td><td><code>{print $NF}</code></td></tr>
+<tr><td><code>$0</code></td><td>A linha inteira</td><td><code>{print NR, $0}</code></td></tr>
+<tr><td><code>NR</code> / <code>NF</code></td><td>Número da linha / quantidade de campos</td><td><code>NR &gt; 1</code> pula o cabeçalho</td></tr>
+<tr><td><code>OFS</code></td><td>Separador da saída</td><td><code>-v OFS=';'</code></td></tr>
+<tr><td><code>BEGIN {}</code> / <code>END {}</code></td><td>Antes da primeira / depois da última linha</td><td><code>END {print s}</code></td></tr>
+<tr><td><code>/regex/</code></td><td>Linhas que casam com o padrão</td><td><code>awk '/erro/'</code></td></tr>
+<tr><td><code>== != &gt; &lt; &gt;= &lt;=</code></td><td>Comparações</td><td><code>$2 == "sul"</code></td></tr>
+<tr><td><code>&amp;&amp; || !</code></td><td>E, ou, não</td><td><code>$3 &gt; 0 &amp;&amp; $2 != "sul"</code></td></tr>
+<tr><td><code>printf</code></td><td>Saída formatada</td><td><code>printf "%-10s %5d\n", $1, $2</code></td></tr>
+<tr><td><code>length()</code>, <code>toupper()</code>, <code>tolower()</code>, <code>substr()</code></td><td>Funções de texto</td><td><code>{print toupper($1)}</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Última coluna</h3>
+<p>Complete para imprimir o <strong>último</strong> campo de cada linha, qualquer que seja a quantidade de campos:</p>
+<div class="ex-code">awk '{print <input data-answer="$NF" aria-label="campo">}' dados.txt</div>
+</div>
+
+<div class="exercise">
+<h3>2. Separador dois-pontos</h3>
+<p>Complete para listar os shells (campo 7) de todos os usuários do <code>/etc/passwd</code>:</p>
+<div class="ex-code">awk <input data-answer="-F:|-F ':'|-F &quot;:&quot;" aria-label="opção"> '{print $7}' /etc/passwd</div>
+</div>
+
+<div class="exercise">
+<h3>3. Total no fim</h3>
+<p>Complete para somar a coluna 2 e mostrar o total depois da última linha:</p>
+<div class="ex-code">awk '{s += $2} <input data-answer="END" aria-label="palavra-chave"> {print s}' gastos.txt</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Qual comando mostra só as linhas cujo campo 2 é "sul"?</p>
+<label><input type="radio" name="q4"> <code>awk '{print $2 == "sul"}' vendas.txt</code></label>
+<label><input type="radio" name="q4"> <code>awk '$2 == "sul"' vendas.txt</code></label>
+<label><input type="radio" name="q4"> <code>awk -F sul '{print}' vendas.txt</code></label>
+<label><input type="radio" name="q4"> <code>awk "$2 == sul" vendas.txt</code></label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. No Ubuntu em português, <code>awk '{s += $1} END {print s}'</code> somou 1.5 e 2.5 e mostrou 3. Como corrigir?</p>
+<label><input type="radio" name="q5"> Trocar <code>+=</code> por <code>=</code>.</label>
+<label><input type="radio" name="q5"> Usar aspas duplas no programa.</label>
+<label><input type="radio" name="q5"> Usar <code>-F.</code></label>
+<label><input type="radio" name="q5"> Rodar com <code>LC_NUMERIC=C awk …</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>O awk divide cada linha em campos: <code>$1</code>, <code>$2</code>… <code>$NF</code>; <code>$0</code> é a linha toda.</li>
+  <li>Um programa é <code>padrão { ação }</code>; sem ação, imprime a linha; sem padrão, roda em todas.</li>
+  <li><code>-F</code> muda o separador; <code>BEGIN</code> e <code>END</code> rodam antes e depois das linhas.</li>
+  <li>Use sempre aspas simples no programa.</li>
+  <li>Com dados que usam ponto decimal, rode <code>LC_NUMERIC=C awk</code> no Ubuntu em português.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

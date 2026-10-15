@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Sintaxe dos Comandos — opções, argumentos, aspas e ; &amp;&amp; || | Guia Ubuntu</title>
+<meta name="description" content="Como um comando do terminal é montado: opções curtas e longas, opções com valor, argumentos, aspas simples e duplas, espaços, maiúsculas, encadear comandos com ; && || e comentários.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Sintaxe dos Comandos</span></h1>
+
+<p class="intro">Quase todo comando do terminal segue a mesma gramática: o nome do programa, depois <strong>opções</strong> que mudam o comportamento e, por fim, <strong>argumentos</strong> que dizem sobre o que agir. Entender essa gramática uma vez vale para centenas de comandos.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>As três partes de um comando e como reconhecer cada uma.</li>
+  <li>Opções curtas (<code>-a</code>), longas (<code>--all</code>), combinadas (<code>-lah</code>) e com valor (<code>-n 5</code>).</li>
+  <li>Quando usar aspas simples, aspas duplas ou nenhuma.</li>
+  <li>Encadear comandos com <code>;</code>, <code>&amp;&amp;</code> e <code>||</code>, entendendo o código de saída.</li>
+  <li>Ler as mensagens de "opção inválida" e "falta operando".</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>A forma geral</h2>
+<pre class="syntax">comando [opções] [argumentos]</pre>
+<p>Os colchetes <code>[ ]</code> indicam que a parte é opcional. Você <strong>não</strong> digita os colchetes. Veja as três partes num comando real:</p>
+
+<dl class="anatomy">
+  <dt>ls</dt><dd><strong>Comando:</strong> o programa a executar. Aqui, o que lista arquivos.</dd>
+  <dt>-l</dt><dd><strong>Opção</strong> (ou <em>flag</em>): muda o comportamento. <code>-l</code> pede o formato longo, com detalhes.</dd>
+  <dt>/etc/apt</dt><dd><strong>Argumento:</strong> aquilo sobre o que o comando age. Aqui, a pasta a listar.</dd>
+</dl>
+
+<pre class="term">$ ls -l /etc/apt
+total 24
+drwxr-xr-x 2 root root 4096 Oct 13 12:55 apt.conf.d
+drwxr-xr-x 2 root root 4096 Apr 22  2026 auth.conf.d
+drwxr-xr-x 2 root root 4096 Apr 22  2026 keyrings
+drwxr-xr-x 2 root root 4096 Apr 22  2026 preferences.d
+drwxr-xr-x 2 root root 4096 Oct 15 09:11 sources.list.d
+drwxr-xr-x 2 root root 4096 Apr 22  2026 trusted.gpg.d</pre>
+
+<p>Tire a opção e o resultado muda de forma; tire o argumento e muda de lugar. Compare:</p>
+
+<pre class="term">$ ls /etc/apt
+apt.conf.d  auth.conf.d  keyrings  preferences.d  sources.list.d  trusted.gpg.d
+$ ls -l
+total 36
+drwxr-xr-x 3 ana ana 4096 Oct 12 08:03  Documentos
+drwxr-xr-x 2 ana ana 4096 Oct 12 08:03  Downloads
+...</pre>
+
+<p>Sem <code>-l</code>, só os nomes. Sem <code>/etc/apt</code>, o <code>ls</code> usa a pasta atual.</p>
+
+<hr>
+
+<h2>Opções curtas e longas</h2>
+<p>Muitas opções existem em duas formas que fazem a mesma coisa:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Como é</th><th>Exemplo</th><th>Vantagem</th></tr>
+<tr><td>Curta</td><td>Um hífen e uma letra</td><td><code>-a</code></td><td>Rápida de digitar</td></tr>
+<tr><td>Longa</td><td>Dois hífens e uma palavra em inglês</td><td><code>--all</code></td><td>Fácil de lembrar e de entender em scripts</td></tr>
+</table>
+</div>
+
+<pre class="term" data-cwd="~/Documentos">$ ls -a
+.  ..  acesso.log  notas.txt  projetos  relatorio.odt
+$ ls --all
+.  ..  acesso.log  notas.txt  projetos  relatorio.odt          « o mesmo resultado</pre>
+
+<h3>Juntando opções curtas</h3>
+<p>Opções curtas podem dividir um único hífen. A ordem das letras não importa:</p>
+
+<dl class="anatomy">
+  <dt>ls</dt><dd>O programa.</dd>
+  <dt>-lah</dt><dd>Três opções juntas: <code>-l</code> (detalhes), <code>-a</code> (ocultos) e <code>-h</code> (tamanhos legíveis).</dd>
+</dl>
+
+<pre class="term" data-cwd="~/Documentos">$ ls -l -a -h
+total 32K
+drwxr-xr-x  3 ana ana 4,0K Oct 12 08:03 .
+drwxr-x--- 10 ana ana 4,0K Oct 15 08:47 ..
+-rw-rw-r--  1 ana ana  389 Oct 15 09:07 acesso.log
+-rw-rw-r--  1 ana ana   71 Oct 14 17:40 notas.txt
+drwxrwxr-x  3 ana ana 4,0K Oct 12 08:03 projetos
+-rw-rw-r--  1 ana ana 8,2K Oct 14 17:40 relatorio.odt
+$ ls -lah
+total 32K                                       « idêntico ao anterior
+...
+$ ls -hal
+total 32K                                       « idêntico também
+...</pre>
+
+<div class="warning">
+<strong>Opções longas não se juntam</strong>
+<p><code>--all--human-readable</code> não funciona. Cada opção longa vai separada: <code>ls --all --human-readable</code>.</p>
+</div>
+
+<hr>
+
+<h2>Opções que recebem um valor</h2>
+<p>Algumas opções precisam de um valor logo depois. O <code>head</code>, que mostra o começo de um arquivo, recebe o número de linhas na opção <code>-n</code>:</p>
+
+<dl class="anatomy">
+  <dt>head</dt><dd>Mostra o começo de um arquivo (veja <a href="ver-arquivos.html">cat, less, head, tail</a>).</dd>
+  <dt>-n</dt><dd>A opção <em>number of lines</em>, "número de linhas".</dd>
+  <dt>3</dt><dd>O <strong>valor</strong> da opção. Pertence ao <code>-n</code>, não é um argumento.</dd>
+  <dt>/etc/passwd</dt><dd>O argumento: o arquivo a ler.</dd>
+</dl>
+
+<pre class="term">$ head -n 3 /etc/passwd
+root:x:0:0:root:/root:/bin/bash
+daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+bin:x:2:2:bin:/bin:/usr/sbin/nologin</pre>
+
+<p>Há quatro formas de escrever a mesma coisa:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th></tr>
+<tr><td>Curta com espaço</td><td><code>head -n 3 /etc/passwd</code></td></tr>
+<tr><td>Curta grudada</td><td><code>head -n3 /etc/passwd</code></td></tr>
+<tr><td>Longa com <code>=</code></td><td><code>head --lines=3 /etc/passwd</code></td></tr>
+<tr><td>Longa com espaço</td><td><code>head --lines 3 /etc/passwd</code></td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Nem todo comando segue as regras à risca</strong>
+<p>O <code>find</code> usa palavras inteiras com um hífen só (<code>-name</code>, <code>-type</code>). O <code>dd</code> usa <code>chave=valor</code> (<code>if=</code>, <code>of=</code>). Na dúvida, consulte a ajuda do comando (veja <a href="ajuda.html">Obtendo Ajuda</a>).</p>
+</div>
+
+<h3>A ordem importa?</h3>
+<p>Na maioria dos comandos do Ubuntu, as opções podem vir antes ou depois dos argumentos:</p>
+
+<pre class="term">$ ls -l /etc/hostname
+-rw-r--r-- 1 root root 9 Mar 26  2026 /etc/hostname
+$ ls /etc/hostname -l
+-rw-r--r-- 1 root root 9 Mar 26  2026 /etc/hostname           « funciona igual</pre>
+
+<p>O costume, e o mais seguro, é colocar as opções logo depois do comando. Em scripts e em outros sistemas (como o macOS), a ordem pode importar.</p>
+
+<hr>
+
+<h2>Argumentos</h2>
+<p>Um comando pode receber nenhum, um ou vários argumentos, separados por espaço:</p>
+
+<pre class="term">$ ls Documentos/projetos
+backup.sh  site
+$ ls Documentos/projetos Imagens
+Documentos/projetos:
+backup.sh  site
+
+Imagens:
+ferias.jpg  perfil.png</pre>
+
+<p>Com dois argumentos, o <code>ls</code> mostra um título com o nome de cada pasta antes do conteúdo.</p>
+
+<h3>Subcomandos</h3>
+<p>Alguns programas fazem muitas coisas diferentes e usam uma palavra logo depois do nome para escolher a ação. Essa palavra é o <strong>subcomando</strong>:</p>
+
+<dl class="anatomy">
+  <dt>apt</dt><dd>O programa de pacotes.</dd>
+  <dt>list</dt><dd>O subcomando: a ação "listar".</dd>
+  <dt>--installed</dt><dd>Uma opção do subcomando: só os instalados.</dd>
+</dl>
+
+<p>Outros exemplos: <code>snap install</code>, <code>systemctl status</code>, <code>git commit</code>, <code>multipass launch</code>.</p>
+
+<h3>O separador <code>--</code></h3>
+<p>Dois hífens sozinhos avisam: "acabaram as opções, o que vem depois é argumento". Serve para arquivos cujo nome começa com hífen, que o comando confundiria com uma opção:</p>
+
+<pre class="term">$ rm -arquivo
+rm: opção inválida -- “a”
+Tente "rm ./-arquivo" para remover o arquivo '-arquivo'.
+Tente "rm --help" para mais informações.
+$ rm -- -arquivo</pre>
+
+<p>O próprio <code>rm</code> sugere a outra forma: <code>rm ./-arquivo</code>, que também funciona porque o nome passa a começar com <code>.</code>.</p>
+
+<hr>
+
+<h2>Maiúsculas e minúsculas</h2>
+<p>O Linux diferencia maiúsculas de minúsculas em tudo: comandos, opções, arquivos e pastas.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Isto</th><th>é diferente disto</th></tr>
+<tr><td><code>ls</code></td><td><code>LS</code> (não existe)</td></tr>
+<tr><td><code>ls -a</code> (todos, com <code>.</code> e <code>..</code>)</td><td><code>ls -A</code> (todos, sem <code>.</code> e <code>..</code>)</td></tr>
+<tr><td><code>Documentos</code></td><td><code>documentos</code></td></tr>
+<tr><td><code>foto.JPG</code></td><td><code>foto.jpg</code></td></tr>
+</table>
+</div>
+
+<pre class="term">$ LS
+LS: comando não encontrado
+$ ls documentos
+ls: não é possível acessar 'documentos': Arquivo ou diretório inexistente</pre>
+
+<hr>
+
+<h2>Espaços em nomes</h2>
+<p>O espaço separa argumentos. Um nome com espaço vira vários argumentos, a não ser que você avise o shell. Veja o erro:</p>
+
+<pre class="term">$ ls Área de trabalho
+ls: não é possível acessar 'Área': Arquivo ou diretório inexistente
+ls: não é possível acessar 'de': Arquivo ou diretório inexistente
+ls: não é possível acessar 'trabalho': Arquivo ou diretório inexistente</pre>
+
+<p>O <code>ls</code> recebeu três argumentos e procurou três pastas. Há três formas de corrigir:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Quando usar</th></tr>
+<tr><td>Aspas</td><td><code>ls "Área de trabalho"</code></td><td>A mais legível. Use sempre em scripts.</td></tr>
+<tr><td>Barra invertida</td><td><code>ls Área\ de\ trabalho</code></td><td>A <code>\</code> "protege" o caractere seguinte.</td></tr>
+<tr><td><kbd>Tab</kbd></td><td><code>ls Ár</code> + <kbd>Tab</kbd></td><td>O shell completa e coloca as <code>\</code> para você.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Aspas simples, duplas ou nenhuma</h2>
+<p>As aspas não só juntam palavras com espaço: elas também decidem se o shell vai <strong>trocar</strong> coisas especiais, como variáveis. Uma <strong>variável</strong> é um nome que guarda um valor; <code>$USER</code> guarda o nome do usuário.</p>
+
+<pre class="term">$ echo Olá $USER
+Olá ana                                         « sem aspas: $USER foi trocado
+$ echo "Olá $USER"
+Olá ana                                         « aspas duplas: $USER foi trocado
+$ echo 'Olá $USER'
+Olá $USER                                       « aspas simples: nada foi trocado</pre>
+
+<p>A diferença entre <strong>sem aspas</strong> e <strong>aspas duplas</strong> aparece com espaços repetidos:</p>
+
+<pre class="term">$ echo muitos     espaços
+muitos espaços                                  « sem aspas: viraram dois argumentos
+$ echo "muitos     espaços"
+muitos     espaços                              « com aspas: um argumento, espaços mantidos</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Escrita</th><th><code>$VAR</code> e <code>$(comando)</code></th><th>Espaços</th><th>Use quando…</th></tr>
+<tr><td>sem aspas</td><td>trocados</td><td>separam argumentos</td><td>A palavra é simples, sem espaços.</td></tr>
+<tr><td><code>"duplas"</code></td><td>trocados</td><td>mantidos</td><td>Quer o valor das variáveis e proteger espaços. É o padrão mais seguro.</td></tr>
+<tr><td><code>'simples'</code></td><td>mantidos como estão</td><td>mantidos</td><td>Quer o texto exatamente como digitou.</td></tr>
+</table>
+</div>
+
+<p>O mesmo vale para a <strong>substituição de comando</strong>, <code>$(comando)</code>, que roda o comando e coloca o resultado no lugar:</p>
+
+<pre class="term">$ echo "Hoje é $(date +%A)"
+Hoje é quinta-feira
+$ echo 'Hoje é $(date +%A)'
+Hoje é $(date +%A)</pre>
+
+<div class="try" data-goal="contains:~/saudacao.txt=Olá $USER,ran:echo">
+<p class="try-task"><strong>Missão:</strong> crie o arquivo <code>saudacao.txt</code> contendo exatamente o texto <code>Olá $USER</code>, com o cifrão, e não <code>Olá ana</code>. Use <code>echo</code>, aspas e <code>&gt;</code>. Confira com <code>cat saudacao.txt</code>.</p>
+</div>
+
+<hr>
+
+<h2>Vários comandos numa linha: <code>;</code> <code>&amp;&amp;</code> <code>||</code></h2>
+<p>Todo comando devolve um <strong>código de saída</strong>: <code>0</code> quando deu certo e outro número quando deu errado. Você vê o código do último comando com <code>echo $?</code>:</p>
+
+<pre class="term">$ ls Documentos &gt; /dev/null
+$ echo $?
+0                                               « deu certo
+$ ls nada
+ls: não é possível acessar 'nada': Arquivo ou diretório inexistente
+$ echo $?
+2                                               « deu errado (o ls usa 2 para isso)</pre>
+
+<p>O <code>&gt; /dev/null</code> joga a saída fora, só para a tela ficar limpa (veja <a href="redirecionamento.html">Redirecionamento</a>). Os operadores abaixo usam esse código para decidir se o próximo comando roda:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Operador</th><th>Significa</th><th>O segundo comando roda…</th></tr>
+<tr><td><code>;</code></td><td>"depois"</td><td>Sempre</td></tr>
+<tr><td><code>&amp;&amp;</code></td><td>"e então"</td><td>Só se o primeiro <strong>deu certo</strong> (código 0)</td></tr>
+<tr><td><code>||</code></td><td>"ou então"</td><td>Só se o primeiro <strong>deu errado</strong> (código diferente de 0)</td></tr>
+</table>
+</div>
+
+<dl class="anatomy">
+  <dt>mkdir backup</dt><dd>Primeiro comando: cria a pasta.</dd>
+  <dt>&amp;&amp;</dt><dd>Só continua se a pasta foi criada.</dd>
+  <dt>cp frutas.txt backup/</dt><dd>Segundo comando: copia o arquivo para dentro dela.</dd>
+</dl>
+
+<pre class="term">$ mkdir backup &amp;&amp; cp frutas.txt backup/
+$ mkdir backup &amp;&amp; cp frutas.txt backup/
+mkdir: backup: Arquivo existe                   « falhou, então o cp não rodou
+$ mkdir backup || echo "a pasta já existia"
+mkdir: backup: Arquivo existe
+a pasta já existia                              « rodou porque o mkdir falhou
+$ mkdir backup ; echo "isto roda sempre"
+mkdir: backup: Arquivo existe
+isto roda sempre</pre>
+
+<p>Um uso muito comum é o da primeira atualização: <code>sudo apt update &amp;&amp; sudo apt upgrade</code>. Se a lista de pacotes não baixar, não adianta tentar instalar.</p>
+
+<div class="try" data-goal="cwd:~/projeto,ran:&amp;&amp;">
+<p class="try-task"><strong>Missão:</strong> numa linha só, crie a pasta <code>projeto</code> e, só se der certo, entre nela. Use <code>&amp;&amp;</code>. Depois confira com <code>pwd</code>.</p>
+</div>
+
+<hr>
+
+<h2>Comentários: <code>#</code></h2>
+<p>Tudo o que vem depois de um <code>#</code> (fora de aspas) é ignorado pelo shell. Serve para explicar comandos, principalmente em scripts:</p>
+
+<pre class="term">$ echo "oi"   # isto é um comentário
+oi</pre>
+
+<p>Repare que o <code>#</code> do comentário é diferente do <code>#</code> no fim do prompt do root: um é algo que você digita, o outro é o shell avisando que você é administrador.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"argumento inesperado" (opção que não existe)</strong>
+<pre class="term">$ ls -j
+erro: argumento inesperado '-j' encontrado
+
+  dica: to pass '-j' as a value, use '-- -j'
+
+Uso: ls [OPÇÃO]... [ARQUIVO]...
+
+Para obter mais informações, use '--help'.</pre>
+<p><strong>O que aconteceu:</strong> o <code>ls</code> não tem a opção <code>-j</code>. No Ubuntu 26.04, comandos como <code>ls</code> e <code>mkdir</code> vêm do projeto em Rust (uutils) e usam esse formato de erro, parte em português e parte em inglês. Comandos do GNU, como o <code>rm</code>, dizem "opção inválida".</p>
+<p><strong>Como resolver:</strong> confira a opção com <code>ls --help</code>. O erro também diz qual opção é parecida, quando existe uma.</p>
+</div>
+
+<div class="cenario">
+<strong>"falta o operando" ou "argumentos obrigatórios"</strong>
+<pre class="term">$ cp frutas.txt
+cp: falta o operando arquivo de destino após 'frutas.txt'
+Tente "cp --help" para mais informações.
+$ mkdir
+erro: os seguintes argumentos obrigatórios não foram fornecidos:
+  &lt;dirs&gt;...
+
+Usage: mkdir [OPÇÃO]... DIRETÓRIO...
+
+Para obter mais informações, use '--help'.</pre>
+<p><strong>O que aconteceu:</strong> faltou um argumento. O <code>cp</code> precisa de origem <strong>e</strong> destino; o <code>mkdir</code> precisa do nome da pasta.</p>
+<p><strong>Como resolver:</strong> leia a linha <code>Uso:</code>: ela mostra o que é obrigatório (o que não está entre colchetes).</p>
+</div>
+
+<div class="cenario">
+<strong>Valor inválido numa opção</strong>
+<pre class="term">$ head -n três /etc/passwd
+head: invalid number of lines: 'três'</pre>
+<p><strong>O que aconteceu:</strong> o <code>-n</code> espera um número escrito com algarismos.</p>
+<p><strong>Como resolver:</strong> <code>head -n 3 /etc/passwd</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>A variável saiu vazia</strong>
+<pre class="term">$ echo "Arquivo: $ARQUIVO"
+Arquivo:</pre>
+<p><strong>O que aconteceu:</strong> a variável <code>ARQUIVO</code> não existe (ou foi escrita com outra combinação de maiúsculas). O shell troca variável inexistente por nada, sem dar erro.</p>
+<p><strong>Como resolver:</strong> confira o nome. Variáveis do sistema são em maiúsculas: <code>$USER</code>, <code>$HOME</code>, <code>$SHELL</code>.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Opção longa</h3>
+<p>Complete com a forma longa de <code>-a</code>:</p>
+<div class="ex-code">ls <input data-answer="--all" aria-label="opção longa"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Opção com valor</h3>
+<p>Complete para mostrar as 5 primeiras linhas de <code>/etc/passwd</code>:</p>
+<div class="ex-code">head <input data-answer="-n 5|-n5|--lines=5|--lines 5|-5" aria-label="opção e valor"> /etc/passwd</div>
+</div>
+
+<div class="exercise">
+<h3>3. Só se der certo</h3>
+<p>Complete para entrar na pasta <code>fotos</code> só se o <code>mkdir</code> funcionar:</p>
+<div class="ex-code">mkdir fotos <input data-answer="&&" aria-label="operador"> cd fotos</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. O que aparece com <code>echo 'Bem-vindo, $USER'</code>?</p>
+<label><input type="radio" name="q4"> Bem-vindo, ana</label>
+<label><input type="radio" name="q4"> Um erro de sintaxe</label>
+<label><input type="radio" name="q4"> Bem-vindo, $USER</label>
+<label><input type="radio" name="q4"> Bem-vindo,</label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. Em <code>ls -l /tmp</code>, qual parte é o argumento?</p>
+<label><input type="radio" name="q5"> <code>ls</code></label>
+<label><input type="radio" name="q5"> <code>/tmp</code></label>
+<label><input type="radio" name="q5"> <code>-l</code></label>
+<label><input type="radio" name="q5"> Não há argumento.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">6. Em <code>comando1 || comando2</code>, quando o <code>comando2</code> roda?</p>
+<label><input type="radio" name="q6"> Sempre.</label>
+<label><input type="radio" name="q6"> Só se o comando1 der certo.</label>
+<label><input type="radio" name="q6"> Ao mesmo tempo que o comando1.</label>
+<label><input type="radio" name="q6"> Só se o comando1 der errado.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Forma geral: <code>comando [opções] [argumentos]</code>. Opções mudam o comportamento; argumentos dizem sobre o quê.</li>
+  <li><code>-a</code> e <code>--all</code> são iguais; curtas se juntam (<code>-lah</code>); opções com valor: <code>-n 3</code>, <code>--lines=3</code>.</li>
+  <li>Nome com espaço: use aspas ou <kbd>Tab</kbd>. Aspas duplas trocam <code>$VAR</code>; simples, não.</li>
+  <li><code>;</code> roda sempre, <code>&amp;&amp;</code> roda se deu certo, <code>||</code> roda se deu errado. Veja o código com <code>echo $?</code>.</li>
+  <li><code>#</code> começa um comentário.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

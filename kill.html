@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu kill, pkill, killall — encerrar programas | Guia Ubuntu</title>
+<meta name="description" content="Como encerrar um programa travado no Ubuntu: sinais TERM e KILL, kill pelo PID, pkill e killall pelo nome, Forçar saída do GNOME e os erros Processo inexistente e Operação não permitida.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Encerrar Programas (kill)</span></h1>
+
+<p class="intro">Quando um programa trava e o botão de fechar não responde, o terminal resolve. Nesta aula você vai encerrar programas pelo número (<code>kill</code>) e pelo nome (<code>pkill</code> e <code>killall</code>), e entender a diferença entre pedir para fechar e forçar o fechamento.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que é um sinal e por que existem o "por favor, feche" e o "feche agora".</li>
+  <li>Como encerrar um processo pelo PID com <code>kill</code>.</li>
+  <li>Como encerrar pelo nome com <code>pkill</code> e <code>killall</code>, e o cuidado que isso exige.</li>
+  <li>O que significam "Processo inexistente" e "Operação não permitida".</li>
+</ul>
+</div>
+
+<p>Antes, leia <a href="processos.html">ps, pgrep, top</a>: para encerrar um processo você precisa saber o PID ou o nome dele.</p>
+
+<hr>
+
+<h2>Sinais: como o sistema conversa com os processos</h2>
+<p>Apesar do nome, <code>kill</code> ("matar") não mata diretamente. Ele envia um <strong>sinal</strong>, uma mensagem curta do sistema para o processo. Os dois sinais mais importantes são:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Sinal</th><th>Número</th><th>Significa</th><th>O que o programa faz</th></tr>
+<tr><td><code>SIGTERM</code></td><td>15</td><td>"Por favor, termine." (<em>terminate</em>)</td><td>Salva o que precisa, fecha arquivos e sai. É o padrão do <code>kill</code>.</td></tr>
+<tr><td><code>SIGKILL</code></td><td>9</td><td>"Pare agora."</td><td>Nada: o sistema remove o processo à força. Ele não tem chance de salvar.</td></tr>
+<tr><td><code>SIGINT</code></td><td>2</td><td>Interromper</td><td>É o que o <kbd>Ctrl</kbd>+<kbd>C</kbd> envia no terminal.</td></tr>
+<tr><td><code>SIGHUP</code></td><td>1</td><td>"O terminal fechou" (<em>hang up</em>)</td><td>Muitos serviços usam para recarregar a configuração.</td></tr>
+<tr><td><code>SIGSTOP</code> / <code>SIGCONT</code></td><td>19 / 18</td><td>Pausar / continuar</td><td>O processo congela e depois volta de onde parou.</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Regra de ouro</strong>
+<p>Sempre tente primeiro o <code>SIGTERM</code> (o padrão). Use <code>-9</code> só se, depois de alguns segundos, o processo continuar lá. Com <code>-9</code>, trabalho não salvo é perdido e arquivos podem ficar corrompidos.</p>
+</div>
+
+<hr>
+
+<h2>kill: encerrar pelo PID</h2>
+
+<dl class="anatomy">
+  <dt>kill</dt><dd>O comando: envia um sinal.</dd>
+  <dt>2251</dt><dd>O PID do processo que vai receber o sinal. Sem sinal escolhido, vai o <code>SIGTERM</code>.</dd>
+</dl>
+
+<p>O passo a passo completo: achar o PID, enviar o sinal e conferir.</p>
+
+<pre class="term">$ pgrep -l chrome
+2210 chrome
+2251 chrome
+$ kill 2251
+$ pgrep -l chrome
+2210 chrome                                  « o 2251 sumiu</pre>
+
+<p>Como quase todo comando do Linux, o <code>kill</code> fica em silêncio quando dá certo. Para conferir, procure o processo de novo, ou olhe o código de saída:</p>
+
+<pre class="term">$ kill 2210
+$ echo $?
+0                                            « o sinal foi entregue</pre>
+
+<div class="note">
+<strong>Código 0 não quer dizer "morreu"</strong>
+<p>O <code>0</code> significa que o sinal foi <strong>entregue</strong>. Um programa travado pode receber o <code>SIGTERM</code> e mesmo assim não fechar. Por isso confira sempre com <code>pgrep</code>.</p>
+</div>
+
+<h3>Escolher o sinal</h3>
+<p>Há três formas de escrever o mesmo sinal. Todas fazem a mesma coisa:</p>
+
+<dl class="anatomy">
+  <dt>kill</dt><dd>O comando.</dd>
+  <dt>-9</dt><dd>O sinal, pelo número. Também vale <code>-KILL</code>, <code>-SIGKILL</code> ou <code>-s KILL</code>.</dd>
+  <dt>2210</dt><dd>O PID.</dd>
+</dl>
+
+<pre class="term">$ kill -15 2210
+$ kill -TERM 2210
+$ kill -s TERM 2210
+$ kill -9 2210</pre>
+
+<p>As três primeiras linhas são iguais a um simples <code>kill 2210</code>. A última é o último recurso.</p>
+
+<h3>Ver a lista de sinais</h3>
+<pre class="term">$ kill -l
+ 1) SIGHUP	 2) SIGINT	 3) SIGQUIT	 4) SIGILL	 5) SIGTRAP
+ 6) SIGABRT	 7) SIGBUS	 8) SIGFPE	 9) SIGKILL	10) SIGUSR1
+11) SIGSEGV	12) SIGUSR2	13) SIGPIPE	14) SIGALRM	15) SIGTERM
+$ kill -l 9
+KILL</pre>
+
+<h3>Vários processos de uma vez</h3>
+<pre class="term">$ kill 2210 2251
+$ kill $(pgrep chrome)</pre>
+
+<p>A forma <code>$(comando)</code> roda o comando de dentro e coloca o resultado no lugar. É o que o <code>pkill</code>, abaixo, faz de forma mais simples.</p>
+
+<hr>
+
+<h2>pkill e killall: encerrar pelo nome</h2>
+
+<h3>pkill</h3>
+<p>O <code>pkill</code> é o "irmão" do <code>pgrep</code>: aceita as mesmas opções, mas em vez de listar, envia o sinal.</p>
+
+<dl class="anatomy">
+  <dt>pkill</dt><dd>Envia um sinal aos processos que batem com o nome.</dd>
+  <dt>chrome</dt><dd>Um pedaço do nome do processo (como no <code>pgrep</code>).</dd>
+</dl>
+
+<pre class="term">$ pgrep -l chrome
+2210 chrome                                  « primeiro, confira o que vai ser atingido
+2251 chrome
+$ pkill chrome
+$ pgrep -l chrome
+$ echo $?
+1                                            « nenhum chrome restante</pre>
+
+<p>Como no <code>pgrep</code>, o padrão é um <strong>pedaço</strong> do nome. <code>pkill gnome</code> encerraria o <code>gnome-shell</code> e o <code>gnome-text-edit</code> juntos, e o gnome-shell é a sua interface gráfica. Por isso confira com <code>pgrep -l</code> antes, com o mesmo padrão.</p>
+
+<div class="warning">
+<strong>pkill -f é poderoso demais</strong>
+<p><code>pkill -f python</code> encerra <strong>qualquer</strong> processo com "python" no comando, inclusive partes do sistema. Rode <code>pgrep -af python</code> antes e confira linha por linha.</p>
+</div>
+
+<h3>killall</h3>
+<p>O <code>killall</code> ("matar todos") exige o nome <strong>exato</strong> do processo, o que é mais seguro:</p>
+
+<pre class="term">$ killall chrome
+$ killall chromium
+chromium: nenhum processo localizado</pre>
+
+<p>De novo o nome do processo (<code>chrome</code>) e não o do aplicativo (Chromium). Diferente do <code>pkill</code>, o <code>killall</code> avisa quando não acha nada.</p>
+
+<h3>Qual usar?</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td>kill + PID</td><td><code>kill 2251</code></td><td>Você quer encerrar <strong>um</strong> processo específico.</td></tr>
+<tr><td>pkill</td><td><code>pkill chrome</code></td><td>Você quer todos os processos com um pedaço do nome.</td></tr>
+<tr><td>killall</td><td><code>killall chrome</code></td><td>Você sabe o nome exato e quer segurança contra pegar outros.</td></tr>
+<tr><td>Forçar saída (GNOME)</td><td>janela "não está respondendo"</td><td>O app travou e a interface ainda funciona.</td></tr>
+<tr><td>top / htop</td><td><kbd>k</kbd> / <kbd>F9</kbd></td><td>Você está olhando a lista ao vivo.</td></tr>
+<tr><td>App Recursos</td><td>clique com o botão direito</td><td>Você prefere a interface gráfica.</td></tr>
+</table>
+</div>
+
+<div class="try" data-goal="noproc:chrome">
+<p class="try-task"><strong>Missão:</strong> o Chromium travou na máquina fictícia. Descubra os PIDs dele (lembre: o processo se chama <code>chrome</code>), encerre todos e confirme com <code>pgrep</code> que não sobrou nenhum. Tente uma vez com <code>kill</code> e, depois de <strong>Reiniciar</strong>, com <code>pkill</code>.</p>
+</div>
+
+<hr>
+
+<h2>Pela interface gráfica</h2>
+<p>Quando um app trava, o GNOME mostra depois de alguns segundos a janela <strong>"… não está respondendo"</strong>, com dois botões: <strong>Esperar</strong> e <strong>Forçar saída</strong>. "Forçar saída" envia o <code>SIGKILL</code> ao app. Use quando esperar não resolveu.</p>
+
+<div class="note">
+<strong>E o xkill?</strong>
+<p>Guias antigos ensinam o <code>xkill</code>: você clica na janela e ela fecha. Ele só funciona com janelas do sistema gráfico antigo (X11). O Ubuntu 26.04 usa Wayland, então o <code>xkill</code> não pega a maioria das janelas. Prefira <code>pkill</code> ou "Forçar saída".</p>
+</div>
+
+<p>Se a tela inteira travou e nem o terminal abre, veja <a href="travamentos.html">Quando o Sistema Trava</a>.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Processo inexistente"</strong>
+<pre class="term">$ kill 6230
+bash: kill: (6230) - Processo inexistente</pre>
+<p><strong>O que aconteceu:</strong> não existe processo com esse PID. Ele já fechou, ou o número foi digitado errado, ou é um PID antigo (cada vez que o programa abre, o número muda).</p>
+<p><strong>Como resolver:</strong> procure o PID atual com <code>pgrep -l nome</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Operação não permitida"</strong>
+<pre class="term">$ kill 1
+bash: kill: (1) - Operação não permitida</pre>
+<p><strong>O que aconteceu:</strong> o processo pertence a outro usuário (aqui, ao root). Você só pode enviar sinais para os seus próprios processos.</p>
+<p><strong>Como resolver:</strong> confira o dono na coluna <code>USER</code> do <code>ps aux</code>. Se for um serviço do sistema, prefira <code>sudo systemctl restart nome</code> (veja <a href="sudo.html">sudo</a>). Nunca encerre o PID 1: ele é o <code>systemd</code>, que mantém todo o sistema de pé.</p>
+</div>
+
+<div class="cenario">
+<strong>O processo não fecha com kill</strong>
+<pre class="term">$ kill 2210
+$ pgrep -l chrome
+2210 chrome                                  « continua lá
+$ kill -9 2210
+$ pgrep -l chrome
+$</pre>
+<p><strong>O que aconteceu:</strong> o programa estava travado demais para responder ao pedido educado (<code>SIGTERM</code>).</p>
+<p><strong>Como resolver:</strong> espere uns 5 segundos e então use <code>kill -9</code>. Se nem o <code>-9</code> resolver e o <code>ps</code> mostrar o estado <code>D</code>, o processo está esperando o disco ou a rede. Aí nada o encerra até a espera acabar, ou até reiniciar.</p>
+</div>
+
+<div class="cenario">
+<strong>Encerrei o processo errado</strong>
+<p><strong>O que aconteceu:</strong> um <code>pkill</code> com padrão curto demais (por exemplo, <code>pkill gnome</code>) pegou outros processos. Se o <code>gnome-shell</code> morrer, a sessão gráfica cai e você volta para a tela de login.</p>
+<p><strong>Como resolver:</strong> faça login de novo. Da próxima vez, confira antes com <code>pgrep -l padrão</code> ou use <code>killall</code> com o nome exato.</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Descrição</th></tr>
+<tr><td><code>kill PID</code></td><td>Envia SIGTERM (15) ao processo</td></tr>
+<tr><td><code>kill -9 PID</code></td><td>Envia SIGKILL: encerra à força</td></tr>
+<tr><td><code>kill -s SINAL PID</code></td><td>Escolhe o sinal pelo nome</td></tr>
+<tr><td><code>kill -l</code></td><td>Lista os sinais</td></tr>
+<tr><td><code>kill -STOP PID</code> / <code>kill -CONT PID</code></td><td>Pausa / continua</td></tr>
+<tr><td><code>pkill nome</code></td><td>Sinal para todos com o pedaço do nome</td></tr>
+<tr><td><code>pkill -f texto</code></td><td>Procura no comando completo</td></tr>
+<tr><td><code>pkill -u usuário</code></td><td>Todos os processos de um usuário</td></tr>
+<tr><td><code>pkill -9 nome</code></td><td>Força o encerramento pelo nome</td></tr>
+<tr><td><code>killall nome</code></td><td>Sinal para todos com o nome exato</td></tr>
+<tr><td><code>killall -i nome</code></td><td>Pergunta antes de cada um</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Encerrar à força</h3>
+<p>O processo 4120 não fechou com <code>kill 4120</code>. Complete para forçar:</p>
+<div class="ex-code">kill <input data-answer="-9|-KILL|-SIGKILL|-s KILL" aria-label="sinal"> 4120</div>
+</div>
+
+<div class="exercise">
+<h3>2. Pelo nome exato</h3>
+<p>Complete para encerrar todos os processos com o nome exato <code>chrome</code>:</p>
+<div class="ex-code"><input data-answer="killall|pkill -x" aria-label="comando"> chrome</div>
+</div>
+
+<div class="exercise">
+<h3>3. Conferir antes de encerrar</h3>
+<p>Complete para ver, com o comando completo, o que <code>pkill -f python</code> atingiria:</p>
+<div class="ex-code"><input data-answer="pgrep -af|pgrep -fa" aria-label="comando"> python</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Qual sinal o <code>kill</code> envia quando você não escolhe nenhum?</p>
+<label><input type="radio" name="q4"> SIGKILL (9)</label>
+<label><input type="radio" name="q4"> SIGINT (2)</label>
+<label><input type="radio" name="q4"> SIGTERM (15)</label>
+<label><input type="radio" name="q4"> SIGHUP (1)</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. <code>kill 812</code> respondeu "Operação não permitida". Qual a causa mais provável?</p>
+<label><input type="radio" name="q5"> O processo 812 pertence a outro usuário, como o root.</label>
+<label><input type="radio" name="q5"> O processo 812 não existe.</label>
+<label><input type="radio" name="q5"> Faltou o <code>-9</code>.</label>
+<label><input type="radio" name="q5"> O kill não está instalado.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>kill PID</code> pede para o processo terminar (SIGTERM); <code>kill -9 PID</code> força (SIGKILL), e só deve vir depois.</li>
+  <li><code>pkill padrão</code> encerra pelo pedaço do nome; <code>killall nome</code> pelo nome exato.</li>
+  <li>Sempre confira com <code>pgrep -l</code> (ou <code>pgrep -af</code>) antes e depois.</li>
+  <li>Você só encerra processos seus; os do sistema pedem <code>sudo</code> ou <code>systemctl</code>.</li>
+  <li>Travou tudo? Veja <a href="travamentos.html">Quando o Sistema Trava</a>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

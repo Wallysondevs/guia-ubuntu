@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Solução de Problemas — sintoma, causa e solução | Guia Ubuntu</title>
+<meta name="description" content="30 problemas comuns do Ubuntu com a mensagem real, a causa, como confirmar e como resolver: travamentos, permissões, apt, rede, SSH, serviços, fstab, Docker, nginx e mais.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Solução de Problemas</span></h1>
+
+<p class="intro">Aqui estão 30 problemas comuns, organizados pelo <strong>sintoma</strong>, ou seja, pelo que você vê na tela. Cada um mostra a mensagem real do Ubuntu 26.04, o que a causou, um comando para <strong>confirmar</strong> antes de mexer em qualquer coisa, a solução e a aula que explica o assunto a fundo.</p>
+
+<div class="note">
+<strong>O método que resolve quase tudo</strong>
+<ol class="passo">
+  <li><strong>Leia a mensagem inteira.</strong> Ela quase sempre diz o problema: "Permissão negada", "inexistente", "não encontrado". Copie o texto exato; ele é ótimo para pesquisar.</li>
+  <li><strong>Confirme a causa</strong> com um comando que só <em>olha</em> (ls, systemctl status, journalctl, df). Não mude nada ainda.</li>
+  <li><strong>Mude uma coisa por vez</strong> e teste de novo. Se piorar, você sabe exatamente o que desfazer.</li>
+</ol>
+</div>
+
+<h2>Índice de sintomas</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>O que você vê</th><th>Nível</th></tr>
+<tr><td><a href="#p-programa-sumiu">pgrep/ps não acha um programa que está aberto</a></td><td>1</td></tr>
+<tr><td><a href="#p-travou">A interface travou</a></td><td>1</td></tr>
+<tr><td><a href="#p-terminal-parou">O terminal parou de responder</a></td><td>1</td></tr>
+<tr><td><a href="#p-permissao">"Permissão negada" / "Permission denied"</a></td><td>1</td></tr>
+<tr><td><a href="#p-nao-encontrado">"comando não encontrado"</a></td><td>1</td></tr>
+<tr><td><a href="#p-inexistente">"Arquivo ou diretório inexistente"</a></td><td>1</td></tr>
+<tr><td><a href="#p-senha-invisivel">A senha não aparece quando digito</a></td><td>1</td></tr>
+<tr><td><a href="#p-sudo-negado">"I'm sorry … I'm afraid I can't do that" no sudo</a></td><td>1</td></tr>
+<tr><td><a href="#p-apt-trava">apt: "Não foi possível obter a trava"</a></td><td>1</td></tr>
+<tr><td><a href="#p-apt-pacote">apt: "Não é possível encontrar o pacote"</a></td><td>1</td></tr>
+<tr><td><a href="#p-dpkg">"dpkg foi interrompido"</a></td><td>1</td></tr>
+<tr><td><a href="#p-sem-espaco">"Não há espaço disponível no dispositivo"</a></td><td>1</td></tr>
+<tr><td><a href="#p-esqueci-senha">Esqueci a minha senha</a></td><td>1</td></tr>
+<tr><td><a href="#p-script">./script.sh: Permissão negada</a></td><td>2</td></tr>
+<tr><td><a href="#p-sem-internet">Sem internet / "Falha temporária na resolução de nome"</a></td><td>2</td></tr>
+<tr><td><a href="#p-ssh-refused">SSH: "Connection refused"</a></td><td>2</td></tr>
+<tr><td><a href="#p-ssh-timeout">SSH: "Connection timed out"</a></td><td>2</td></tr>
+<tr><td><a href="#p-ssh-publickey">SSH: "Permission denied (publickey)"</a></td><td>2</td></tr>
+<tr><td><a href="#p-ssh-hostkey">SSH: "REMOTE HOST IDENTIFICATION HAS CHANGED"</a></td><td>2</td></tr>
+<tr><td><a href="#p-servico">Um serviço não sobe</a></td><td>2</td></tr>
+<tr><td><a href="#p-cron">O cron não roda o meu script</a></td><td>2</td></tr>
+<tr><td><a href="#p-lento">O sistema está lento</a></td><td>2</td></tr>
+<tr><td><a href="#p-disco-lento">O disco está lento ou fazendo barulho</a></td><td>2</td></tr>
+<tr><td><a href="#p-somente-leitura">"Read-only file system"</a></td><td>3</td></tr>
+<tr><td><a href="#p-fstab">O boot para no "emergency mode" (fstab errado)</a></td><td>3</td></tr>
+<tr><td><a href="#p-tela-preta">Tela preta depois de uma atualização</a></td><td>3</td></tr>
+<tr><td><a href="#p-porta">"Address already in use" (porta em uso)</a></td><td>3</td></tr>
+<tr><td><a href="#p-502">nginx: "502 Bad Gateway"</a></td><td>3</td></tr>
+<tr><td><a href="#p-docker">Docker: "permission denied … docker.sock"</a></td><td>3</td></tr>
+<tr><td><a href="#p-firewall">Perdi o acesso SSH depois de ligar o firewall</a></td><td>3</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Nível 1 · Iniciante</h2>
+
+<div class="cenario" id="p-programa-sumiu">
+<strong>pgrep/ps não acha um programa que está aberto</strong>
+<p>O Chromium está aberto na sua frente, mas o terminal diz que não:</p>
+<pre class="term">$ ps
+    PID TTY          TIME CMD
+   3001 pts/0    00:00:00 bash          « só os processos DESTE terminal
+   3100 pts/0    00:00:00 ps
+$ pgrep chromium
+$ echo $?
+1                                       « 1 = nada encontrado</pre>
+<p><strong>Causa:</strong> são duas. O <code>ps</code> sem opções só mostra o que foi aberto <em>neste</em> terminal. E o <code>pgrep</code> procura no <strong>nome do processo</strong>, que nem sempre é o nome do app: o Chromium em snap roda um programa chamado <code>chrome</code>.</p>
+<p><strong>Como confirmar:</strong> procure na linha de comando inteira com <code>-f</code> e veja o nome real com <code>-a</code>:</p>
+<pre class="term">$ pgrep -af chromium
+2210 /snap/chromium/3554/usr/lib/chromium-browser/chrome --password-store
+2251 /snap/chromium/3554/usr/lib/chromium-browser/chrome --type=renderer
+$ pgrep -l chrome
+2210 chrome                             « o nome que o pgrep enxerga
+2251 chrome</pre>
+<p><strong>Solução:</strong> use <code>ps aux</code> (todos os processos) ou <code>pgrep -af parte-do-nome</code>. Lembre também: maiúsculas importam (use <code>-i</code> para ignorar), e o nome curto tem no máximo 15 caracteres (<code>gnome-text-editor</code> vira <code>gnome-text-edit</code>). Aula: <a href="processos.html">ps, pgrep, top</a>.</p>
+</div>
+
+<div class="try" data-goal="ran:pgrep.*-[a-z]*f[a-z]* *chromium|pgrep.*chrome">
+<p class="try-task"><strong>Missão:</strong> nesta máquina fictícia o Chromium está aberto. Tente <code>pgrep chromium</code> e veja que nada aparece. Depois descubra o PID dele de outro jeito.</p>
+</div>
+
+<div class="cenario" id="p-travou">
+<strong>A interface travou</strong>
+<p>A tela congelou, o mouse não responde, ou responde muito devagar.</p>
+<p><strong>Causa:</strong> quase sempre um programa consumindo toda a memória ou CPU. Às vezes é o próprio GNOME.</p>
+<p><strong>Como confirmar:</strong> abra um terminal de texto fora da interface com <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>, entre com usuário e senha e veja quem está pesando:</p>
+<pre class="term" data-title="tty3">$ ps aux --sort=-%mem | head -4
+$ top</pre>
+<p><strong>Solução, do mais leve ao mais pesado:</strong></p>
+<ol class="passo">
+  <li>Encerre o culpado: <code>pkill -f nome</code> ou <code>kill PID</code>. Volte com <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F2</kbd>.</li>
+  <li>Reinicie só a sessão gráfica: <code>sudo systemctl restart gdm</code> (perde o que não foi salvo).</li>
+  <li>Reinicie a máquina: <code>sudo reboot</code>.</li>
+  <li>Se nem o TTY abre: segure <kbd>Alt</kbd>+<kbd>SysRq</kbd> e aperte, devagar, <kbd>S</kbd>, <kbd>U</kbd>, <kbd>B</kbd>.</li>
+</ol>
+<p>Aula: <a href="travamentos.html">Quando o Sistema Trava</a>.</p>
+</div>
+
+<div class="cenario" id="p-terminal-parou">
+<strong>O terminal parou de responder</strong>
+<p>Você digita e nada acontece, ou aparece um <code>&gt;</code> no lugar do prompt.</p>
+<pre class="term">$ echo "Olá
+&gt;                                       « o bash espera você fechar as aspas
+&gt; </pre>
+<p><strong>Causa e solução:</strong></p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>O que aparece</th><th>Causa</th><th>Saída</th></tr>
+<tr><td>Um <code>&gt;</code> no começo da linha</td><td>Aspas ou parênteses abertos</td><td>Feche as aspas ou aperte <kbd>Ctrl</kbd>+<kbd>C</kbd></td></tr>
+<tr><td>Nada, nem o que você digita</td><td>Você apertou <kbd>Ctrl</kbd>+<kbd>S</kbd> (congela a tela)</td><td><kbd>Ctrl</kbd>+<kbd>Q</kbd></td></tr>
+<tr><td>Cursor parado depois de um comando</td><td>O comando está rodando ou esperando entrada (ex.: <code>cat</code> sem arquivo)</td><td><kbd>Ctrl</kbd>+<kbd>C</kbd> cancela; <kbd>Ctrl</kbd>+<kbd>D</kbd> encerra a entrada</td></tr>
+<tr><td>Tela com <code>:</code> embaixo</td><td>Você está dentro do <code>less</code> ou do <code>man</code></td><td><kbd>q</kbd></td></tr>
+<tr><td><code>-- INSERT --</code> ou <code>~</code> na lateral</td><td>Você está no vim</td><td><kbd>Esc</kbd>, <code>:q!</code>, <kbd>Enter</kbd></td></tr>
+</table>
+</div>
+<p>Aula: <a href="terminal.html">O Terminal</a> e <a href="ref-atalhos.html">Atalhos de Teclado</a>.</p>
+</div>
+
+<div class="cenario" id="p-permissao">
+<strong>"Permissão negada" / "Permission denied"</strong>
+<pre class="term">$ ls /root
+ls: não é possível abrir o diretório '/root': Permissão negada
+$ touch /etc/teste.conf
+touch: não é possível executor o touch em '/etc/teste.conf': Permission denied</pre>
+<p><strong>Causa:</strong> seu usuário não tem a permissão necessária. Fora da sua pasta pessoal, quase tudo pertence ao root. Alguns comandos do 26.04 mostram a mensagem em inglês (Permission denied); outros, em português.</p>
+<p><strong>Como confirmar:</strong> veja o dono e as permissões do arquivo, e quem você é:</p>
+<pre class="term">$ ls -ld /etc
+drwxr-xr-x 140 root root 12288 Oct 15 08:02 /etc     « só o root (rwx) escreve
+$ id
+uid=1000(ana) gid=1000(ana) groups=1000(ana),4(adm),24(cdrom),27(sudo),30(dip),46(plugdev),100(users),114(lpadmin)</pre>
+<p><strong>Solução:</strong> se a ação é de administração (instalar, editar <code>/etc</code>), use <code>sudo</code>. Se o arquivo deveria ser seu, corrija o dono com <code>chown</code>. Nunca use <code>chmod 777</code> como atalho. Aulas: <a href="permissoes.html">Entendendo Permissões</a>, <a href="sudo.html">sudo</a>.</p>
+</div>
+
+<div class="cenario" id="p-nao-encontrado">
+<strong>"comando não encontrado"</strong>
+<pre class="term">$ htop
+Comando 'htop' não encontrado, mas poder ser instalado com:
+sudo snap install htop  # version 3.4.1, or
+sudo apt  install htop  # version 3.4.1-1
+$ lss
+lss: comando não encontrado</pre>
+<p><strong>Causa:</strong> no primeiro caso, o programa não está instalado, e o Ubuntu sugere o pacote (o "poder" é um erro da tradução original). No segundo, é erro de digitação.</p>
+<p><strong>Como confirmar:</strong> <code>type nome</code> diz se o comando existe; <code>echo $PATH</code> mostra onde o shell procura.</p>
+<p><strong>Solução:</strong> instale com <code>sudo apt install pacote</code>, corrija a digitação (use <kbd>Tab</kbd>), ou rode programas da pasta atual com <code>./programa</code>. As versões na sugestão variam. Aulas: <a href="apt.html">apt</a>, <a href="bashrc.html">.bashrc, alias, PATH</a>.</p>
+</div>
+
+<div class="cenario" id="p-inexistente">
+<strong>"Arquivo ou diretório inexistente"</strong>
+<pre class="term">$ cd documentos
+bash: cd: documentos: Arquivo ou diretório inexistente
+$ ls Área de trabalho
+ls: não é possível acessar 'Área': Arquivo ou diretório inexistente
+ls: não é possível acessar 'de': Arquivo ou diretório inexistente
+ls: não é possível acessar 'trabalho': Arquivo ou diretório inexistente</pre>
+<p><strong>Causa:</strong> o nome não existe <em>exatamente</em> assim, onde você está. As três causas campeãs: maiúsculas (<code>documentos</code> ≠ <code>Documentos</code>), espaços sem aspas e estar em outra pasta.</p>
+<p><strong>Como confirmar:</strong> <code>pwd</code> mostra onde você está; <code>ls</code> mostra os nomes exatos.</p>
+<p><strong>Solução:</strong> use <kbd>Tab</kbd> para completar nomes (ele acerta maiúsculas e espaços) e aspas em nomes com espaço: <code>ls "Área de trabalho"</code>. Aula: <a href="caminhos.html">Caminhos</a>.</p>
+</div>
+
+<div class="cenario" id="p-senha-invisivel">
+<strong>A senha não aparece quando digito</strong>
+<pre class="term">$ sudo apt update
+[sudo: authenticate] Senha:             « você digita e nada aparece: é normal</pre>
+<p><strong>Causa:</strong> não é defeito. O terminal esconde a senha por segurança, sem nem mostrar asteriscos.</p>
+<p><strong>Solução:</strong> digite a senha normalmente e aperte <kbd>Enter</kbd>. Se errou, apague tudo com <kbd>Ctrl</kbd>+<kbd>U</kbd> e digite de novo. Aula: <a href="sudo.html">sudo</a>.</p>
+</div>
+
+<div class="cenario" id="p-sudo-negado">
+<strong>"I'm sorry … I'm afraid I can't do that" no sudo</strong>
+<pre class="term" data-user="joao">$ sudo apt update
+[sudo: authenticate] Senha:
+sudo: I'm sorry joao. I'm afraid I can't do that</pre>
+<p><strong>Causa:</strong> o usuário não está no grupo <code>sudo</code>, então não pode administrar a máquina. A mensagem vem do sudo-rs, em inglês.</p>
+<p><strong>Como confirmar:</strong> <code>groups</code> não mostra <code>sudo</code> na lista.</p>
+<p><strong>Solução:</strong> um administrador roda <code>sudo usermod -aG sudo joao</code>, e o joao sai e entra de novo na sessão. Se não há mais nenhum administrador, use o modo de recuperação. Aulas: <a href="usuarios.html">Usuários e Grupos</a>, <a href="recuperacao.html">Recuperar um Sistema</a>.</p>
+</div>
+
+<div class="cenario" id="p-apt-trava">
+<strong>apt: "Não foi possível obter a trava"</strong>
+<pre class="term">$ sudo apt install htop
+Erro: Não foi possível obter a trava /var/lib/dpkg/lock-frontend. Ela está sendo mantida pelo processo 2147 (unattended-upgr)</pre>
+<p><strong>Causa:</strong> outro programa está instalando pacotes agora. Na maioria das vezes são as atualizações automáticas (<code>unattended-upgr</code>), logo depois de ligar a máquina.</p>
+<p><strong>Como confirmar:</strong> <code>ps -p 2147 -o pid,etime,cmd</code> mostra o processo e há quanto tempo ele roda.</p>
+<p><strong>Solução:</strong> espere alguns minutos e tente de novo. <strong>Não apague os arquivos de trava</strong>: isso pode corromper a instalação que está em andamento. Sem <code>sudo</code>, a mensagem é outra: "você é root?". Aula: <a href="apt.html">apt</a>.</p>
+</div>
+
+<div class="cenario" id="p-apt-pacote">
+<strong>apt: "Não é possível encontrar o pacote"</strong>
+<pre class="term">$ sudo apt install vscode
+Erro: Não é possível encontrar o pacote vscode</pre>
+<p><strong>Causa:</strong> não existe pacote com esse nome nos repositórios configurados, ou a lista de pacotes está desatualizada.</p>
+<p><strong>Como confirmar:</strong> <code>apt search termo</code> procura o nome certo; <code>snap find termo</code> procura nos snaps.</p>
+<p><strong>Solução:</strong> rode <code>sudo apt update</code> e procure o nome correto. Alguns programas só existem como snap (ex.: <code>sudo snap install code --classic</code>) ou num repositório extra. Aulas: <a href="apt.html">apt</a>, <a href="snap.html">Snap</a>, <a href="repositorios.html">Repositórios e PPAs</a>.</p>
+</div>
+
+<div class="cenario" id="p-dpkg">
+<strong>"dpkg foi interrompido"</strong>
+<pre class="term">$ sudo apt upgrade
+Erro: dpkg foi interrompido, você deve executar manualmente 'sudo dpkg --configure -a' para corrigir o problema.</pre>
+<p><strong>Causa:</strong> uma instalação anterior parou no meio (máquina desligada, terminal fechado).</p>
+<p><strong>Solução:</strong> faça exatamente o que a mensagem pede, e depois complete as dependências:</p>
+<pre class="term">$ sudo dpkg --configure -a
+$ sudo apt install -f
+$ sudo apt upgrade</pre>
+<p>Aula: <a href="dpkg.html">dpkg e .deb</a>.</p>
+</div>
+
+<div class="cenario" id="p-sem-espaco">
+<strong>"Não há espaço disponível no dispositivo"</strong>
+<pre class="term">$ cp video.mp4 ~/Vídeos/
+cp: erro de escrita de '/home/ana/Vídeos/video.mp4': Não há espaço disponível no dispositivo</pre>
+<p><strong>Causa:</strong> a partição encheu. Alguns comandos mostram em inglês: <code>No space left on device</code>.</p>
+<p><strong>Como confirmar:</strong> veja qual partição está cheia e depois quem está ocupando:</p>
+<pre class="term">$ df -h /
+Sist. Arq.      Tam. Usado Disp. Uso% Montado em
+/dev/nvme0n1p2  468G  468G     0 100% /                « cheio
+$ du -h -d 1 ~ 2&gt;/dev/null | sort -h | tail -5</pre>
+<p><strong>Solução:</strong> apague ou mova o que for grande e inútil (Downloads, vídeos), limpe pacotes com <code>sudo apt autoremove</code> e <code>sudo apt clean</code>, e logs antigos com <code>sudo journalctl --vacuum-time=2weeks</code>. Aulas: <a href="discos.html">lsblk, df, du</a>, <a href="manutencao.html">Manutenção</a>.</p>
+</div>
+
+<div class="cenario" id="p-esqueci-senha">
+<strong>Esqueci a minha senha</strong>
+<p>Você não consegue entrar, nem usar o <code>sudo</code>.</p>
+<p><strong>Causa:</strong> sem a senha, só o root pode trocá-la, e no Ubuntu o root não tem senha. O caminho é o modo de recuperação.</p>
+<p><strong>Solução:</strong></p>
+<ol class="passo">
+  <li>Reinicie e segure <kbd>Shift</kbd> (ou aperte <kbd>Esc</kbd>) para ver o menu do GRUB.</li>
+  <li>Escolha <em>Advanced options for Ubuntu</em> e depois a linha com <em>(recovery mode)</em>.</li>
+  <li>No menu, escolha <em>root</em> (shell de root).</li>
+  <li>Libere a escrita e troque a senha:</li>
+</ol>
+<pre class="term" data-user="root" data-cwd="/">#> mount -o remount,rw /
+#> passwd ana
+#> reboot</pre>
+<p>Aula: <a href="recuperacao.html">Recuperar um Sistema</a>.</p>
+</div>
+
+<hr>
+
+<h2>Nível 2 · Intermediário</h2>
+
+<div class="cenario" id="p-script">
+<strong>./script.sh: Permissão negada</strong>
+<pre class="term">$ ./backup.sh
+bash: ./backup.sh: Permissão negada
+$ echo $?
+126                                     « achou o arquivo, mas não pôde executar
+$ ls -l backup.sh
+-rw-rw-r-- 1 ana ana 45 Oct 15 09:15 backup.sh   « não tem nenhum x</pre>
+<p><strong>Causa:</strong> o arquivo não tem permissão de execução.</p>
+<p><strong>Solução:</strong> <code>chmod +x backup.sh</code> e rode de novo. Outra forma, sem mudar permissão: <code>bash backup.sh</code>. Aulas: <a href="chmod.html">chmod</a>, <a href="script-intro.html">Primeiro Script</a>.</p>
+</div>
+
+<div class="cenario" id="p-sem-internet">
+<strong>Sem internet / "Falha temporária na resolução de nome"</strong>
+<pre class="term">$ ping -c 2 8.8.8.8
+64 bytes from 8.8.8.8: icmp_seq=1 ttl=117 time=14.2 ms   « por IP funciona
+$ ping -c 2 google.com
+ping: google.com: Nome ou serviço desconhecido          « por nome não: é o DNS</pre>
+<p><strong>Causa:</strong> se nem o IP responde, o problema é a conexão (cabo, Wi-Fi, roteador). Se o IP responde e o nome não, o problema é o DNS.</p>
+<p><strong>Como confirmar, em ordem:</strong></p>
+<pre class="term">$ ip -br a                  # tenho IP?
+$ ip r                      # tenho gateway (linha "default")?
+$ ping -c 2 192.168.0.1     # o roteador responde?
+$ resolvectl status         # qual DNS estou usando?</pre>
+<p><strong>Solução:</strong> reconecte o Wi-Fi ou o cabo; reinicie o roteador; se for só o DNS, configure outro servidor (ex.: 1.1.1.1) em Configurações ou com <code>nmcli</code>. Aulas: <a href="redes.html">Conceitos de Rede</a>, <a href="configurar-rede.html">Configurar a Rede</a>.</p>
+</div>
+
+<div class="cenario" id="p-ssh-refused">
+<strong>SSH: "Connection refused"</strong>
+<pre class="term">$ ssh ana@192.168.0.50
+ssh: connect to host 192.168.0.50 port 22: Connection refused</pre>
+<p><strong>Causa:</strong> a máquina respondeu, mas nada está escutando na porta 22: o servidor SSH não está instalado, está parado ou usa outra porta.</p>
+<p><strong>Como confirmar, no servidor:</strong> <code>systemctl status ssh</code> e <code>sudo ss -tlnp | grep ssh</code>.</p>
+<p><strong>Solução:</strong> <code>sudo apt install openssh-server</code>; se usa outra porta, conecte com <code>ssh -p PORTA</code>. Aula: <a href="ssh.html">SSH</a>.</p>
+</div>
+
+<div class="cenario" id="p-ssh-timeout">
+<strong>SSH: "Connection timed out"</strong>
+<pre class="term">$ ssh ana@192.168.0.50
+ssh: connect to host 192.168.0.50 port 22: Connection timed out</pre>
+<p><strong>Causa:</strong> ninguém respondeu: IP errado, máquina desligada, outra rede, ou um firewall descartando a conexão.</p>
+<p><strong>Como confirmar:</strong> <code>ping 192.168.0.50</code> e, no servidor, <code>sudo ufw status</code>.</p>
+<p><strong>Solução:</strong> confira o IP com <code>ip -br a</code> no servidor e libere o SSH no firewall: <code>sudo ufw allow ssh</code>. Aulas: <a href="ssh.html">SSH</a>, <a href="ufw.html">Firewall (ufw)</a>.</p>
+</div>
+
+<div class="cenario" id="p-ssh-publickey">
+<strong>SSH: "Permission denied (publickey)"</strong>
+<pre class="term">$ ssh ana@192.168.0.50
+ana@192.168.0.50: Permission denied (publickey).</pre>
+<p><strong>Causa:</strong> o servidor só aceita chaves, e a sua chave não está no <code>~/.ssh/authorized_keys</code> dele (ou as permissões dessa pasta estão abertas demais).</p>
+<p><strong>Como confirmar:</strong> <code>ssh -v ana@192.168.0.50</code> mostra quais chaves foram oferecidas.</p>
+<p><strong>Solução:</strong> instale a chave (<code>ssh-copy-id</code>, enquanto ainda há outra forma de acesso) e confira no servidor: <code>chmod 700 ~/.ssh</code> e <code>chmod 600 ~/.ssh/authorized_keys</code>. Aula: <a href="ssh.html">SSH</a>.</p>
+</div>
+
+<div class="cenario" id="p-ssh-hostkey">
+<strong>SSH: "REMOTE HOST IDENTIFICATION HAS CHANGED"</strong>
+<pre class="term">$ ssh ana@192.168.0.50
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@</pre>
+<p><strong>Causa:</strong> a "impressão digital" do servidor mudou desde a última conexão. Isso é normal se você reinstalou a máquina ou o IP passou a ser de outra. Se não fez nada disso, pode ser um ataque.</p>
+<p><strong>Solução:</strong> só se você sabe por que mudou, apague a impressão antiga e conecte de novo: <code>ssh-keygen -R 192.168.0.50</code>. Aula: <a href="ssh.html">SSH</a>.</p>
+</div>
+
+<div class="cenario" id="p-servico">
+<strong>Um serviço não sobe</strong>
+<pre class="term">$ sudo systemctl restart nginx
+Job for nginx.service failed because the control process exited with error code.
+See "systemctl status nginx.service" and "journalctl -xeu nginx.service" for details.</pre>
+<p><strong>Causa:</strong> quase sempre um erro de configuração, uma porta ocupada ou um caminho errado no <code>ExecStart</code> (o código <code>status=203/EXEC</code> significa "não consegui executar o programa").</p>
+<p><strong>Como confirmar:</strong> a própria mensagem diz onde olhar:</p>
+<pre class="term">$ systemctl status nginx
+$ journalctl -u nginx -n 20 --no-pager
+$ sudo nginx -t                         # muitos programas têm um teste de configuração</pre>
+<p><strong>Solução:</strong> corrija a linha que o log aponta e rode <code>sudo systemctl restart</code> de novo. Se você editou um arquivo <code>.service</code>, rode antes <code>sudo systemctl daemon-reload</code>. Aulas: <a href="systemctl.html">systemctl</a>, <a href="journalctl.html">Logs (journalctl)</a>, <a href="criar-servico.html">Criar um Serviço</a>.</p>
+</div>
+
+<div class="cenario" id="p-cron">
+<strong>O cron não roda o meu script</strong>
+<p>No terminal o script funciona, mas no horário marcado nada acontece.</p>
+<p><strong>Causa:</strong> o cron roda com um ambiente mínimo: o <code>PATH</code> é curto, não há <code>~/.bashrc</code> e a pasta de trabalho é a home. Comandos sem caminho completo e caminhos relativos falham em silêncio.</p>
+<p><strong>Como confirmar:</strong> veja se o cron tentou rodar e guarde a saída num log:</p>
+<pre class="term">$ grep CRON /var/log/syslog | tail -3
+$ crontab -l</pre>
+<p><strong>Solução:</strong> use caminhos absolutos (<code>/home/ana/bin/backup.sh</code>), dê <code>chmod +x</code> ao script, e mande a saída para um arquivo: <code>… &gt;&gt; /home/ana/backup.log 2&gt;&amp;1</code>. Aula: <a href="cron.html">Agendar Tarefas (cron)</a>.</p>
+</div>
+
+<div class="cenario" id="p-lento">
+<strong>O sistema está lento</strong>
+<p><strong>Causa:</strong> uma de quatro coisas está no limite: CPU, memória, disco ou rede.</p>
+<p><strong>Como confirmar:</strong> compare a carga com o número de CPUs e veja a memória:</p>
+<pre class="term">$ uptime
+ 10:30:00 up  2:31,  1 user,  load average: 6,12, 3,40, 1,95
+$ nproc
+8                                       « carga 6 com 8 CPUs: alta, mas ainda cabe
+$ free -h
+$ top                                   # P ordena por CPU, M por memória</pre>
+<p><strong>Solução:</strong> encerre o processo que pesa; se a memória acaba sempre, feche abas ou aumente a swap; se o problema é o disco, veja o próximo item. Aula: <a href="desempenho.html">Desempenho e Monitoramento</a>.</p>
+</div>
+
+<div class="cenario" id="p-disco-lento">
+<strong>O disco está lento ou fazendo barulho</strong>
+<p><strong>Causa:</strong> algum processo lendo ou gravando muito, disco quase cheio, ou um disco começando a falhar.</p>
+<p><strong>Como confirmar:</strong></p>
+<pre class="term">$ iostat -x 2 3              # %util perto de 100 = disco no limite (pacote sysstat)
+$ sudo iotop -o              # quem está usando o disco agora
+$ sudo smartctl -H /dev/sda  # saúde do disco (pacote smartmontools)</pre>
+<p><strong>Solução:</strong> encerre o processo responsável; libere espaço; se o SMART indicar falha, <strong>faça backup imediatamente</strong> e troque o disco. Aulas: <a href="desempenho.html">Desempenho e Monitoramento</a>, <a href="backup.html">Backup</a>.</p>
+</div>
+
+<hr>
+
+<h2>Nível 3 · Avançado</h2>
+
+<div class="cenario" id="p-somente-leitura">
+<strong>"Read-only file system"</strong>
+<pre class="term" data-user="root" data-cwd="/">#> touch /teste
+touch: cannot touch '/teste': Read-only file system</pre>
+<p><strong>Causa:</strong> a partição está montada só para leitura. No modo de recuperação isso é proposital. Fora dele, o kernel faz isso sozinho quando detecta erros no disco, para não piorar o estrago.</p>
+<p><strong>Como confirmar:</strong> <code>findmnt /</code> mostra <code>ro</code> nas opções; <code>dmesg -T | tail</code> mostra erros de disco, se houver.</p>
+<p><strong>Solução:</strong> no recovery, <code>mount -o remount,rw /</code>. Se foi por erro de disco, faça backup e rode <code>fsck</code> com a partição desmontada (a partir de um pendrive). Aula: <a href="recuperacao.html">Recuperar um Sistema</a>.</p>
+</div>
+
+<div class="cenario" id="p-fstab">
+<strong>O boot para no "emergency mode" (fstab errado)</strong>
+<pre class="term" data-title="console">You are in emergency mode. After logging in, type "journalctl -xb" to view
+system logs, "systemctl reboot" to reboot, or "exit" to boot into default mode.
+Cannot open access to console, the root account is locked.</pre>
+<p><strong>Causa:</strong> uma linha do <code>/etc/fstab</code> aponta para um disco que não existe (UUID errado, disco removido) ou tem erro de digitação.</p>
+<p><strong>Solução:</strong> entre no modo de recuperação (shell de root), libere a escrita e corrija o fstab:</p>
+<pre class="term" data-user="root" data-cwd="/">#> mount -o remount,rw /
+#> nano /etc/fstab
+#> findmnt --verify
+#> reboot</pre>
+<p>Para discos que nem sempre estão ligados, use a opção <code>nofail</code>, e sempre teste com <code>sudo findmnt --verify</code> e <code>sudo mount -a</code> antes de reiniciar. Aulas: <a href="montar.html">mount e fstab</a>, <a href="recuperacao.html">Recuperar um Sistema</a>.</p>
+</div>
+
+<div class="cenario" id="p-tela-preta">
+<strong>Tela preta depois de uma atualização</strong>
+<p><strong>Causa:</strong> geralmente um kernel novo ou um driver de vídeo que não se deu bem com o hardware.</p>
+<p><strong>Solução:</strong></p>
+<ol class="passo">
+  <li>Tente um TTY (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>). Se ele abre, o problema é só gráfico: veja <code>journalctl -b -p err</code>.</li>
+  <li>Reinicie, abra o menu do GRUB (<kbd>Shift</kbd> ou <kbd>Esc</kbd>) e, em <em>Advanced options for Ubuntu</em>, escolha o <strong>kernel anterior</strong>.</li>
+  <li>Se funcionar, o culpado é o kernel novo: mantenha o anterior até sair uma correção.</li>
+  <li>Para testar sem driver de vídeo, no GRUB aperte <kbd>e</kbd> e acrescente <code>nomodeset</code> à linha <code>linux</code> (vale só para esse boot).</li>
+</ol>
+<p>Aula: <a href="boot-grub.html">Boot, GRUB e Kernel</a>.</p>
+</div>
+
+<div class="cenario" id="p-porta">
+<strong>"Address already in use" (porta em uso)</strong>
+<pre class="term" data-host="servidor">$ journalctl -u nginx -n 1 --no-pager
+Oct 15 14:10:22 servidor nginx[3112]: nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)</pre>
+<p><strong>Causa:</strong> outro programa já ocupa a porta (outro servidor web, um container, uma cópia antiga do mesmo serviço).</p>
+<p><strong>Como confirmar:</strong> veja quem está escutando:</p>
+<pre class="term" data-host="servidor">$ sudo ss -tlnp | grep ':80 '</pre>
+<p><strong>Solução:</strong> pare o outro programa (<code>sudo systemctl stop apache2</code>, <code>docker stop nome</code>) ou mude a porta de um dos dois. Aulas: <a href="ip.html">ip, ping, ss</a>, <a href="nginx.html">Servidor Web (nginx)</a>.</p>
+</div>
+
+<div class="cenario" id="p-502">
+<strong>nginx: "502 Bad Gateway"</strong>
+<pre class="term" data-host="servidor">$ curl -I -H "Host: app.local" http://localhost
+HTTP/1.1 502 Bad Gateway
+$ sudo tail -1 /var/log/nginx/error.log
+2026/10/15 13:55:02 [error] 2210#2210: *17 connect() failed (111: Connection refused) while connecting to upstream, client: 127.0.0.1, server: app.local, request: "HEAD / HTTP/1.1", upstream: "http://127.0.0.1:3000/", host: "app.local"</pre>
+<p><strong>Causa:</strong> o nginx funciona, mas a aplicação por trás dele (o "upstream", aqui na porta 3000) está parada ou em outra porta.</p>
+<p><strong>Solução:</strong> suba a aplicação (<code>systemctl status app</code>, <code>docker ps</code>) e confira se a porta do <code>proxy_pass</code> é a mesma em que ela escuta (<code>ss -tlnp</code>). Aula: <a href="nginx.html">Servidor Web (nginx)</a>.</p>
+</div>
+
+<div class="cenario" id="p-docker">
+<strong>Docker: "permission denied … docker.sock"</strong>
+<pre class="term">$ docker ps
+permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.47/containers/json": dial unix /var/run/docker.sock: connect: permission denied</pre>
+<p><strong>Causa:</strong> seu usuário não está no grupo <code>docker</code>, que dá acesso ao serviço do Docker.</p>
+<p><strong>Solução:</strong> <code>sudo usermod -aG docker $USER</code>, depois saia e entre na sessão (ou rode <code>newgrp docker</code>). Atenção: quem está no grupo docker tem, na prática, poder de root. Aula: <a href="docker.html">Docker</a>.</p>
+</div>
+
+<div class="cenario" id="p-firewall">
+<strong>Perdi o acesso SSH depois de ligar o firewall</strong>
+<pre class="term" data-host="servidor">$ sudo ufw enable
+Command may disrupt existing ssh connections. Proceed with operation (y|n)? y
+Firewall está ativo e habilitado na inicialização do sistema</pre>
+<p><strong>Causa:</strong> o ufw bloqueia toda entrada por padrão. Se o SSH não foi liberado antes, a próxima conexão é recusada.</p>
+<p><strong>Solução:</strong> você precisa de outro acesso: o console do provedor de nuvem, o teclado do servidor ou, numa VM, a janela dela. Lá, rode <code>sudo ufw allow OpenSSH</code> (ou <code>sudo ufw allow 22/tcp</code>). Da próxima vez, libere o SSH <strong>antes</strong> de <code>ufw enable</code>. Aulas: <a href="ufw.html">Firewall (ufw)</a>, <a href="seguranca.html">Segurança do Servidor</a>.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">1. <code>ping 8.8.8.8</code> responde, mas <code>ping ubuntu.com</code> dá "Nome ou serviço desconhecido". Onde está o problema?</p>
+<label><input type="radio" name="q1"> No cabo de rede.</label>
+<label><input type="radio" name="q1"> No firewall do site.</label>
+<label><input type="radio" name="q1"> No DNS: a conexão funciona, a tradução de nomes não.</label>
+<label><input type="radio" name="q1"> No navegador.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">2. O apt diz que a trava está com o processo <code>unattended-upgr</code>. O que fazer?</p>
+<label><input type="radio" name="q2"> Esperar a atualização automática terminar e tentar de novo.</label>
+<label><input type="radio" name="q2"> Apagar /var/lib/dpkg/lock-frontend.</label>
+<label><input type="radio" name="q2"> Reiniciar a máquina na hora.</label>
+<label><input type="radio" name="q2"> Rodar o apt com chmod 777.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">3. <code>./script.sh</code> devolve "Permissão negada" e <code>echo $?</code> mostra 126. Qual é a correção mais direta?</p>
+<label><input type="radio" name="q3"> sudo ./script.sh</label>
+<label><input type="radio" name="q3"> Mover o script para /etc.</label>
+<label><input type="radio" name="q3"> chmod 777 script.sh</label>
+<label><input type="radio" name="q3"> chmod +x script.sh</label>
+</div>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

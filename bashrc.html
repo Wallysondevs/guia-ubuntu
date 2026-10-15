@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu .bashrc, alias e PATH — personalizar o terminal | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a personalizar o terminal do Ubuntu: variáveis de ambiente, PATH, alias permanentes, .bashrc, .profile e .bash_aliases, com cada parte explicada e os erros mais comuns.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">.bashrc, alias e PATH</span></h1>
+
+<p class="intro">Toda vez que você abre um terminal, o <strong>bash</strong> (o programa que lê o que você digita) executa um arquivo de configuração chamado <code>~/.bashrc</code>. É ali que você cria atalhos (<strong>alias</strong>), define <strong>variáveis</strong> e diz onde o sistema deve procurar programas (o <strong>PATH</strong>).</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que são variáveis de ambiente e como ver o valor delas.</li>
+  <li>Como o bash encontra um programa quando você digita o nome dele (o PATH).</li>
+  <li>Criar alias temporários e permanentes, e de onde vem o <code>ll</code> do Ubuntu.</li>
+  <li>A diferença entre <code>.bashrc</code>, <code>.profile</code> e <code>.bash_aliases</code>.</li>
+  <li>Consertar o terminal quando uma edição dá errado.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes dos comandos: variáveis</h2>
+<p>Uma <strong>variável</strong> é um nome que guarda um valor. O bash já começa com várias delas, chamadas <strong>variáveis de ambiente</strong>, que os programas consultam para saber quem você é, qual é sua pasta pessoal e assim por diante. Para ler uma variável, coloque <code>$</code> antes do nome:</p>
+
+<dl class="anatomy">
+  <dt>echo</dt><dd>Mostra na tela o que recebeu.</dd>
+  <dt>$HOME</dt><dd>O <code>$</code> pede ao bash para trocar o nome pelo valor da variável antes de rodar o <code>echo</code>.</dd>
+</dl>
+
+<pre class="term">$ echo $HOME
+/home/ana
+$ echo "Eu sou $USER e uso o editor $EDITOR"
+Eu sou ana e uso o editor nano</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Variável</th><th>Guarda</th><th>Exemplo</th></tr>
+<tr><td><code>HOME</code></td><td>Sua pasta pessoal</td><td><code>/home/ana</code></td></tr>
+<tr><td><code>USER</code></td><td>Seu nome de usuário</td><td><code>ana</code></td></tr>
+<tr><td><code>PATH</code></td><td>Onde procurar programas</td><td><code>/usr/local/bin:/usr/bin:…</code></td></tr>
+<tr><td><code>PWD</code></td><td>A pasta atual</td><td><code>/home/ana/Documentos</code></td></tr>
+<tr><td><code>SHELL</code></td><td>O seu shell</td><td><code>/bin/bash</code></td></tr>
+<tr><td><code>LANG</code></td><td>Idioma e formato regional</td><td><code>pt_BR.UTF-8</code></td></tr>
+<tr><td><code>EDITOR</code></td><td>Editor padrão de alguns comandos</td><td><code>nano</code> (se definido)</td></tr>
+</table>
+</div>
+
+<h3>Formas de ver variáveis</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Mostra</th></tr>
+<tr><td><code>echo $NOME</code></td><td>Uma variável. Se ela não existir, mostra uma linha vazia.</td></tr>
+<tr><td><code>printenv NOME</code></td><td>Uma variável de ambiente; devolve código 1 se ela não existir.</td></tr>
+<tr><td><code>env</code> ou <code>printenv</code></td><td>Todas as variáveis de ambiente.</td></tr>
+<tr><td><code>env | grep -i lang</code></td><td>Só as que contêm "lang".</td></tr>
+</table>
+</div>
+
+<pre class="term">$ printenv LANG
+pt_BR.UTF-8
+$ printenv NADA
+$ echo $?
+1                                        « 1 = a variável não existe</pre>
+
+<hr>
+
+<h2>PATH: onde o bash procura programas</h2>
+<p>Quando você digita <code>ls</code>, o bash não sabe de cara onde está o programa <code>ls</code>. Ele procura numa lista de pastas, na ordem, e usa o primeiro que encontrar. Essa lista é a variável <code>PATH</code> (em inglês, "caminho"). As pastas são separadas por dois-pontos:</p>
+
+<pre class="term">$ echo $PATH
+/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin</pre>
+
+<p>Difícil de ler, não é? O <code>tr</code> troca cada <code>:</code> por uma quebra de linha:</p>
+
+<dl class="anatomy">
+  <dt>echo $PATH</dt><dd>Imprime o PATH.</dd>
+  <dt>|</dt><dd>Entrega a saída ao próximo comando.</dd>
+  <dt>tr ':' '\n'</dt><dd><em>Translate</em>: troca cada <code>:</code> por <code>\n</code>, a quebra de linha.</dd>
+</dl>
+
+<pre class="term">$ echo $PATH | tr ':' '\n'
+/usr/local/sbin                          « procura aqui primeiro…
+/usr/local/bin
+/usr/sbin
+/usr/bin                                 « …a maioria dos programas está aqui
+/sbin
+/bin
+/usr/games
+/usr/local/games
+/snap/bin                                « programas instalados por Snap</pre>
+
+<p>Para saber <strong>qual</strong> arquivo o bash vai rodar, use <code>which</code> ou <code>type</code>:</p>
+
+<pre class="term">$ which python3
+/usr/bin/python3
+$ type -a ls
+ls está apelidada para `ls --color=auto'          « primeiro vem o alias
+ls é /usr/bin/ls
+ls é /bin/ls</pre>
+
+<p>Se o programa não está em nenhuma pasta do PATH, o bash responde "comando não encontrado", mesmo que o arquivo exista em outro lugar.</p>
+
+<div class="try" data-goal="ran:PATH.*tr,ran:echo.*HOME">
+<p class="try-task"><strong>Missão:</strong> veja o valor de <code>$HOME</code> e <code>$USER</code> com <code>echo</code>. Depois mostre o PATH com uma pasta por linha.</p>
+</div>
+
+<h3>Acrescentar uma pasta ao PATH</h3>
+<p>Imagine que a Ana guarda seus scripts em <code>~/scripts</code> e quer rodá-los pelo nome, de qualquer pasta. Ela acrescenta essa pasta <strong>no começo</strong> do PATH, sem apagar o resto:</p>
+
+<dl class="anatomy">
+  <dt>export</dt><dd>Torna a variável visível para os programas que o bash abrir.</dd>
+  <dt>PATH=</dt><dd>Atribui um novo valor ao PATH. Sem espaços em volta do <code>=</code>.</dd>
+  <dt>"$HOME/scripts</dt><dd>A pasta nova…</dd>
+  <dt>:$PATH"</dt><dd>…seguida de dois-pontos e do PATH antigo. <strong>Nunca esqueça o <code>$PATH</code></strong>.</dd>
+</dl>
+
+<pre class="term">$ export PATH="$HOME/scripts:$PATH"
+$ echo $PATH | tr ':' '\n' | head -3
+/home/ana/scripts
+/usr/local/sbin
+/usr/local/bin</pre>
+
+<p>Isso vale só para este terminal. Para ficar permanente, coloque a mesma linha no fim do <code>~/.bashrc</code> (veja abaixo).</p>
+
+<div class="tip">
+<strong>A pasta ~/.local/bin já vem pronta</strong>
+<p>O <code>~/.profile</code> do Ubuntu já põe <code>~/bin</code> e <code>~/.local/bin</code> no PATH, se essas pastas existirem. Basta criar a pasta, guardar os scripts nela e <strong>sair e entrar de novo</strong> na sessão.</p>
+</div>
+
+<hr>
+
+<h2>export: variáveis para os outros programas</h2>
+<p>Uma variável criada sem <code>export</code> existe só dentro do bash atual. Os programas que ele abre não a enxergam. Veja a diferença (o <code>bash -c</code> abre um bash "filho" que roda um comando):</p>
+
+<pre class="term">$ CIDADE=Recife
+$ echo $CIDADE
+Recife
+$ bash -c 'echo "o filho vê: [$CIDADE]"'
+o filho vê: []                           « sem export, o filho não enxerga
+$ export CIDADE
+$ bash -c 'echo "o filho vê: [$CIDADE]"'
+o filho vê: [Recife]</pre>
+
+<p>Regra prática: use <code>export</code> para tudo que um programa precisa ler (<code>PATH</code>, <code>EDITOR</code>, chaves de API…).</p>
+
+<hr>
+
+<h2>alias: atalhos para comandos</h2>
+<p>Um <strong>alias</strong> ("apelido") é um nome curto que o bash troca por um comando maior. O Ubuntu já vem com alguns. Para ver todos, digite <code>alias</code>:</p>
+
+<pre class="term">$ alias
+alias alert='notify-send --urgency=low -i "$([ $? = 0 ] &amp;&amp; echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&amp;|]\s*alert$//'\'')"'
+alias egrep='egrep --color=auto'
+alias fgrep='fgrep --color=auto'
+alias grep='grep --color=auto'
+alias l='ls -CF'
+alias la='ls -A'
+alias ll='ls -alF'                       « por isso o ll funciona
+alias ls='ls --color=auto'               « e por isso o ls tem cores</pre>
+
+<h3>Criar um alias</h3>
+<dl class="anatomy">
+  <dt>alias</dt><dd>O comando que cria apelidos.</dd>
+  <dt>atualizar=</dt><dd>O nome do atalho. Sem espaço antes nem depois do <code>=</code>.</dd>
+  <dt>'sudo apt update &amp;&amp; sudo apt upgrade'</dt><dd>O comando completo, entre aspas simples.</dd>
+</dl>
+
+<pre class="term">$ alias atualizar='sudo apt update &amp;&amp; sudo apt upgrade'
+$ type atualizar
+atualizar está apelidada para `sudo apt update &amp;&amp; sudo apt upgrade'
+$ atualizar
+[sudo: authenticate] Senha:
+Atingido:1 http://br.archive.ubuntu.com/ubuntu resolute InRelease
+…</pre>
+
+<p>Para remover: <code>unalias atualizar</code>. Assim como as variáveis, esse alias some quando você fecha o terminal.</p>
+
+<h3>Ideias de alias úteis</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Alias</th><th>Para quê</th></tr>
+<tr><td><code>alias rm='rm -i'</code></td><td>Pergunta antes de apagar cada arquivo.</td></tr>
+<tr><td><code>alias ..='cd ..'</code></td><td>Subir uma pasta digitando só <code>..</code></td></tr>
+<tr><td><code>alias ip='ip -c'</code></td><td>Saída colorida do <code>ip</code>.</td></tr>
+<tr><td><code>alias meuip='hostname -I'</code></td><td>Ver o IP da máquina.</td></tr>
+<tr><td><code>alias espaco='df -h -x tmpfs -x squashfs'</code></td><td>Espaço em disco sem os sistemas virtuais.</td></tr>
+</table>
+</div>
+
+<p>Um alias com o mesmo nome de um comando "ganha" dele. Para rodar o comando original uma vez, coloque uma barra antes: <code>\rm arquivo</code>.</p>
+
+<hr>
+
+<h2>Tornar permanente: os arquivos de configuração</h2>
+<p>Para que alias, variáveis e PATH sobrevivam ao fechar o terminal, eles precisam estar num arquivo que o bash lê sozinho. Qual arquivo depende de <strong>quando</strong> você quer que a configuração valha:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Arquivo</th><th>Quando é lido</th><th>Coloque aqui</th></tr>
+<tr><td><code>~/.bashrc</code></td><td>Cada terminal interativo que você abre</td><td>Alias, funções, aparência do prompt, PATH para o terminal.</td></tr>
+<tr><td><code>~/.bash_aliases</code></td><td>Lido pelo <code>.bashrc</code> do Ubuntu, se existir</td><td>Só os seus alias, separados e organizados.</td></tr>
+<tr><td><code>~/.profile</code></td><td>Uma vez, ao entrar na sessão (gráfica ou SSH)</td><td>Variáveis que programas gráficos também precisam ver.</td></tr>
+<tr><td><code>/etc/environment</code></td><td>Para todos os usuários, no login</td><td>Variáveis do sistema todo (formato <code>NOME="valor"</code>, sem <code>export</code>).</td></tr>
+</table>
+</div>
+
+<p>O <code>.bashrc</code> do Ubuntu já tem estas linhas, que leem o <code>~/.bash_aliases</code>:</p>
+
+<pre class="file" data-file="~/.bashrc (trecho)">if [ -f ~/.bash_aliases ]; then
+    . ~/.bash_aliases
+fi</pre>
+
+<h3>Passo a passo: alias permanente</h3>
+<ol class="passo">
+<li>
+<p><strong>Acrescente</strong> o alias no fim do <code>~/.bash_aliases</code>. O <code>&gt;&gt;</code> acrescenta sem apagar o que já existe (e cria o arquivo se ele não existir):</p>
+<pre class="term">$ echo "alias atualizar='sudo apt update &amp;&amp; sudo apt upgrade'" &gt;&gt; ~/.bash_aliases</pre>
+<p>Para editar com mais calma, use <code>nano ~/.bash_aliases</code>.</p>
+</li>
+<li>
+<p><strong>Recarregue</strong> a configuração no terminal atual. O <code>source</code> lê o arquivo de novo sem fechar o terminal:</p>
+<dl class="anatomy">
+  <dt>source</dt><dd>Executa um arquivo dentro do shell atual. Também pode ser escrito só como <code>.</code></dd>
+  <dt>~/.bashrc</dt><dd>O arquivo a reler (ele também lê o <code>.bash_aliases</code>).</dd>
+</dl>
+<pre class="term">$ source ~/.bashrc
+$ type atualizar
+atualizar está apelidada para `sudo apt update &amp;&amp; sudo apt upgrade'</pre>
+</li>
+<li><p><strong>Teste</strong> num terminal novo (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd>). O alias deve continuar lá.</p></li>
+</ol>
+
+<h3>Outras configurações comuns no .bashrc</h3>
+<pre class="file" data-file="~/.bashrc (acrescentar no fim)"># meus scripts no PATH
+export PATH="$HOME/scripts:$PATH"
+
+# editor padrão para crontab, git, visudo…
+export EDITOR=nano
+
+# guardar mais comandos no histórico
+HISTSIZE=10000
+HISTFILESIZE=20000</pre>
+
+<p>O Ubuntu já vem com <code>HISTSIZE=1000</code> e <code>HISTCONTROL=ignoreboth</code>, que não guarda comandos repetidos nem os que começam com espaço. Isso é útil para não deixar senhas no histórico.</p>
+
+<div class="warning">
+<strong>Faça uma cópia antes de editar</strong>
+<p>Um erro no <code>.bashrc</code> aparece toda vez que você abre um terminal. Antes de mexer, rode <code>cp ~/.bashrc ~/.bashrc.bak</code>. Se algo der errado, volte com <code>cp ~/.bashrc.bak ~/.bashrc</code>.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Editei o .bashrc e nada mudou</strong>
+<p><strong>O que aconteceu:</strong> o <code>.bashrc</code> só é lido quando um terminal abre. O terminal atual ainda usa a configuração antiga.</p>
+<p><strong>Como resolver:</strong> rode <code>source ~/.bashrc</code> ou abra um terminal novo. Se você editou o <code>.profile</code>, é preciso sair da sessão e entrar de novo.</p>
+</div>
+
+<div class="cenario">
+<strong>"comando não encontrado" para tudo</strong>
+<pre class="term">$ export PATH="$HOME/scripts"
+$ ls
+Comando 'ls' está disponível nos seguintes locais
+ * /bin/ls
+ * /usr/bin/ls
+O comando não foi localizado porque '/bin:/usr/bin' não está incluído na variável de ambiente PATH.
+ls: comando não encontrado</pre>
+<p><strong>O que aconteceu:</strong> o <code>:$PATH</code> ficou de fora, e o PATH passou a ter uma pasta só. O bash não acha mais nenhum programa.</p>
+<p><strong>Como resolver no terminal atual:</strong> restaure o padrão do Ubuntu:</p>
+<pre class="term">$ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin</pre>
+<p>Depois corrija a linha no <code>.bashrc</code> com <code>nano ~/.bashrc</code>. Se o erro estiver no arquivo, todo terminal novo nasce quebrado; nesse caso use o caminho completo do editor: <code>/usr/bin/nano ~/.bashrc</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"nome: comando não encontrado" ao criar variável</strong>
+<pre class="term">$ CIDADE = Recife
+CIDADE: comando não encontrado</pre>
+<p><strong>O que aconteceu:</strong> com espaços em volta do <code>=</code>, o bash entende que <code>CIDADE</code> é um comando e <code>=</code> e <code>Recife</code> são argumentos.</p>
+<p><strong>Como resolver:</strong> escreva sem espaços: <code>CIDADE=Recife</code>. O mesmo vale para <code>alias nome='…'</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O terminal abre e mostra um erro, ou fecha na hora</strong>
+<pre class="term">bash: /home/ana/.bashrc: linha 121: erro de sintaxe: fim inesperado do arquivo do comando `if' na linha 118</pre>
+<p><strong>O que aconteceu:</strong> faltou fechar uma aspa ou um <code>fi</code> no <code>.bashrc</code>. A linha informada é onde o bash percebeu o problema, não necessariamente onde ele está.</p>
+<p><strong>Como resolver:</strong> abra um bash que ignora o arquivo e corrija: <code>bash --norc</code>, depois <code>nano ~/.bashrc</code>. Se o terminal gráfico fecha na hora, use um TTY (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>; veja <a href="travamentos.html">Quando o Sistema Trava</a>) ou volte o backup.</p>
+</div>
+
+<div class="cenario">
+<strong>Comandos com sudo não veem meu PATH ou alias</strong>
+<p><strong>O que aconteceu:</strong> o <code>sudo</code> usa um PATH próprio e seguro, e não lê os seus alias. <code>sudo meuscript</code> responde "command not found" mesmo que <code>meuscript</code> funcione sem sudo.</p>
+<p><strong>Como resolver:</strong> use o caminho completo (<code>sudo ~/scripts/meuscript</code>) ou instale o script em <code>/usr/local/bin</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>echo $VAR</code></td><td>Mostra o valor de uma variável</td></tr>
+<tr><td><code>VAR=valor</code></td><td>Cria uma variável no shell atual</td></tr>
+<tr><td><code>export VAR=valor</code></td><td>Cria e torna visível para os programas abertos pelo shell</td></tr>
+<tr><td><code>unset VAR</code></td><td>Apaga a variável</td></tr>
+<tr><td><code>env</code> / <code>printenv</code></td><td>Lista as variáveis de ambiente</td></tr>
+<tr><td><code>alias</code></td><td>Lista os alias</td></tr>
+<tr><td><code>alias nome='comando'</code></td><td>Cria um alias</td></tr>
+<tr><td><code>unalias nome</code></td><td>Remove um alias</td></tr>
+<tr><td><code>type nome</code></td><td>Diz se é alias, comando interno ou programa</td></tr>
+<tr><td><code>which nome</code></td><td>Mostra o caminho do programa</td></tr>
+<tr><td><code>source arquivo</code></td><td>Lê um arquivo no shell atual</td></tr>
+<tr><td><code>bash --norc</code></td><td>Abre um bash sem ler o <code>.bashrc</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Ler uma variável</h3>
+<p>Complete para mostrar a pasta pessoal:</p>
+<div class="ex-code">echo <input data-answer="$HOME" aria-label="variável"></div>
+</div>
+
+<div class="exercise">
+<h3>2. PATH sem quebrar</h3>
+<p>Complete para acrescentar <code>~/bin</code> no começo do PATH, mantendo o resto:</p>
+<div class="ex-code">export PATH="$HOME/bin:<input data-answer="$PATH|${PATH}" aria-label="resto">"</div>
+</div>
+
+<div class="exercise">
+<h3>3. Recarregar</h3>
+<p>Complete para aplicar as mudanças do <code>.bashrc</code> sem fechar o terminal:</p>
+<div class="ex-code"><input data-answer="source|." aria-label="comando"> ~/.bashrc</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Onde colocar um alias para ele valer em todo terminal novo?</p>
+<label><input type="radio" name="q4"> Em <code>/etc/fstab</code>.</label>
+<label><input type="radio" name="q4"> Em <code>~/.bashrc</code> ou <code>~/.bash_aliases</code>.</label>
+<label><input type="radio" name="q4"> Só digitar <code>alias</code> uma vez já basta.</label>
+<label><input type="radio" name="q4"> Em <code>~/.cache</code>.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. Depois de <code>export PATH="/opt/app"</code>, nenhum comando funciona. Por quê?</p>
+<label><input type="radio" name="q5"> Porque <code>/opt/app</code> não existe.</label>
+<label><input type="radio" name="q5"> Porque faltou <code>sudo</code>.</label>
+<label><input type="radio" name="q5"> Porque PATH só aceita letras minúsculas.</label>
+<label><input type="radio" name="q5"> Porque o PATH antigo foi substituído; faltou <code>:$PATH</code>.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>$NOME</code> lê uma variável; <code>export</code> a torna visível para outros programas.</li>
+  <li>O <code>PATH</code> é a lista de pastas onde o bash procura programas. Acrescente com <code>PATH="nova:$PATH"</code>.</li>
+  <li><code>alias nome='comando'</code> cria atalhos; o <code>ll</code> do Ubuntu é um alias.</li>
+  <li>Para ficar permanente: <code>~/.bashrc</code> ou <code>~/.bash_aliases</code>, depois <code>source ~/.bashrc</code>.</li>
+  <li>Sem espaços em volta do <code>=</code>. Faça backup do <code>.bashrc</code> antes de editar.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

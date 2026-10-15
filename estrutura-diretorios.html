@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Estrutura de Diretórios — onde fica cada coisa | Guia Ubuntu</title>
+<meta name="description" content="Entenda a árvore de pastas do Ubuntu: a raiz /, /home, /etc, /var, /usr, /tmp e as outras, para que serve cada uma e onde você pode mexer, com terminal simulado.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Estrutura de Diretórios</span></h1>
+
+<p class="intro">No Windows existem o C:, o D: e outras letras. No Linux não: tudo fica numa <strong>árvore única</strong> que começa em <code>/</code>, a "raiz". O seu HD, o pendrive, as configurações e até as informações sobre o hardware aparecem como pastas dentro dessa árvore. Saber o que mora em cada pasta é o que permite você achar as coisas e não mexer onde não deve.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que é a raiz <code>/</code> e por que não existe "C:" no Linux.</li>
+  <li>Para que serve cada pasta principal: <code>/home</code>, <code>/etc</code>, <code>/var</code>, <code>/usr</code>, <code>/tmp</code> e outras.</li>
+  <li>Quais pastas são suas e quais pertencem ao sistema.</li>
+  <li>Onde procurar quando precisar de uma configuração, um log ou um programa.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>A ideia: uma árvore de cabeça para baixo</h2>
+<p>Pense numa árvore genealógica. No topo fica a raiz, <code>/</code>. Dela saem pastas, e de cada pasta saem outras. Para chegar a qualquer arquivo, você parte da raiz e vai descendo:</p>
+
+<pre class="syntax">/                      ← a raiz: o começo de tudo
+├── etc/               ← configurações do sistema
+├── home/              ← as pastas dos usuários
+│   └── ana/           ← a pasta pessoal da Ana (o "~")
+│       ├── Documentos/
+│       │   └── notas.txt
+│       └── Downloads/
+├── tmp/               ← arquivos temporários
+├── usr/               ← programas instalados
+└── var/               ← dados que mudam: logs, cache, filas</pre>
+
+<p>O caminho até o arquivo <code>notas.txt</code> é <code>/home/ana/Documentos/notas.txt</code>. Leia da esquerda para a direita: "na raiz, entre em home, depois em ana, depois em Documentos, e lá está notas.txt". Cada <code>/</code> separa um nível.</p>
+
+<div class="tip">
+<strong>Uma barra, dois papéis</strong>
+<p>A <code>/</code> sozinha, no começo, é a raiz. No meio de um caminho, ela só separa os nomes das pastas.</p>
+</div>
+
+<hr>
+
+<h2>Olhando a raiz</h2>
+<p>Use o <code>ls</code> para ver o que existe na raiz:</p>
+
+<dl class="anatomy">
+  <dt>ls</dt><dd>Lista o conteúdo de uma pasta.</dd>
+  <dt>/</dt><dd>A pasta a listar: a raiz.</dd>
+</dl>
+
+<pre class="term">$ ls /
+bin   cdrom  etc   lib    lost+found  mnt  proc  run   snap  swap.img  tmp  var
+boot  dev    home  lib64  media       opt  root  sbin  srv   sys       usr</pre>
+
+<p>Parece muito, mas no dia a dia você vai usar poucas: <code>/home</code>, <code>/etc</code>, <code>/var/log</code> e <code>/tmp</code>. A tabela abaixo explica todas.</p>
+
+<p>Com <code>ls -l /</code> dá para ver que algumas não são pastas de verdade, e sim <strong>atalhos</strong> (links) para pastas dentro de <code>/usr</code>:</p>
+
+<pre class="term">$ ls -ld /bin /sbin /lib
+lrwxrwxrwx 1 root root 7 Apr 22  2024 /bin -&gt; usr/bin     « l = link: /bin aponta para /usr/bin
+lrwxrwxrwx 1 root root 7 Apr 22  2024 /lib -&gt; usr/lib
+lrwxrwxrwx 1 root root 8 Apr 22  2024 /sbin -&gt; usr/sbin</pre>
+
+<hr>
+
+<h2>Para que serve cada pasta</h2>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Pasta</th><th>O que guarda</th><th>Você mexe?</th></tr>
+<tr><td><code>/</code></td><td>A raiz. Contém todas as outras.</td><td>Não</td></tr>
+<tr><td><code>/home</code></td><td>Uma pasta para cada usuário: <code>/home/ana</code>, <code>/home/joao</code>…</td><td><strong>Sim, a sua</strong></td></tr>
+<tr><td><code>/root</code></td><td>A pasta pessoal do administrador (root). Não confunda com a raiz <code>/</code>.</td><td>Não</td></tr>
+<tr><td><code>/etc</code></td><td>Configurações do sistema e dos serviços: rede, usuários, programas.</td><td>Com <code>sudo</code> e cuidado</td></tr>
+<tr><td><code>/var</code></td><td>Dados que mudam o tempo todo: logs em <code>/var/log</code>, cache, filas de impressão, sites em <code>/var/www</code>.</td><td>Ler logs, sim</td></tr>
+<tr><td><code>/usr</code></td><td>Programas e bibliotecas instalados pelo sistema. <code>/usr/bin</code> tem os comandos.</td><td>Não (o apt cuida)</td></tr>
+<tr><td><code>/usr/local</code></td><td>Programas que você instala manualmente, fora do apt.</td><td>Com <code>sudo</code></td></tr>
+<tr><td><code>/opt</code></td><td>Programas grandes de terceiros, que vêm "em um pacote só".</td><td>Às vezes</td></tr>
+<tr><td><code>/bin</code>, <code>/sbin</code>, <code>/lib</code></td><td>Atalhos para <code>/usr/bin</code>, <code>/usr/sbin</code> e <code>/usr/lib</code>. Existem por compatibilidade.</td><td>Não</td></tr>
+<tr><td><code>/tmp</code></td><td>Arquivos temporários. É apagada a cada reinício.</td><td>Sim, para coisas passageiras</td></tr>
+<tr><td><code>/boot</code></td><td>O kernel e os arquivos de inicialização (GRUB).</td><td>Não</td></tr>
+<tr><td><code>/dev</code></td><td>Os dispositivos como arquivos: discos (<code>/dev/sda</code>, <code>/dev/nvme0n1</code>), terminais, USB.</td><td>Não diretamente</td></tr>
+<tr><td><code>/proc</code>, <code>/sys</code></td><td>Pastas "virtuais" criadas pelo kernel com informações do sistema em tempo real.</td><td>Só ler</td></tr>
+<tr><td><code>/run</code></td><td>Informações dos programas em execução. Some ao desligar.</td><td>Não</td></tr>
+<tr><td><code>/media</code></td><td>Onde aparecem pendrives e HDs externos: <code>/media/ana/MEU_PENDRIVE</code>.</td><td>Sim</td></tr>
+<tr><td><code>/mnt</code></td><td>Ponto para montar discos manualmente (veja <a href="montar.html">mount e fstab</a>).</td><td>Com <code>sudo</code></td></tr>
+<tr><td><code>/srv</code></td><td>Dados servidos pela máquina (sites, arquivos de FTP). Pouco usada no Ubuntu.</td><td>Em servidores</td></tr>
+<tr><td><code>/snap</code></td><td>Programas instalados como snap (veja <a href="snap.html">Snap</a>).</td><td>Não</td></tr>
+<tr><td><code>/lost+found</code></td><td>Pedaços de arquivos recuperados pelo verificador de disco depois de um desligamento brusco.</td><td>Raramente</td></tr>
+<tr><td><code>/cdrom</code>, <code>swap.img</code></td><td>Sobras da instalação e o arquivo de memória de troca (swap).</td><td>Não</td></tr>
+</table>
+</div>
+
+<div class="warning">
+<strong>Atenção</strong>
+<p>Fora da sua pasta pessoal, quase tudo pertence ao root. Apagar ou editar arquivos em <code>/etc</code>, <code>/usr</code> ou <code>/boot</code> com <code>sudo</code> pode impedir o Ubuntu de iniciar. Antes de mexer, faça uma cópia (<code>sudo cp arquivo arquivo.bak</code>).</p>
+</div>
+
+<hr>
+
+<h2>Sua casa: <code>/home/ana</code>, também chamada de <code>~</code></h2>
+<p>A pasta pessoal é o único lugar onde você pode criar, editar e apagar à vontade, sem <code>sudo</code>. O símbolo <code>~</code> (til) é um apelido para ela. Por isso o prompt mostra <code>~</code> quando você está lá.</p>
+
+<pre class="term">$ echo ~
+/home/ana
+$ ls /home
+ana                     « um usuário só nesta máquina
+$ ls ~
+ Documentos   Imagens   Música    Vídeos      'Área de trabalho'
+ Downloads    Modelos   Público   frutas.txt</pre>
+
+<p>As pastas <code>Documentos</code>, <code>Downloads</code>, <code>Imagens</code> e as outras são criadas pelo Ubuntu no primeiro login, no idioma do sistema. Num Ubuntu em inglês elas se chamam <code>Documents</code>, <code>Pictures</code> etc.</p>
+
+<p>Dentro da pasta pessoal também ficam pastas ocultas com as configurações dos seus programas:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Pasta oculta</th><th>O que guarda</th></tr>
+<tr><td><code>~/.config</code></td><td>Configurações da maioria dos programas.</td></tr>
+<tr><td><code>~/.local/share</code></td><td>Dados dos programas, inclusive a lixeira (<code>~/.local/share/Trash</code>).</td></tr>
+<tr><td><code>~/.cache</code></td><td>Cache. Pode ser apagado se faltar espaço.</td></tr>
+<tr><td><code>~/.ssh</code></td><td>Suas chaves SSH (veja <a href="ssh.html">SSH</a>).</td></tr>
+<tr><td><code>~/snap</code></td><td>Dados dos programas instalados como snap.</td></tr>
+</table>
+</div>
+
+<div class="try" data-goal="ran:^(ls|cd) +/home">
+<p class="try-task"><strong>Missão:</strong> explore a máquina fictícia. Liste a raiz (<code>ls /</code>), descubra quais usuários existem em <code>/home</code> e tente entrar em <code>/root</code>. O que acontece?</p>
+</div>
+
+<hr>
+
+<h2>Configurações: <code>/etc</code></h2>
+<p>O nome vem de <em>et cetera</em>, mas na prática é "a pasta de configuração". Quase tudo é arquivo de texto, que você pode ler com <code>cat</code> e editar com <code>sudo nano</code>.</p>
+
+<pre class="term">$ cat /etc/hostname
+notebook                      « o nome desta máquina
+$ cat /etc/os-release
+PRETTY_NAME="Ubuntu 26.04.1 LTS"
+NAME="Ubuntu"
+VERSION_ID="26.04"
+VERSION="26.04.1 LTS (Resolute Raccoon)"
+VERSION_CODENAME=resolute
+ID=ubuntu
+ID_LIKE=debian</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Arquivo</th><th>Configura</th></tr>
+<tr><td><code>/etc/hostname</code></td><td>O nome da máquina</td></tr>
+<tr><td><code>/etc/hosts</code></td><td>Nomes de máquinas resolvidos localmente</td></tr>
+<tr><td><code>/etc/passwd</code></td><td>A lista de usuários</td></tr>
+<tr><td><code>/etc/fstab</code></td><td>Quais discos montar no boot</td></tr>
+<tr><td><code>/etc/apt/sources.list.d/</code></td><td>De onde o apt baixa os programas</td></tr>
+<tr><td><code>/etc/ssh/sshd_config</code></td><td>O servidor SSH</td></tr>
+<tr><td><code>/etc/netplan/</code></td><td>A rede (em servidores)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Logs: <code>/var/log</code></h2>
+<p>Quando algo dá errado, o primeiro lugar para procurar é <code>/var/log</code>. Os programas anotam ali o que fizeram e os erros que tiveram.</p>
+
+<pre class="term">$ ls /var/log/auth* /var/log/syslog* /var/log/dpkg.log*
+/var/log/auth.log       /var/log/dpkg.log       /var/log/syslog
+/var/log/auth.log.1     /var/log/dpkg.log.1     /var/log/syslog.1
+/var/log/auth.log.2.gz  /var/log/dpkg.log.2.gz  /var/log/syslog.2.gz
+...                                             « lista resumida</pre>
+
+<p>Repare nos nomes: <code>auth.log</code> é o log atual, <code>auth.log.1</code> é o da semana passada e <code>auth.log.2.gz</code> é um mais antigo, compactado. Esse rodízio se chama <strong>rotação de logs</strong> e evita que os logs encham o disco.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Log</th><th>O que registra</th></tr>
+<tr><td><code>/var/log/syslog</code></td><td>Mensagens gerais do sistema</td></tr>
+<tr><td><code>/var/log/auth.log</code></td><td>Logins, uso de <code>sudo</code>, acessos SSH</td></tr>
+<tr><td><code>/var/log/dpkg.log</code></td><td>Programas instalados e removidos</td></tr>
+<tr><td><code>/var/log/kern.log</code></td><td>Mensagens do kernel (hardware, drivers)</td></tr>
+<tr><td><code>/var/log/apt/</code></td><td>Histórico do <code>apt</code></td></tr>
+</table>
+</div>
+
+<p>Muitos programas também mandam seus registros para o <strong>journal</strong> do systemd, que você lê com <code>journalctl</code> (veja <a href="journalctl.html">Logs</a>).</p>
+
+<hr>
+
+<h2>Programas: <code>/usr/bin</code></h2>
+<p>Quando você digita <code>ls</code>, o shell procura um programa com esse nome numa lista de pastas (a variável <code>PATH</code>). Quase sempre ele está em <code>/usr/bin</code>. Para saber onde um comando mora, use <code>which</code> ou <code>type</code>:</p>
+
+<pre class="term">$ which ls
+/usr/bin/ls
+$ type cd
+cd é um comando interno do shell        « cd não é um arquivo: faz parte do bash</pre>
+
+<hr>
+
+<h2>Formas diferentes de explorar a árvore</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Quando usar</th></tr>
+<tr><td>Listar sem entrar</td><td><code>ls /etc/apt</code></td><td>Espiar uma pasta rapidamente.</td></tr>
+<tr><td>Entrar e listar</td><td><code>cd /var/log</code> e depois <code>ls</code></td><td>Vai trabalhar ali por um tempo.</td></tr>
+<tr><td>Ver a árvore</td><td><code>tree -L 2 /etc/apt</code></td><td>Entender a organização de uma pasta.</td></tr>
+<tr><td>Achar pelo nome</td><td><code>find /etc -name "*.conf"</code></td><td>Não sabe onde o arquivo está (veja <a href="find.html">find</a>).</td></tr>
+<tr><td>App Arquivos</td><td>"Outros locais" → "Computador"</td><td>Preferir o mouse.</td></tr>
+<tr><td>Documentação</td><td><code>man hier</code></td><td>Ver a descrição oficial de cada pasta.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Permissão negada" ao entrar ou listar</strong>
+<pre class="term">$ cd /root
+bash: cd: /root: Permissão negada</pre>
+<p><strong>O que aconteceu:</strong> <code>/root</code> é privada do administrador. O mesmo vale para algumas pastas de <code>/var</code> e <code>/etc</code>.</p>
+<p><strong>Como resolver:</strong> para ler, use <code>sudo ls /root</code>. Para editar, <code>sudo nano</code>. Pense duas vezes antes.</p>
+</div>
+
+<div class="cenario">
+<strong>Confundiu <code>/</code> com <code>~</code></strong>
+<pre class="term">$ ls /Documentos
+ls: não é possível acessar '/Documentos': Arquivo ou diretório inexistente</pre>
+<p><strong>O que aconteceu:</strong> <code>/Documentos</code> procura na raiz. A sua pasta Documentos fica em <code>/home/ana/Documentos</code>, ou <code>~/Documentos</code>.</p>
+<p><strong>Como resolver:</strong> use <code>ls ~/Documentos</code>. Veja a diferença em <a href="caminhos.html">Caminhos</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Não acho o pendrive"</strong>
+<p><strong>O que aconteceu:</strong> no desktop, pendrives aparecem em <code>/media/SEU_USUARIO/NOME_DO_PENDRIVE</code>, e não numa letra como "E:".</p>
+<p><strong>Como resolver:</strong> rode <code>ls /media/$USER</code>. Se estiver vazio, o pendrive não foi montado; veja <a href="montar.html">mount e fstab</a>.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Configurações</h3>
+<p>Em qual pasta ficam os arquivos de configuração do sistema?</p>
+<div class="ex-code"><input data-answer="/etc|/etc/" aria-label="pasta"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Logs</h3>
+<p>Complete o caminho da pasta de logs:</p>
+<div class="ex-code">/var/<input data-answer="log|log/" aria-label="pasta"></div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">3. Qual é a diferença entre <code>/</code> e <code>/root</code>?</p>
+<label><input type="radio" name="q3"> São a mesma pasta.</label>
+<label><input type="radio" name="q3"> <code>/root</code> é a raiz e <code>/</code> é a pasta do administrador.</label>
+<label><input type="radio" name="q3"> <code>/</code> é a raiz de tudo; <code>/root</code> é a pasta pessoal do administrador.</label>
+<label><input type="radio" name="q3"> <code>/root</code> guarda os programas instalados.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">4. Você quer guardar um arquivo que pode sumir no próximo reinício. Onde?</p>
+<label><input type="radio" name="q4"> <code>/tmp</code></label>
+<label><input type="radio" name="q4"> <code>/etc</code></label>
+<label><input type="radio" name="q4"> <code>/usr/bin</code></label>
+<label><input type="radio" name="q4"> <code>/boot</code></label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. Onde aparece um pendrive chamado FOTOS, para a usuária ana, no Ubuntu desktop?</p>
+<label><input type="radio" name="q5"> <code>E:\FOTOS</code></label>
+<label><input type="radio" name="q5"> <code>/media/ana/FOTOS</code></label>
+<label><input type="radio" name="q5"> <code>/dev/FOTOS</code></label>
+<label><input type="radio" name="q5"> <code>/home/FOTOS</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Tudo começa na raiz <code>/</code>. Não existem letras de unidade.</li>
+  <li>Sua pasta é <code>/home/SEU_USUARIO</code>, apelidada de <code>~</code>. É ali que você trabalha.</li>
+  <li><code>/etc</code> = configurações; <code>/var/log</code> = logs; <code>/usr/bin</code> = programas; <code>/tmp</code> = temporários.</li>
+  <li><code>/root</code> é a pasta do administrador, não a raiz.</li>
+  <li>Fora da sua pasta, mexa só com <code>sudo</code>, e depois de fazer uma cópia.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

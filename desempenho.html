@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Desempenho — diagnosticar lentidão e monitorar | Guia Ubuntu</title>
+<meta name="description" content="Descubra por que o Ubuntu está lento: load average, top, htop, free, vmstat, iostat, iotop, systemd-analyze e journalctl explicados linha a linha, com roteiro de diagnóstico.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Desempenho e Monitoramento</span></h1>
+
+<p class="intro">"O computador está lento" não é um diagnóstico. Lento por quê? Falta processador, falta memória, o disco está engasgado ou um programa enlouqueceu? Nesta aula você aprende a medir cada recurso e a apontar o culpado em poucos minutos.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A ler o <em>load average</em> e saber quando ele é alto de verdade.</li>
+  <li>A usar <code>top</code>, <code>htop</code> e <code>ps</code> para achar o processo que pesa.</li>
+  <li>A entender memória com <code>free</code> e a ver troca de memória (swap) com <code>vmstat</code>.</li>
+  <li>A descobrir se o disco é o gargalo com <code>iostat</code> e <code>iotop</code>.</li>
+  <li>A investigar um boot lento com <code>systemd-analyze</code>.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes do comando: os quatro recursos</h2>
+<p>Todo programa disputa quatro recursos. A lentidão quase sempre é <strong>um</strong> deles no limite, o chamado <strong>gargalo</strong>:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Recurso</th><th>Sintoma típico</th><th>Comando para medir</th></tr>
+<tr><td>CPU (processador)</td><td>Ventoinha alta, tudo lento por igual</td><td><code>uptime</code>, <code>top</code>, <code>htop</code></td></tr>
+<tr><td>Memória (RAM)</td><td>Trocar de janela demora; disco "trabalhando" sem parar</td><td><code>free -h</code>, <code>vmstat</code></td></tr>
+<tr><td>Disco (I/O)</td><td>Programas demoram a abrir; o mouse anda, mas nada responde</td><td><code>iostat</code>, <code>iotop</code></td></tr>
+<tr><td>Rede</td><td>Só o que usa internet está lento</td><td><code>ping</code>, <code>ss</code> (veja <a href="ip.html">ip, ping, ss</a>)</td></tr>
+</table>
+</div>
+
+<p>Os exemplos usam a máquina fictícia <strong>notebook</strong>, com 8 CPUs e 16 GB de RAM.</p>
+
+<hr>
+
+<h2>Roteiro rápido: "está lento"</h2>
+<ol class="passo">
+  <li><strong>Carga geral:</strong> <code>uptime</code>. O load average está acima do número de CPUs (<code>nproc</code>)?</li>
+  <li><strong>Quem está pesando:</strong> <code>top</code> ou <code>htop</code>, ordenando por CPU e depois por memória.</li>
+  <li><strong>Memória:</strong> <code>free -h</code>. A coluna "disponível" está baixa? O swap está sendo usado?</li>
+  <li><strong>Troca e espera de disco:</strong> <code>vmstat 1 5</code>. As colunas <code>si</code>/<code>so</code> ou <code>wa</code> estão altas?</li>
+  <li><strong>Disco:</strong> <code>iostat -x 1 3</code> e <code>sudo iotop -o</code>. Algum disco perto de 100% de uso?</li>
+  <li><strong>Espaço e erros:</strong> <code>df -h</code> e <code>journalctl -p err -b</code>.</li>
+</ol>
+
+<p>As seções a seguir explicam cada passo.</p>
+
+<hr>
+
+<h2>1. Carga geral: <code>uptime</code> e o load average</h2>
+
+<pre class="term">$ uptime
+ 10:30:00 up  2:31,  1 user,  load average: 6,12, 3,40, 1,95
+$ nproc
+8</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Pedaço</th><th>Significado</th></tr>
+<tr><td><code>10:30:00</code></td><td>Hora atual.</td></tr>
+<tr><td><code>up 2:31</code></td><td>A máquina está ligada há 2 horas e 31 minutos.</td></tr>
+<tr><td><code>1 user</code></td><td>Uma sessão aberta.</td></tr>
+<tr><td><code>load average: 6,12, 3,40, 1,95</code></td><td>Média de processos rodando ou esperando, nos últimos <strong>1</strong>, <strong>5</strong> e <strong>15</strong> minutos.</td></tr>
+</table>
+</div>
+
+<p>Pense numa padaria com 8 caixas (as 8 CPUs). Load 6 quer dizer que, em média, 6 clientes estavam sendo atendidos ou na fila. Com 8 caixas, ainda sobra caixa livre. A regra prática:</p>
+<ul>
+  <li><strong>Load abaixo do número de CPUs</strong>: folga.</li>
+  <li><strong>Load igual</strong>: no limite.</li>
+  <li><strong>Load acima</strong>: há fila, e as coisas ficam lentas.</li>
+</ul>
+<p>Os três números juntos contam uma história: <code>6,12, 3,40, 1,95</code> mostra uma carga <strong>subindo</strong> (era 1,95 há 15 minutos e agora é 6,12). Algo começou a pesar há pouco tempo.</p>
+
+<div class="note">
+<strong>Vírgula ou ponto?</strong>
+<p>Com o sistema em português, o <code>uptime</code> usa vírgula decimal, por isso os números são separados por "vírgula e espaço". O arquivo <code>/proc/loadavg</code> mostra os mesmos valores com ponto: <code>6.12 3.40 1.95 3/1688 54116</code>.</p>
+</div>
+
+<hr>
+
+<h2>2. Quem está pesando: <code>top</code></h2>
+<p>O <code>top</code> (de <em>table of processes</em>) mostra os processos que mais usam CPU, atualizando a cada 3 segundos. Saia com <kbd>q</kbd>.</p>
+
+<pre class="term">$ top
+top - 10:30:00 up  2:31,  1 user,  load average: 6,12, 3,40, 1,95
+Tarefas: 312 total,   2 em exec., 310 dormindo,   0 parado,   0 zumbi
+%CPU(s): 74,2 us,  3,1 sy,  0,0 ni, 22,1 id,  0,4 wa,  0,0 hi,  0,2 si,  0,0 st
+MB mem :  15374,2 total,   2104,6 free,   9832,7 used,   3984,1 buff/cache
+MB swap:   4096,0 total,   4096,0 free,      0,0 used.   5541,5 avail mem
+
+    PID USUARIO   PR  NI    VIRT    RES    SHR S  %CPU  %MEM    TEMPO+ COMANDO
+   4821 ana       20   0 3218840 412300  98120 R 598,0   2,6  12:41.08 ffmpeg       « 6 CPUs inteiras
+   2210 ana       20   0   54,8g 486336 152004 S  12,3   3,1   4:36.12 chrome
+   1534 ana       20   0 5642184 389120 141556 S   3,7   2,5   2:10.44 gnome-shell</pre>
+
+<h3>Lendo o cabeçalho</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Linha</th><th>O que olhar</th></tr>
+<tr><td><code>Tarefas</code></td><td>Total de processos; <code>em exec.</code> = rodando agora. Muitos <code>zumbi</code> indicam programa com defeito.</td></tr>
+<tr><td><code>%CPU(s)</code></td><td><code>us</code> = programas; <code>sy</code> = kernel; <code>id</code> = ocioso; <code>wa</code> = esperando o disco. <code>wa</code> alto aponta para o disco, não para a CPU.</td></tr>
+<tr><td><code>MB mem</code></td><td>Memória em megabytes. Olhe <code>avail mem</code> (disponível) na linha de baixo.</td></tr>
+<tr><td><code>MB swap</code></td><td>Swap em uso (<code>used</code>) acima de zero indica que faltou RAM em algum momento.</td></tr>
+</table>
+</div>
+
+<h3>Lendo a lista</h3>
+<p><code>%CPU</code> é medido por núcleo: <strong>100% = um núcleo inteiro</strong>. Por isso o <code>ffmpeg</code> aparece com 598%: está usando 6 dos 8 núcleos. <code>RES</code> é a memória real que o processo ocupa. <code>S</code> é o estado: <code>R</code> rodando, <code>S</code> dormindo, <code>D</code> esperando disco, <code>Z</code> zumbi.</p>
+
+<h3>Teclas úteis dentro do top</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tecla</th><th>O que faz</th></tr>
+<tr><td><kbd>P</kbd></td><td>Ordena por CPU (padrão)</td></tr>
+<tr><td><kbd>M</kbd></td><td>Ordena por memória</td></tr>
+<tr><td><kbd>1</kbd></td><td>Mostra cada CPU separadamente</td></tr>
+<tr><td><kbd>k</kbd></td><td>Encerra um processo (pede o PID)</td></tr>
+<tr><td><kbd>u</kbd></td><td>Filtra por usuário</td></tr>
+<tr><td><kbd>q</kbd></td><td>Sai</td></tr>
+</table>
+</div>
+
+<h3>Versão "foto": <code>top -b -n 1</code></h3>
+<p>Em scripts ou para colar num fórum, rode o <code>top</code> uma vez só, sem tela interativa:</p>
+
+<dl class="anatomy">
+  <dt>top</dt><dd>O programa.</dd>
+  <dt>-b</dt><dd><em>Batch</em>: modo texto, para ler ou salvar.</dd>
+  <dt>-n 1</dt><dd>Uma única atualização e sai.</dd>
+  <dt>| head -15</dt><dd>Fica só com as 15 primeiras linhas.</dd>
+</dl>
+
+<pre class="term">$ top -b -n 1 | head -15 &gt; lentidao.txt</pre>
+
+<h3>Alternativas: <code>htop</code> e <code>ps</code></h3>
+<p>O <code>htop</code> é um <code>top</code> colorido, com mouse e barras por CPU. Instale com <code>sudo apt install htop</code>. Teclas: <kbd>F6</kbd> ordena, <kbd>F4</kbd> filtra pelo nome, <kbd>F5</kbd> mostra em árvore, <kbd>F9</kbd> encerra, <kbd>F10</kbd> sai.</p>
+
+<p>Para uma lista simples e ordenada, sem tela cheia, use <code>ps</code>:</p>
+
+<dl class="anatomy">
+  <dt>ps</dt><dd>Lista processos.</dd>
+  <dt>-e</dt><dd>Todos os processos do sistema.</dd>
+  <dt>-o pid,comm,%cpu,%mem</dt><dd>Só estas colunas.</dd>
+  <dt>--sort=-%mem</dt><dd>Ordena por memória; o <code>-</code> deixa em ordem decrescente.</dd>
+  <dt>| head -6</dt><dd>Cabeçalho e os 5 primeiros.</dd>
+</dl>
+
+<pre class="term">$ ps -eo pid,comm,%cpu,%mem --sort=-%mem | head -6
+    PID COMMAND         %CPU %MEM
+   2210 chrome          12.3  3.1
+   1534 gnome-shell      3.7  2.5
+   4821 ffmpeg          99.8  2.6
+   2251 chrome           2.0  2.4
+   2304 nautilus         0.1  1.5</pre>
+
+<p>Repare: no <code>ps</code>, o <code>%CPU</code> do <code>ffmpeg</code> é a média desde que ele começou, por isso não bate com o <code>top</code>, que mede o momento. Para "agora", confie no <code>top</code>.</p>
+
+<hr>
+
+<h2>3. Memória: <code>free -h</code></h2>
+
+<pre class="term">$ free -h
+               total       usada       livre    compart.  buff/cache  disponível
+Mem.:           15Gi       4,7Gi       3,6Gi       118Mi       7,2Gi        10Gi
+Swap:          4,0Gi          0B       4,0Gi</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Significado</th></tr>
+<tr><td><code>usada</code></td><td>Ocupada por programas.</td></tr>
+<tr><td><code>livre</code></td><td>Totalmente sem uso. Costuma ser baixa, e isso é bom.</td></tr>
+<tr><td><code>buff/cache</code></td><td>Arquivos que o Linux guardou na RAM para abrir mais rápido. É devolvida na hora quando um programa precisa.</td></tr>
+<tr><td><code>disponível</code></td><td><strong>A coluna que importa</strong>: quanto os programas ainda podem usar (livre + cache liberável).</td></tr>
+<tr><td><code>Swap</code></td><td>Espaço no disco usado como "RAM de emergência". É centenas de vezes mais lento que a RAM.</td></tr>
+</table>
+</div>
+
+<p>A Ana tem só 3,6 GiB "livres", mas 10 GiB "disponíveis": está tudo bem. Preocupe-se quando o <strong>disponível</strong> ficar perto de zero e o <strong>Swap usada</strong> crescer.</p>
+
+<div class="tip">
+<strong>RAM ociosa é RAM desperdiçada</strong>
+<p>O Linux usa toda a memória sobrando como cache. Por isso "a memória está quase cheia" no Monitor do Sistema não é, por si só, um problema.</p>
+</div>
+
+<hr>
+
+<h2>4. Troca e espera: <code>vmstat</code></h2>
+<p>O <code>vmstat</code> (de <em>virtual memory statistics</em>) mostra, a cada intervalo, um resumo de processos, memória, swap, disco e CPU. É ótimo para ver a <strong>tendência</strong>.</p>
+
+<dl class="anatomy">
+  <dt>vmstat</dt><dd>O programa.</dd>
+  <dt>1</dt><dd>Uma linha a cada 1 segundo.</dd>
+  <dt>5</dt><dd>Para depois de 5 linhas.</dd>
+</dl>
+
+<pre class="term">$ vmstat 1 5
+procs -----------memory---------- ---swap-- -----io---- -system-- -------cpu-------
+ r  b   swpd  livre   buff  cache   si   so    bi    bo   in   cs us sy id wa st gu
+ 7  0      0 2155120 540388 3536640    0    0  1075   340 3484 2102 74  3 22  1  0  0   « 1ª linha: média desde o boot
+ 8  0      0 2151904 540388 3536700    0    0     0    16 6120 4410 76  3 21  0  0  0
+ 7  0      0 2149876 540390 3536712    0    0     0     8 6033 4392 75  3 22  0  0  0
+ 8  1      0 2148010 540392 3536740    0    0     4   120 6188 4501 74  4 21  1  0  0
+ 7  0      0 2147220 540392 3536744    0    0     0     0 5992 4377 75  3 22  0  0  0</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Significado</th><th>Alerta quando…</th></tr>
+<tr><td><code>r</code></td><td>Processos querendo CPU</td><td>Fica acima do número de CPUs</td></tr>
+<tr><td><code>b</code></td><td>Processos bloqueados esperando disco</td><td>Fica sempre acima de 0</td></tr>
+<tr><td><code>si</code> / <code>so</code></td><td>Swap entrando / saindo (KB/s)</td><td>Qualquer valor contínuo acima de 0: falta RAM</td></tr>
+<tr><td><code>bi</code> / <code>bo</code></td><td>Blocos lidos / gravados no disco</td><td>Muito altos junto com <code>wa</code> alto</td></tr>
+<tr><td><code>us sy id wa</code></td><td>CPU: programas, kernel, ociosa, esperando disco</td><td><code>id</code> perto de 0 (CPU) ou <code>wa</code> acima de ~20 (disco)</td></tr>
+</table>
+</div>
+
+<p>No exemplo, <code>r</code> fica entre 7 e 8 (quase as 8 CPUs) e <code>us</code> em 75%: o gargalo é a <strong>CPU</strong>, e o <code>top</code> já mostrou o culpado, o <code>ffmpeg</code>. A primeira linha é sempre a média desde o boot; ignore-a.</p>
+
+<hr>
+
+<h2>5. Disco: <code>iostat</code> e <code>iotop</code></h2>
+<p>O <code>iostat</code> vem no pacote <code>sysstat</code>, que não vem instalado:</p>
+<pre class="term">$ sudo apt install sysstat</pre>
+
+<dl class="anatomy">
+  <dt>iostat</dt><dd>Estatísticas de entrada e saída (<em>input/output</em>) dos discos.</dd>
+  <dt>-x</dt><dd><em>Extended</em>: colunas detalhadas, inclusive <code>%util</code>.</dd>
+  <dt>-d</dt><dd>Só os discos, sem o resumo de CPU.</dd>
+  <dt>nvme0n1</dt><dd>Só este disco (descubra o nome com <code>lsblk</code>).</dd>
+  <dt>1 3</dt><dd>A cada 1 segundo, 3 vezes.</dd>
+</dl>
+
+<pre class="term">$ iostat -x -d nvme0n1 1 3
+Device            r/s     rkB/s   rrqm/s  %rrqm r_await rareq-sz     w/s     wkB/s   wrqm/s  %wrqm w_await wareq-sz     d/s     dkB/s   drqm/s  %drqm d_await dareq-sz     f/s f_await  aqu-sz  %util
+nvme0n1         25,53    995,79    13,61  34,77    0,41    39,00   15,61    365,16    16,91  52,00    1,74    23,39    0,00      0,00     0,00   0,00    0,00     0,00    2,25    0,13    0,03   2,82
+…</pre>
+
+<p>São muitas colunas, mas três respondem quase tudo:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Significado</th><th>Alerta quando…</th></tr>
+<tr><td><code>%util</code></td><td>Quanto do tempo o disco ficou ocupado</td><td>Perto de 100% de forma contínua</td></tr>
+<tr><td><code>r_await</code> / <code>w_await</code></td><td>Tempo médio de cada leitura / escrita, em milissegundos</td><td>SSD acima de ~10 ms; HD acima de ~50 ms</td></tr>
+<tr><td><code>r/s</code> / <code>w/s</code></td><td>Leituras e escritas por segundo</td><td>Ajuda a ver quem domina: ler ou gravar</td></tr>
+</table>
+</div>
+
+<p>Para saber <strong>qual processo</strong> está usando o disco, use o <code>iotop</code> (<code>sudo apt install iotop</code>):</p>
+
+<dl class="anatomy">
+  <dt>sudo iotop</dt><dd>Precisa de root para ver todos os processos.</dd>
+  <dt>-o</dt><dd><em>Only</em>: só os processos que estão lendo ou gravando agora.</dd>
+</dl>
+
+<pre class="term">$ sudo iotop -o
+Total DISK READ:         0.00 B/s | Total DISK WRITE:        84.31 M/s
+Current DISK READ:       0.00 B/s | Current DISK WRITE:      91.02 M/s
+    TID  PRIO  USER     DISK READ  DISK WRITE  SWAPIN     IO&gt;    COMMAND
+   6120 be/4 ana         0.00 B/s   83.95 M/s  0.00 % 72.14 % rsync -a Vídeos /media/ana/HD   « o backup
+    412 be/3 root        0.00 B/s    0.36 M/s  0.00 %  1.20 % [jbd2/nvme0n1p2-8]</pre>
+
+<p>A saída do <code>iotop</code> é ilustrativa: os números mudam a cada segundo. A coluna <code>IO&gt;</code> mostra quanto do tempo o processo passou esperando o disco.</p>
+
+<hr>
+
+<h2>6. Espaço e erros</h2>
+<p>Disco cheio deixa tudo estranho: programas não salvam, o login falha, atualizações quebram. Confira sempre:</p>
+
+<pre class="term">$ df -h /
+Sist. Arq.      Tam. Usado Disp. Uso% Montado em
+/dev/nvme0n1p2  468G  121G  324G  28% /</pre>
+
+<p>Acima de 90%, investigue com <code>du</code> (veja <a href="discos.html">lsblk, df, du</a>). Depois, procure erros do boot atual no log:</p>
+
+<pre class="term">$ journalctl -p err -b --no-pager | tail -5</pre>
+
+<p>Quando a memória acaba de vez, o Ubuntu encerra um programa para salvar o sistema. Quem faz isso primeiro é o <code>systemd-oomd</code>; em último caso, o próprio kernel (<em>OOM killer</em>, de <em>out of memory</em>). Os dois deixam rastro no log:</p>
+
+<pre class="term">$ journalctl -b | grep -iE "oom|out of memory"</pre>
+
+<hr>
+
+<h2>Boot lento: <code>systemd-analyze</code></h2>
+
+<pre class="term">$ systemd-analyze
+Startup finished in 4.350s (kernel) + 1min 29.713s (userspace) = 1min 34.063s
+graphical.target reached after 1min 29.713s in userspace.</pre>
+
+<p>O boot tem duas fases: o <strong>kernel</strong> (4,3 s, normal) e o <strong>userspace</strong>, os serviços (1 min 29 s, lento). Para ver quem demorou:</p>
+
+<pre class="term">$ systemd-analyze blame | head -5
+44.011s vboxdrv.service                       « driver do VirtualBox
+43.863s e2scrub_reap.service
+43.079s plymouth-quit-wait.service            « a tela de boot esperando os outros
+22.754s snapd.seeded.service
+21.001s snapd.service</pre>
+
+<div class="warning">
+<strong>"blame" engana</strong>
+<p>Muitos serviços sobem <strong>ao mesmo tempo</strong>. Um serviço lento no <code>blame</code> pode não ter atrasado nada. Quem mostra o caminho que realmente segurou o boot é o <code>critical-chain</code>:</p>
+</div>
+
+<pre class="term">$ systemd-analyze critical-chain
+graphical.target @1min 29.713s
+└─power-profiles-daemon.service @1min 29.548s +164ms
+  └─multi-user.target @1min 29.543s
+    └─plymouth-quit-wait.service @46.461s +43.079s
+      └─systemd-user-sessions.service @45.947s +509ms
+        └─network.target @45.918s
+          └─NetworkManager.service @39.772s +6.144s</pre>
+
+<p><code>@</code> é o momento em que o serviço ficou pronto; <code>+</code> é quanto ele demorou. Leia de baixo para cima. A explicação completa de boot está em <a href="boot-grub.html">Boot, GRUB e Kernel</a>.</p>
+
+<hr>
+
+<h2>Formas diferentes de fazer</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Ferramenta</th><th>Mostra</th><th>Melhor quando…</th></tr>
+<tr><td>Monitor do Sistema (desktop)</td><td>Processos, gráficos de CPU, memória e rede</td><td>Você está no desktop e quer uma visão rápida.</td></tr>
+<tr><td><code>top</code></td><td>Processos em tempo real</td><td>Qualquer servidor: já vem instalado.</td></tr>
+<tr><td><code>htop</code></td><td>Processos com cores, árvore e mouse</td><td>Investigar com calma.</td></tr>
+<tr><td><code>ps --sort</code></td><td>Lista estática ordenada</td><td>Scripts, relatórios, colar num chamado.</td></tr>
+<tr><td><code>vmstat 1</code></td><td>Tendência de CPU, memória e disco</td><td>Descobrir qual recurso é o gargalo.</td></tr>
+<tr><td><code>iostat -x</code> / <code>iotop</code></td><td>Disco por dispositivo / por processo</td><td>Suspeita de disco lento ou cheio de trabalho.</td></tr>
+<tr><td><code>cat /proc/pressure/memory</code></td><td>"Pressão" de CPU, memória e disco</td><td>Medir há quanto tempo os processos esperam por um recurso.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Load alto, mas a CPU está quase ociosa</strong>
+<pre class="term">$ uptime
+ 10:45:12 up  2:46,  1 user,  load average: 9,40, 8,85, 7,10
+$ vmstat 1 3
+procs -----------memory---------- ---swap-- -----io---- -system-- -------cpu-------
+ r  b   swpd  livre   buff  cache   si   so    bi    bo   in   cs us sy id wa st gu
+ 1  8      0 2302112 541200 3511020    0    0   920 84210 2210 3011  4  2 52 42  0  0   « b=8 e wa=42</pre>
+<p><strong>O que aconteceu:</strong> no Linux, o load conta também os processos esperando o disco. Aqui há 8 processos bloqueados (<code>b</code>) e a CPU passa 42% do tempo esperando (<code>wa</code>).</p>
+<p><strong>Como resolver:</strong> o gargalo é o disco. Use <code>sudo iotop -o</code> para achar quem está gravando tanto (backup, indexação, atualização) e espere ou pause esse processo.</p>
+</div>
+
+<div class="cenario">
+<strong>Tudo travando e o disco não para</strong>
+<pre class="term">$ free -h
+               total       usada       livre    compart.  buff/cache  disponível
+Mem.:           15Gi        15Gi       142Mi        98Mi       310Mi       201Mi
+Swap:          4,0Gi       3,9Gi        98Mi</pre>
+<p><strong>O que aconteceu:</strong> a RAM acabou (só 201 MiB disponíveis) e o swap está quase cheio. O sistema passa o tempo trocando memória com o disco.</p>
+<p><strong>Como resolver:</strong> ache o processo com mais memória (<kbd>M</kbd> no <code>top</code>) e feche-o. Se nem o terminal responde, use o console de texto descrito em <a href="travamentos.html">Quando o Sistema Trava</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>"comando não encontrado"</strong>
+<pre class="term">$ iotop
+Comando 'iotop' não encontrado, mas poder ser instalado com:
+sudo apt install iotop-c  # version 1.31-1, or
+sudo apt install iotop    # version 0.6-42-ga14256a-0.3build4</pre>
+<p><strong>O que aconteceu:</strong> a ferramenta não vem instalada. O Ubuntu sugere os pacotes que a contêm (o "poder" é um erro da tradução original). O <code>iotop-c</code> é uma versão mais nova, escrita em C, com o mesmo uso.</p>
+<p><strong>Como resolver:</strong> instale um dos pacotes sugeridos. O mesmo vale para <code>iostat</code> (pacote <code>sysstat</code>) e <code>htop</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O top mostra mais de 100% de CPU</strong>
+<p><strong>O que aconteceu:</strong> nada de errado. No <code>top</code>, 100% = um núcleo. Um programa usando 4 núcleos aparece com 400%. Pressione <kbd>Shift</kbd>+<kbd>I</kbd> para dividir pelo número de CPUs (modo "Irix" desligado).</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>uptime</code></td><td>Tempo ligado e load average (1, 5, 15 min)</td></tr>
+<tr><td><code>nproc</code></td><td>Número de CPUs</td></tr>
+<tr><td><code>top</code> / <code>top -b -n 1</code></td><td>Processos em tempo real / uma foto em texto</td></tr>
+<tr><td><code>htop</code></td><td>Versão interativa e colorida do top</td></tr>
+<tr><td><code>ps -eo pid,comm,%cpu,%mem --sort=-%cpu</code></td><td>Processos ordenados por CPU</td></tr>
+<tr><td><code>free -h</code></td><td>Memória e swap</td></tr>
+<tr><td><code>vmstat 1 5</code></td><td>Resumo a cada segundo, 5 vezes</td></tr>
+<tr><td><code>iostat -x 1 3</code></td><td>Uso detalhado dos discos (pacote sysstat)</td></tr>
+<tr><td><code>sudo iotop -o</code></td><td>Processos que estão usando o disco agora</td></tr>
+<tr><td><code>df -h</code></td><td>Espaço livre por sistema de arquivos</td></tr>
+<tr><td><code>systemd-analyze blame</code></td><td>Tempo de cada serviço no boot</td></tr>
+<tr><td><code>systemd-analyze critical-chain</code></td><td>O caminho que realmente atrasou o boot</td></tr>
+<tr><td><code>journalctl -p err -b</code></td><td>Erros do boot atual</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Quantas CPUs?</h3>
+<p>O load average está em 3,5. Complete o comando que diz se isso é muito para esta máquina:</p>
+<div class="ex-code"><input data-answer="nproc" aria-label="comando"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Os 5 que mais usam memória</h3>
+<p>Complete para listar os processos em ordem decrescente de memória:</p>
+<div class="ex-code">ps -eo pid,comm,%mem --sort=<input data-answer="-%mem" aria-label="ordem"> | head -6</div>
+</div>
+
+<div class="exercise">
+<h3>3. Uma linha por segundo</h3>
+<p>Complete para o <code>vmstat</code> mostrar uma linha a cada 2 segundos, 10 vezes:</p>
+<div class="ex-code">vmstat <input data-answer="2 10" aria-label="intervalo e quantidade"></div>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">4. O <code>free -h</code> mostra 600 MiB "livre" e 9 GiB "disponível". O que isso significa?</p>
+<label><input type="radio" name="q4"> A memória está acabando; feche programas.</label>
+<label><input type="radio" name="q4"> Há um vazamento de memória.</label>
+<label><input type="radio" name="q4"> O swap está cheio.</label>
+<label><input type="radio" name="q4"> Está tudo bem: a maior parte é cache que o Linux devolve quando precisar.</label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. O <code>vmstat</code> mostra <code>wa</code> em 45 e <code>id</code> em 40. Qual é o gargalo mais provável?</p>
+<label><input type="radio" name="q5"> CPU.</label>
+<label><input type="radio" name="q5"> Disco.</label>
+<label><input type="radio" name="q5"> Rede.</label>
+<label><input type="radio" name="q5"> Nenhum; o sistema está ocioso.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Descubra o recurso no limite antes de agir: CPU, memória, disco ou rede.</li>
+  <li>Load average acima de <code>nproc</code> = fila; compare os três números para ver a tendência.</li>
+  <li><code>top</code>/<code>htop</code> acham o processo; 100% de CPU = um núcleo.</li>
+  <li>Na memória, olhe "disponível" e o swap, não "livre".</li>
+  <li><code>vmstat</code>: <code>r</code> alto = CPU; <code>si</code>/<code>so</code> = falta RAM; <code>b</code> e <code>wa</code> = disco. Confirme com <code>iostat</code> e <code>iotop</code>.</li>
+  <li>Boot lento: <code>systemd-analyze critical-chain</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

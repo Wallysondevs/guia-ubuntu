@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guia Ubuntu para Iniciantes</title>
+<meta name="description" content="Curso de Ubuntu do zero ao avançado, em português: aulas com cada parte do comando explicada, terminal simulado para praticar no navegador, projetos e exercícios.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="hero">
+<h1>Tutorial Ubuntu</h1>
+<p>Aprenda Ubuntu do zero, como numa escola: cada comando é explicado parte por parte, você vê o que ele devolve e pratica num terminal simulado aqui mesmo no navegador.</p>
+<a class="btn btn-lg" href="introducao.html">Comece pelo Nível 1 &#10095;</a>
+</div>
+
+<div class="pager"></div>
+
+<div class="warning">
+<strong>O computador travou agora?</strong>
+<p>Vá direto para <a href="travamentos.html">Quando o Sistema Trava</a>: como abrir o terminal de emergência (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>), fechar o programa culpado e, se nada responder, reiniciar com segurança pelo teclado.</p>
+</div>
+
+<h2>Experimente agora</h2>
+<p>Este é um terminal de verdade? Quase: é uma máquina fictícia chamada <strong>notebook</strong>, com a usuária <strong>ana</strong>, que roda no seu navegador. Nada do que você digitar aqui afeta o seu computador. Digite <code>ls</code> e aperte <kbd>Enter</kbd>.</p>
+
+<div class="try" data-goal="ran:^\s*ls">
+<p class="try-task"><strong>Missão:</strong> digite <code>ls</code> para ver as pastas da Ana. Depois tente <code>ls Documentos</code> e <code>cat frutas.txt</code>. Digite <code>help</code> para ver tudo o que funciona.</p>
+</div>
+
+<hr>
+
+<h2>Como as aulas funcionam</h2>
+<p>Nenhum comando aparece "seco". Toda aula segue o mesmo caminho:</p>
+<ol class="passo">
+  <li><strong>A ideia primeiro.</strong> Antes do comando, você entende o problema que ele resolve.</li>
+  <li><strong>Anatomia do comando.</strong> Cada pedaço do comando é numerado e explicado: o programa, as opções e os argumentos.</li>
+  <li><strong>Terminal com a resposta.</strong> Você vê exatamente o que aparece na tela, com etiquetas apontando o que importa.</li>
+  <li><strong>Várias formas de fazer.</strong> Quase sempre há mais de um caminho, e a aula mostra quando usar cada um.</li>
+  <li><strong>Quando não funciona.</strong> Erros reais do Ubuntu 26.04, por que acontecem e como resolver, inclusive o caso "o comando não mostrou nada".</li>
+  <li><strong>Experimente e exercícios.</strong> Missões no terminal simulado e exercícios com correção na hora.</li>
+</ol>
+
+<p>Veja um exemplo de anatomia:</p>
+<dl class="anatomy">
+  <dt>pgrep</dt><dd>O programa: procura processos (programas abertos) pelo nome.</dd>
+  <dt>-a</dt><dd>Opção: mostra também a linha de comando completa de cada processo.</dd>
+  <dt>-f</dt><dd>Opção: procura na linha de comando inteira, não só no nome curto.</dd>
+  <dt>chromium</dt><dd>Argumento: o texto a procurar.</dd>
+</dl>
+
+<pre class="term">$ pgrep chromium
+$ echo $?
+1                                « nada encontrado: o processo não se chama "chromium"
+$ pgrep -af chromium
+2210 /snap/chromium/3554/usr/lib/chromium-browser/chrome --password-store
+2251 /snap/chromium/3554/usr/lib/chromium-browser/chrome --type=renderer</pre>
+
+<p>Por que o primeiro comando não achou nada se o navegador estava aberto? A resposta está na aula <a href="processos.html">ps, pgrep, top</a>.</p>
+
+<hr>
+
+<h2>Escolha sua trilha</h2>
+<div class="trilhas">
+  <div class="trilha n1">
+    <h3>Nível 1 · Iniciante</h3>
+    <p>Para quem nunca abriu um terminal.</p>
+    <ul>
+      <li>Navegar, criar, copiar e apagar arquivos</li>
+      <li>Instalar e atualizar programas</li>
+      <li>Entender sudo e permissões</li>
+      <li>Resolver travamentos</li>
+    </ul>
+    <a class="btn" href="introducao.html">Começar &#10095;</a>
+  </div>
+  <div class="trilha n2">
+    <h3>Nível 2 · Intermediário</h3>
+    <p>Dominar o terminal e administrar a própria máquina.</p>
+    <ul>
+      <li>grep, sed, awk, pipes e redirecionamento</li>
+      <li>Serviços, logs e processos</li>
+      <li>Redes, SSH e backup</li>
+      <li>Shell script e cron</li>
+    </ul>
+    <a class="btn" href="find.html">Começar &#10095;</a>
+  </div>
+  <div class="trilha n3">
+    <h3>Nível 3 · Avançado</h3>
+    <p>Servidores, infraestrutura e recuperação.</p>
+    <ul>
+      <li>Firewall, VPN e segurança</li>
+      <li>GRUB, recuperação e desempenho</li>
+      <li>LVM, RAID e ZFS</li>
+      <li>nginx, HTTPS, bancos, Docker, Git, Ansible</li>
+    </ul>
+    <a class="btn" href="ufw.html">Começar &#10095;</a>
+  </div>
+  <div class="trilha proj">
+    <h3>Projetos</h3>
+    <p>Laboratórios passo a passo numa máquina virtual.</p>
+    <ul>
+      <li>Servidor web do zero</li>
+      <li>Backup automático testado</li>
+      <li>Quebre e conserte</li>
+      <li>Servidor de arquivos e app com Docker</li>
+    </ul>
+    <a class="btn" href="projetos.html">Ver projetos &#10095;</a>
+  </div>
+</div>
+
+<div class="tip">
+<strong>A regra de ouro</strong>
+<p>Ler não basta: digite cada exemplo. Use o terminal simulado das aulas e, quando ele não for suficiente, uma máquina virtual. Se algo quebrar, é só recriar. A aula <a href="instalacao.html">Instalação</a> mostra como.</p>
+</div>
+
+<hr>
+
+<h2>Como ler este guia</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Elemento</th><th>O que significa</th></tr>
+<tr><td><code>ana@notebook:~$</code></td><td>O prompt: usuária <code>ana</code>, na máquina <code>notebook</code>, na pasta pessoal (<code>~</code>). O que vem depois é o comando digitado.</td></tr>
+<tr><td><code>root@notebook:~#</code></td><td>Comando rodado como administrador (root).</td></tr>
+<tr><td>Linhas sem prompt</td><td>A resposta do computador.</td></tr>
+<tr><td><span class="t-a">← etiqueta</span></td><td>Uma explicação do guia sobre aquela linha. Não aparece no terminal real.</td></tr>
+<tr><td><code>&lt;texto&gt;</code></td><td>Troque pelo seu valor. Ex.: <code>cd &lt;pasta&gt;</code> vira <code>cd Documentos</code>.</td></tr>
+<tr><td><code>[opcional]</code></td><td>Parte que pode ser omitida.</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Versão de referência: Ubuntu 26.04 LTS</strong>
+<p>A partir do Ubuntu 25.10, vários comandos básicos (<code>ls</code>, <code>mkdir</code>, <code>du</code>…) e o <code>sudo</code> foram reescritos em Rust. Por isso, mesmo com o sistema em português, algumas mensagens aparecem em inglês, e o <code>ls -l</code> mostra o mês em inglês (<code>Oct</code>). As saídas deste guia foram conferidas num Ubuntu 26.04 real. Quase tudo também vale para as versões 22.04 e 24.04.</p>
+</div>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Glossário — termos de Linux explicados | Guia Ubuntu</title>
+<meta name="description" content="Glossário do Guia Ubuntu: termos de Linux e Ubuntu explicados em linguagem simples, com link para a aula onde cada um aparece.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Glossário</span></h1>
+
+<p class="intro">Os 113 termos técnicos usados no guia, em ordem alfabética, cada um explicado em uma ou duas frases e com o link para a aula onde ele aparece. Quando uma palavra de uma aula parecer estranha, procure aqui com <kbd>Ctrl</kbd>+<kbd>F</kbd>.</p>
+
+<div class="tip">
+<strong>Termos em inglês</strong>
+<p>Muitos nomes ficam em inglês porque é assim que aparecem nos comandos, nos manuais e nas mensagens de erro. Quando existe um nome em português de uso comum, ele aparece entre parênteses.</p>
+</div>
+
+<p><a href="#g-A">A</a> · <a href="#g-B">B</a> · <a href="#g-C">C</a> · <a href="#g-D">D</a> · <a href="#g-E">E</a> · <a href="#g-F">F</a> · <a href="#g-G">G</a> · <a href="#g-H">H</a> · <a href="#g-I">I</a> · <a href="#g-J">J</a> · <a href="#g-K">K</a> · <a href="#g-L">L</a> · <a href="#g-M">M</a> · <a href="#g-N">N</a> · <a href="#g-O">O</a> · <a href="#g-P">P</a> · <a href="#g-R">R</a> · <a href="#g-S">S</a> · <a href="#g-T">T</a> · <a href="#g-U">U</a> · <a href="#g-V">V</a> · <a href="#g-W">W</a> · <a href="#g-Y">Y</a> · <a href="#g-Z">Z</a></p>
+<h2 id="g-A">A</h2>
+<dl class="glossario">
+<dt><strong>Absoluto (caminho)</strong></dt>
+<dd>Caminho que começa na raiz <code>/</code>, como <code>/home/ana/Documentos</code>. Funciona de qualquer pasta. Veja: <a href="caminhos.html">Caminhos</a>.</dd>
+<dt><strong>ACL</strong></dt>
+<dd>Lista de controle de acesso: permissões extras, por usuário, além de dono/grupo/outros. Veja: <a href="permissoes.html">Entendendo Permissões</a>.</dd>
+<dt><strong>Alias (apelido)</strong></dt>
+<dd>Nome curto que o shell troca por um comando maior. Ex.: <code>ll</code> vira <code>ls -alF</code>. Veja: <a href="bashrc.html">.bashrc, alias, PATH</a>.</dd>
+<dt><strong>AppArmor</strong></dt>
+<dd>Proteção do Ubuntu que limita o que cada programa pode acessar. Veja: <a href="seguranca.html">Segurança do Servidor</a>.</dd>
+<dt><strong>apt</strong></dt>
+<dd>Gerenciador de pacotes do Ubuntu: instala, atualiza e remove programas dos repositórios. Veja: <a href="apt.html">apt</a>.</dd>
+<dt><strong>Argumento</strong></dt>
+<dd>O que você entrega ao comando para ele trabalhar, como o nome de um arquivo. Veja: <a href="sintaxe.html">Sintaxe dos Comandos</a>.</dd>
+</dl>
+<h2 id="g-B">B</h2>
+<dl class="glossario">
+<dt><strong>Backup</strong></dt>
+<dd>Cópia dos dados guardada em outro lugar, para recuperar depois. Só vale se a restauração for testada. Veja: <a href="backup.html">Backup</a>.</dd>
+<dt><strong>Bash</strong></dt>
+<dd>O shell padrão do Ubuntu: o programa que lê e executa o que você digita no terminal. Veja: <a href="terminal.html">O Terminal</a>.</dd>
+<dt><strong>Branch</strong></dt>
+<dd>Linha de desenvolvimento separada no Git, onde você muda coisas sem mexer na principal. Veja: <a href="git.html">Git</a>.</dd>
+</dl>
+<h2 id="g-C">C</h2>
+<dl class="glossario">
+<dt><strong>Cache</strong></dt>
+<dd>Cópia guardada para acelerar acessos futuros. Na memória, aparece como buff/cache no <code>free</code>. Veja: <a href="desempenho.html">Desempenho e Monitoramento</a>.</dd>
+<dt><strong>Caminho</strong></dt>
+<dd>O endereço de um arquivo ou pasta, como <code>Documentos/notas.txt</code>. Veja: <a href="caminhos.html">Caminhos</a>.</dd>
+<dt><strong>Certificado</strong></dt>
+<dd>Arquivo que prova a identidade de um site e permite o HTTPS. O Let's Encrypt emite de graça. Veja: <a href="https.html">HTTPS (Let's Encrypt)</a>.</dd>
+<dt><strong>chroot</strong></dt>
+<dd>Técnica de rodar um shell "dentro" de outro sistema montado; usada para consertar um Ubuntu que não liga. Veja: <a href="recuperacao.html">Recuperar um Sistema</a>.</dd>
+<dt><strong>CIDR</strong></dt>
+<dd>Forma curta de escrever a máscara de rede: <code>/24</code> equivale a 255.255.255.0. Veja: <a href="redes.html">Conceitos de Rede</a>.</dd>
+<dt><strong>cloud-init</strong></dt>
+<dd>Ferramenta que configura uma máquina nova no primeiro boot a partir de um arquivo user-data. Veja: <a href="cloud-init.html">cloud-init</a>.</dd>
+<dt><strong>Código de saída</strong></dt>
+<dd>Número que todo comando devolve ao terminar: 0 é sucesso, outro número é erro. Veja com <code>echo $?</code>. Veja: <a href="criar.html">touch e mkdir</a>.</dd>
+<dt><strong>Commit</strong></dt>
+<dd>Fotografia do projeto guardada no Git, com uma mensagem explicando o que mudou. Veja: <a href="git.html">Git</a>.</dd>
+<dt><strong>Container</strong></dt>
+<dd>Ambiente isolado que roda um programa com tudo de que ele precisa, dividindo o kernel com a máquina. Veja: <a href="docker.html">Docker</a>.</dd>
+<dt><strong>cron</strong></dt>
+<dd>Serviço que executa tarefas em horários marcados. Veja: <a href="cron.html">Agendar Tarefas (cron)</a>.</dd>
+<dt><strong>Curinga (glob)</strong></dt>
+<dd>Símbolo que representa nomes de arquivos: <code>*</code> (qualquer coisa), <code>?</code> (um caractere), <code>[abc]</code>. Veja: <a href="curingas.html">Curingas</a>.</dd>
+</dl>
+<h2 id="g-D">D</h2>
+<dl class="glossario">
+<dt><strong>Daemon</strong></dt>
+<dd>Programa que roda em segundo plano, sem janela, como o servidor SSH. Veja: <a href="systemctl.html">systemctl</a>.</dd>
+<dt><strong>deb (.deb)</strong></dt>
+<dd>Formato de pacote do Debian e do Ubuntu. Veja: <a href="dpkg.html">dpkg e .deb</a>.</dd>
+<dt><strong>Dependência</strong></dt>
+<dd>Outro pacote que um programa precisa para funcionar. O apt instala sozinho. Veja: <a href="apt.html">apt</a>.</dd>
+<dt><strong>Diretório</strong></dt>
+<dd>Nome técnico de pasta. Veja: <a href="estrutura-diretorios.html">Estrutura de Diretórios</a>.</dd>
+<dt><strong>Distribuição (distro)</strong></dt>
+<dd>Um sistema completo montado em volta do kernel Linux, como Ubuntu, Debian ou Fedora. Veja: <a href="introducao.html">Introdução</a>.</dd>
+<dt><strong>DNS</strong></dt>
+<dd>Serviço que traduz nomes (ubuntu.com) em endereços IP. É a "agenda" da internet. Veja: <a href="redes.html">Conceitos de Rede</a>.</dd>
+<dt><strong>Docker</strong></dt>
+<dd>Ferramenta para criar e rodar containers a partir de imagens. Veja: <a href="docker.html">Docker</a>.</dd>
+<dt><strong>Dotfile</strong></dt>
+<dd>Arquivo de configuração cujo nome começa com ponto, como <code>.bashrc</code>. Fica oculto. Veja: <a href="bashrc.html">.bashrc, alias, PATH</a>.</dd>
+</dl>
+<h2 id="g-E">E</h2>
+<dl class="glossario">
+<dt><strong>Expansão de chaves</strong></dt>
+<dd>Recurso do shell que gera vários nomes: <code>{a,b}</code> e <code>{1..5}</code>. Veja: <a href="criar.html">touch e mkdir</a>.</dd>
+<dt><strong>ext4</strong></dt>
+<dd>Sistema de arquivos padrão do Ubuntu. Veja: <a href="particionar.html">Particionar e Formatar</a>.</dd>
+</dl>
+<h2 id="g-F">F</h2>
+<dl class="glossario">
+<dt><strong>Firewall</strong></dt>
+<dd>Filtro que decide quais conexões de rede entram e saem. No Ubuntu: ufw e nftables. Veja: <a href="ufw.html">Firewall (ufw)</a>.</dd>
+<dt><strong>Flatpak</strong></dt>
+<dd>Formato de pacote de apps isolados, distribuídos principalmente pelo Flathub. Veja: <a href="flatpak.html">Flatpak</a>.</dd>
+<dt><strong>fstab</strong></dt>
+<dd>Arquivo <code>/etc/fstab</code> que diz quais discos montar no boot. Um erro nele pode impedir o sistema de ligar. Veja: <a href="montar.html">mount e fstab</a>.</dd>
+</dl>
+<h2 id="g-G">G</h2>
+<dl class="glossario">
+<dt><strong>Gateway</strong></dt>
+<dd>O roteador por onde seu computador sai para outras redes e para a internet. Veja: <a href="redes.html">Conceitos de Rede</a>.</dd>
+<dt><strong>GNOME</strong></dt>
+<dd>O ambiente gráfico (desktop) padrão do Ubuntu. Veja: <a href="desktop.html">O Desktop</a>.</dd>
+<dt><strong>GPT</strong></dt>
+<dd>Esquema moderno de tabela de partições, usado com UEFI. O antigo é o MBR. Veja: <a href="particionar.html">Particionar e Formatar</a>.</dd>
+<dt><strong>GRUB</strong></dt>
+<dd>Carregador de boot: o menu que aparece antes do Ubuntu e carrega o kernel. Veja: <a href="boot-grub.html">Boot, GRUB e Kernel</a>.</dd>
+<dt><strong>Grupo</strong></dt>
+<dd>Conjunto de usuários que compartilham permissões, como o grupo <code>sudo</code>. Veja: <a href="usuarios.html">Usuários e Grupos</a>.</dd>
+</dl>
+<h2 id="g-H">H</h2>
+<dl class="glossario">
+<dt><strong>Home (pasta pessoal)</strong></dt>
+<dd>A sua pasta, <code>/home/seu-usuario</code>, representada por <code>~</code>. Veja: <a href="estrutura-diretorios.html">Estrutura de Diretórios</a>.</dd>
+<dt><strong>HTTPS</strong></dt>
+<dd>HTTP com criptografia (TLS). Precisa de um certificado. Veja: <a href="https.html">HTTPS (Let's Encrypt)</a>.</dd>
+</dl>
+<h2 id="g-I">I</h2>
+<dl class="glossario">
+<dt><strong>Idempotência</strong></dt>
+<dd>Propriedade de algo que pode rodar várias vezes com o mesmo resultado. Os playbooks do Ansible são assim. Veja: <a href="ansible.html">Ansible</a>.</dd>
+<dt><strong>Imagem (Docker)</strong></dt>
+<dd>Modelo somente-leitura de onde os containers nascem, como <code>nginx</code> ou <code>postgres</code>. Veja: <a href="docker.html">Docker</a>.</dd>
+<dt><strong>initramfs</strong></dt>
+<dd>Mini-sistema carregado junto com o kernel no boot, que prepara os discos antes do Ubuntu de verdade. Veja: <a href="boot-grub.html">Boot, GRUB e Kernel</a>.</dd>
+<dt><strong>Inode</strong></dt>
+<dd>Registro interno onde o sistema de arquivos guarda os dados de um arquivo (dono, permissões, onde estão os blocos). Veja: <a href="links.html">Links (ln)</a>.</dd>
+<dt><strong>IP</strong></dt>
+<dd>Endereço numérico de uma máquina na rede, como 192.168.0.15. Veja: <a href="redes.html">Conceitos de Rede</a>.</dd>
+</dl>
+<h2 id="g-J">J</h2>
+<dl class="glossario">
+<dt><strong>Job (trabalho)</strong></dt>
+<dd>Comando iniciado num terminal, em primeiro ou segundo plano. Veja: <a href="jobs.html">Jobs, nohup, tmux</a>.</dd>
+<dt><strong>Journal</strong></dt>
+<dd>O registro de logs do systemd, lido com <code>journalctl</code>. Veja: <a href="journalctl.html">Logs (journalctl)</a>.</dd>
+</dl>
+<h2 id="g-K">K</h2>
+<dl class="glossario">
+<dt><strong>Kernel</strong></dt>
+<dd>O núcleo do sistema: conversa com o hardware e divide CPU e memória entre os programas. O Linux é um kernel. Veja: <a href="introducao.html">Introdução</a>.</dd>
+<dt><strong>KVM</strong></dt>
+<dd>Recurso do kernel que permite rodar máquinas virtuais com velocidade quase nativa. Veja: <a href="kvm.html">KVM e virt-manager</a>.</dd>
+</dl>
+<h2 id="g-L">L</h2>
+<dl class="glossario">
+<dt><strong>Link físico (hard link)</strong></dt>
+<dd>Outro nome para o mesmo arquivo (mesmo inode). Veja: <a href="links.html">Links (ln)</a>.</dd>
+<dt><strong>Link simbólico</strong></dt>
+<dd>Atalho que aponta para outro caminho. Se o alvo sumir, o link fica quebrado. Veja: <a href="links.html">Links (ln)</a>.</dd>
+<dt><strong>Load average</strong></dt>
+<dd>Média de processos querendo CPU no último 1, 5 e 15 minutos (<code>uptime</code>). Veja: <a href="desempenho.html">Desempenho e Monitoramento</a>.</dd>
+<dt><strong>Log</strong></dt>
+<dd>Registro do que aconteceu no sistema ou num programa. Veja: <a href="journalctl.html">Logs (journalctl)</a>.</dd>
+<dt><strong>LTS</strong></dt>
+<dd>Long Term Support: versão do Ubuntu com 5 anos de atualizações, lançada a cada 2 anos (ex.: 26.04). Veja: <a href="introducao.html">Introdução</a>.</dd>
+<dt><strong>LV (volume lógico)</strong></dt>
+<dd>No LVM, a "partição" flexível que você formata e monta, e que pode crescer depois. Veja: <a href="lvm.html">LVM</a>.</dd>
+<dt><strong>LVM</strong></dt>
+<dd>Camada que junta discos e cria volumes que podem ser aumentados sem reparticionar. Veja: <a href="lvm.html">LVM</a>.</dd>
+<dt><strong>LXD</strong></dt>
+<dd>Gerenciador de containers de sistema (um Ubuntu inteiro isolado) e de VMs. Veja: <a href="lxd.html">LXD</a>.</dd>
+</dl>
+<h2 id="g-M">M</h2>
+<dl class="glossario">
+<dt><strong>Máscara de rede</strong></dt>
+<dd>Indica qual parte do IP é a rede e qual é a máquina (ex.: 255.255.255.0 ou /24). Veja: <a href="redes.html">Conceitos de Rede</a>.</dd>
+<dt><strong>Montar</strong></dt>
+<dd>Ligar um disco ou partição a uma pasta, para acessar o conteúdo dele. Veja: <a href="montar.html">mount e fstab</a>.</dd>
+</dl>
+<h2 id="g-N">N</h2>
+<dl class="glossario">
+<dt><strong>Netplan</strong></dt>
+<dd>Sistema de configuração de rede do Ubuntu Server, em arquivos YAML. Veja: <a href="configurar-rede.html">Configurar a Rede</a>.</dd>
+<dt><strong>nftables</strong></dt>
+<dd>O firewall do kernel Linux atual; o ufw trabalha em cima dele. Veja: <a href="nftables.html">nftables</a>.</dd>
+<dt><strong>nginx</strong></dt>
+<dd>Servidor web leve, usado também como proxy reverso. Veja: <a href="nginx.html">Servidor Web (nginx)</a>.</dd>
+</dl>
+<h2 id="g-O">O</h2>
+<dl class="glossario">
+<dt><strong>Octal (permissões)</strong></dt>
+<dd>Permissões escritas em números: r=4, w=2, x=1. <code>755</code> = rwxr-xr-x. Veja: <a href="chmod.html">chmod</a>.</dd>
+<dt><strong>Opção (flag)</strong></dt>
+<dd>Modificador de um comando que começa com hífen, como <code>-l</code> ou <code>--all</code>. Veja: <a href="sintaxe.html">Sintaxe dos Comandos</a>.</dd>
+</dl>
+<h2 id="g-P">P</h2>
+<dl class="glossario">
+<dt><strong>Pacote</strong></dt>
+<dd>Arquivo com um programa e as informações para instalá-lo. Veja: <a href="apt.html">apt</a>.</dd>
+<dt><strong>Partição</strong></dt>
+<dd>Divisão de um disco que funciona como um disco separado. Veja: <a href="particionar.html">Particionar e Formatar</a>.</dd>
+<dt><strong>PATH</strong></dt>
+<dd>Lista de pastas onde o shell procura os programas que você digita. Veja: <a href="bashrc.html">.bashrc, alias, PATH</a>.</dd>
+<dt><strong>Permissão</strong></dt>
+<dd>Regra de quem pode ler (r), escrever (w) e executar (x) cada arquivo. Veja: <a href="permissoes.html">Entendendo Permissões</a>.</dd>
+<dt><strong>PID</strong></dt>
+<dd>Número de identificação de um processo. Veja: <a href="processos.html">ps, pgrep, top</a>.</dd>
+<dt><strong>Pipe</strong></dt>
+<dd>O <code>|</code>: liga a saída de um comando à entrada do próximo. Veja: <a href="pipes.html">Pipes e xargs</a>.</dd>
+<dt><strong>Playbook</strong></dt>
+<dd>Arquivo YAML do Ansible com a lista de tarefas para deixar servidores no estado desejado. Veja: <a href="ansible.html">Ansible</a>.</dd>
+<dt><strong>Pool (ZFS)</strong></dt>
+<dd>Conjunto de discos que o ZFS administra como um só espaço de armazenamento. Veja: <a href="zfs.html">ZFS</a>.</dd>
+<dt><strong>Porta</strong></dt>
+<dd>Número que identifica um serviço numa máquina: 22 é SSH, 80 é HTTP, 443 é HTTPS. Veja: <a href="redes.html">Conceitos de Rede</a>.</dd>
+<dt><strong>PPA</strong></dt>
+<dd>Repositório pessoal no Launchpad com versões extras de programas. Use com cuidado. Veja: <a href="repositorios.html">Repositórios e PPAs</a>.</dd>
+<dt><strong>Processo</strong></dt>
+<dd>Um programa em execução. Veja: <a href="processos.html">ps, pgrep, top</a>.</dd>
+<dt><strong>Prompt</strong></dt>
+<dd>O texto antes do cursor, como <code>ana@notebook:~$</code>: diz quem, onde e que o terminal espera um comando. Veja: <a href="terminal.html">O Terminal</a>.</dd>
+<dt><strong>Proxy reverso</strong></dt>
+<dd>Servidor (ex.: nginx) que recebe as visitas e repassa para uma aplicação escondida atrás dele. Veja: <a href="nginx.html">Servidor Web (nginx)</a>.</dd>
+<dt><strong>PV (volume físico)</strong></dt>
+<dd>No LVM, um disco ou partição preparado com <code>pvcreate</code>. Veja: <a href="lvm.html">LVM</a>.</dd>
+</dl>
+<h2 id="g-R">R</h2>
+<dl class="glossario">
+<dt><strong>RAID</strong></dt>
+<dd>Combinação de discos para ganhar velocidade, segurança contra falha de disco, ou os dois. Veja: <a href="raid.html">RAID (mdadm)</a>.</dd>
+<dt><strong>Recovery mode</strong></dt>
+<dd>Modo de recuperação no menu do GRUB que dá um shell de root para consertar o sistema. Veja: <a href="recuperacao.html">Recuperar um Sistema</a>.</dd>
+<dt><strong>Redirecionamento</strong></dt>
+<dd>Mandar a saída de um comando para um arquivo (<code>&gt;</code>, <code>&gt;&gt;</code>) ou ler de um arquivo (<code>&lt;</code>). Veja: <a href="redirecionamento.html">Redirecionamento</a>.</dd>
+<dt><strong>Regex (expressão regular)</strong></dt>
+<dd>Padrão para procurar texto, como <code>^Erro</code> (linhas que começam com Erro). Veja: <a href="grep.html">grep</a>.</dd>
+<dt><strong>Relativo (caminho)</strong></dt>
+<dd>Caminho que parte da pasta atual, como <code>Documentos/notas.txt</code>. Veja: <a href="caminhos.html">Caminhos</a>.</dd>
+<dt><strong>Repositório</strong></dt>
+<dd>Servidor de onde o apt baixa os pacotes. Também: a pasta de um projeto no Git. Veja: <a href="repositorios.html">Repositórios e PPAs</a>.</dd>
+<dt><strong>root</strong></dt>
+<dd>O administrador do sistema, com poder total. No Ubuntu, você usa esse poder via <code>sudo</code>. Veja: <a href="sudo.html">sudo</a>.</dd>
+</dl>
+<h2 id="g-S">S</h2>
+<dl class="glossario">
+<dt><strong>Serviço</strong></dt>
+<dd>Programa gerenciado pelo systemd, que pode iniciar sozinho no boot. Veja: <a href="systemctl.html">systemctl</a>.</dd>
+<dt><strong>Shell</strong></dt>
+<dd>Programa que interpreta seus comandos. No Ubuntu, o bash. Veja: <a href="terminal.html">O Terminal</a>.</dd>
+<dt><strong>Shell script</strong></dt>
+<dd>Arquivo de texto com comandos que rodam em sequência. Veja: <a href="script-intro.html">Primeiro Script</a>.</dd>
+<dt><strong>Sinal</strong></dt>
+<dd>Aviso enviado a um processo, como TERM ("termine") ou KILL ("pare agora"). Veja: <a href="kill.html">Encerrar Programas (kill)</a>.</dd>
+<dt><strong>Sistema de arquivos</strong></dt>
+<dd>A forma como os dados são organizados num disco (ext4, btrfs, vfat…). Veja: <a href="particionar.html">Particionar e Formatar</a>.</dd>
+<dt><strong>Snap</strong></dt>
+<dd>Formato de pacote da Canonical, com apps isolados e atualizações automáticas. Veja: <a href="snap.html">Snap</a>.</dd>
+<dt><strong>Snapshot</strong></dt>
+<dd>Fotografia de um volume ou dataset num momento, para voltar atrás depois (LVM, ZFS, LXD). Veja: <a href="zfs.html">ZFS</a>.</dd>
+<dt><strong>SSH</strong></dt>
+<dd>Protocolo para acessar outra máquina pelo terminal, com criptografia. Veja: <a href="ssh.html">SSH</a>.</dd>
+<dt><strong>stdin, stdout, stderr</strong></dt>
+<dd>As três vias de um comando: entrada (0), saída normal (1) e saída de erros (2). Veja: <a href="redirecionamento.html">Redirecionamento</a>.</dd>
+<dt><strong>sudo</strong></dt>
+<dd>Comando que executa outro como administrador, pedindo a sua senha. Veja: <a href="sudo.html">sudo</a>.</dd>
+<dt><strong>Swap</strong></dt>
+<dd>Área do disco usada como memória extra quando a RAM enche. Veja: <a href="particionar.html">Particionar e Formatar</a>.</dd>
+<dt><strong>SysRq</strong></dt>
+<dd>Teclas mágicas tratadas direto pelo kernel, úteis quando tudo trava (REISUB). Veja: <a href="travamentos.html">Quando o Sistema Trava</a>.</dd>
+<dt><strong>systemd</strong></dt>
+<dd>O primeiro programa a rodar no boot; inicia e vigia todos os serviços. Veja: <a href="systemctl.html">systemctl</a>.</dd>
+</dl>
+<h2 id="g-T">T</h2>
+<dl class="glossario">
+<dt><strong>Terminal</strong></dt>
+<dd>A janela onde você digita comandos para o shell. Veja: <a href="terminal.html">O Terminal</a>.</dd>
+<dt><strong>Timer (systemd)</strong></dt>
+<dd>Agendamento feito pelo systemd, alternativa ao cron. Veja: <a href="criar-servico.html">Criar um Serviço</a>.</dd>
+<dt><strong>TTY</strong></dt>
+<dd>Console de texto fora da interface gráfica, aberto com <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>. Veja: <a href="travamentos.html">Quando o Sistema Trava</a>.</dd>
+</dl>
+<h2 id="g-U">U</h2>
+<dl class="glossario">
+<dt><strong>ufw</strong></dt>
+<dd>Uncomplicated Firewall: o jeito simples de configurar o firewall no Ubuntu. Veja: <a href="ufw.html">Firewall (ufw)</a>.</dd>
+<dt><strong>Unit</strong></dt>
+<dd>Qualquer coisa que o systemd gerencia: serviço, timer, socket, montagem. Veja: <a href="systemctl.html">systemctl</a>.</dd>
+<dt><strong>UUID</strong></dt>
+<dd>Identificador único de uma partição; não muda se o disco trocar de nome. Veja: <a href="discos.html">lsblk, df, du</a>.</dd>
+</dl>
+<h2 id="g-V">V</h2>
+<dl class="glossario">
+<dt><strong>Variável de ambiente</strong></dt>
+<dd>Valor guardado com nome (ex.: <code>HOME</code>, <code>PATH</code>) que os programas leem. Veja: <a href="bashrc.html">.bashrc, alias, PATH</a>.</dd>
+<dt><strong>VG (grupo de volumes)</strong></dt>
+<dd>No LVM, o "cofre" de espaço formado por um ou mais PVs, de onde saem os LVs. Veja: <a href="lvm.html">LVM</a>.</dd>
+<dt><strong>VM (máquina virtual)</strong></dt>
+<dd>Computador simulado por software, com seu próprio sistema. Ótima para praticar sem risco. Veja: <a href="instalacao.html">Instalação</a>.</dd>
+<dt><strong>Volume (Docker)</strong></dt>
+<dd>Pasta guardada fora do container, para os dados sobreviverem quando ele é apagado. Veja: <a href="docker.html">Docker</a>.</dd>
+<dt><strong>VPN</strong></dt>
+<dd>Túnel criptografado que liga máquinas ou redes pela internet, como se estivessem na mesma rede. Veja: <a href="wireguard.html">VPN (WireGuard)</a>.</dd>
+</dl>
+<h2 id="g-W">W</h2>
+<dl class="glossario">
+<dt><strong>Wayland</strong></dt>
+<dd>O sistema gráfico usado pelo Ubuntu 26.04 (substitui o antigo X11). Veja: <a href="desktop.html">O Desktop</a>.</dd>
+<dt><strong>WireGuard</strong></dt>
+<dd>VPN moderna, simples e rápida, integrada ao kernel Linux. Veja: <a href="wireguard.html">VPN (WireGuard)</a>.</dd>
+</dl>
+<h2 id="g-Y">Y</h2>
+<dl class="glossario">
+<dt><strong>YAML</strong></dt>
+<dd>Formato de texto para configurações, baseado em indentação (Netplan, Docker Compose, Ansible, cloud-init). Veja: <a href="configurar-rede.html">Configurar a Rede</a>.</dd>
+</dl>
+<h2 id="g-Z">Z</h2>
+<dl class="glossario">
+<dt><strong>ZFS</strong></dt>
+<dd>Sistema de arquivos e gerenciador de discos com snapshots, compressão e verificação de integridade. Veja: <a href="zfs.html">ZFS</a>.</dd>
+</dl>
+
+<hr>
+
+<h2>Teste rápido</h2>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">1. Qual é a diferença entre <strong>shell</strong> e <strong>terminal</strong>?</p>
+<label><input type="radio" name="q1"> São a mesma coisa.</label>
+<label><input type="radio" name="q1"> O terminal é a janela; o shell (bash) é o programa que entende os comandos dentro dela.</label>
+<label><input type="radio" name="q1"> O shell é a janela; o terminal executa os comandos.</label>
+<label><input type="radio" name="q1"> O terminal só existe no modo texto.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">2. Um <strong>container</strong> é diferente de uma <strong>VM</strong> porque…</p>
+<label><input type="radio" name="q2"> …só roda no Windows.</label>
+<label><input type="radio" name="q2"> …precisa de um disco só para ele.</label>
+<label><input type="radio" name="q2"> …não tem nenhum isolamento.</label>
+<label><input type="radio" name="q2"> …divide o kernel com a máquina, enquanto a VM simula um computador inteiro com o próprio kernel.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">3. No LVM, de onde saem os volumes lógicos (LV)?</p>
+<label><input type="radio" name="q3"> De um grupo de volumes (VG), que é formado por volumes físicos (PV).</label>
+<label><input type="radio" name="q3"> Direto do arquivo /etc/fstab.</label>
+<label><input type="radio" name="q3"> De um pool ZFS.</label>
+<label><input type="radio" name="q3"> De uma imagem Docker.</label>
+</div>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

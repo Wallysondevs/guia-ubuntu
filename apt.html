@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu apt — instalar, atualizar e remover programas | Guia Ubuntu</title>
+<meta name="description" content="Aprenda o apt do Ubuntu passo a passo: diferença entre update e upgrade, como achar o nome de um pacote, instalar, remover, purge, autoremove, a trava do dpkg e os erros mais comuns.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">apt</span></h1>
+
+<p class="intro">No Ubuntu, você raramente baixa instaladores de sites. Os programas vêm de uma "loja" oficial e gratuita, e o <code>apt</code> é o jeito de usá-la pelo terminal. Nesta aula você vai atualizar o sistema, encontrar, instalar e remover programas, e resolver os erros que aparecem no caminho.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que são pacotes, repositórios e dependências.</li>
+  <li>A diferença entre <code>apt update</code> e <code>apt upgrade</code> (a dúvida mais comum).</li>
+  <li>Como descobrir o nome certo de um pacote antes de instalar.</li>
+  <li>A diferença entre <code>remove</code>, <code>purge</code> e <code>autoremove</code>.</li>
+  <li>O que fazer com "Não foi possível obter a trava" e "Não é possível encontrar o pacote".</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Pacotes, repositórios e dependências</h2>
+<ul>
+  <li><strong>Pacote:</strong> um arquivo (<code>.deb</code>) com um programa pronto para instalar, mais informações como versão e descrição.</li>
+  <li><strong>Repositório:</strong> um servidor da internet com milhares de pacotes. O Ubuntu já vem configurado com os oficiais (veja <a href="repositorios.html">Repositórios e PPAs</a>).</li>
+  <li><strong>Dependência:</strong> outro pacote que o programa precisa para funcionar. O <code>apt</code> instala as dependências sozinho.</li>
+</ul>
+
+<p><code>apt</code> vem de <em>Advanced Package Tool</em>, "ferramenta avançada de pacotes". Ele mexe no sistema inteiro, por isso quase todos os comandos que <strong>mudam</strong> algo precisam de <a href="sudo.html">sudo</a>. Os que só <strong>consultam</strong> não precisam.</p>
+
+<hr>
+
+<h2>update e upgrade: não é a mesma coisa</h2>
+
+<h3>apt update: atualiza a lista</h3>
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Precisa de administrador: vai gravar arquivos do sistema.</dd>
+  <dt>apt</dt><dd>O gerenciador de pacotes.</dd>
+  <dt>update</dt><dd>Baixa a <strong>lista</strong> atualizada do que existe nos repositórios. Não instala nem atualiza nenhum programa.</dd>
+</dl>
+
+<pre class="term">$ sudo apt update
+[sudo: authenticate] Senha:
+Atingido:1 http://br.archive.ubuntu.com/ubuntu resolute InRelease          « nada mudou neste
+Obter:2 http://br.archive.ubuntu.com/ubuntu resolute-updates InRelease [126 kB]   « baixou novidades
+Obter:3 http://security.ubuntu.com/ubuntu resolute-security InRelease [126 kB]
+Obtidos 252 kB em 2s (126 kB/s)
+2 pacotes podem ser atualizados. Execute 'apt list --upgradable' para vê-los.</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Linha</th><th>Significado</th></tr>
+<tr><td><code>Atingido</code></td><td>Este repositório não mudou desde a última vez.</td></tr>
+<tr><td><code>Obter</code></td><td>Havia novidades e elas foram baixadas.</td></tr>
+<tr><td><code>Ignorar</code> / <code>Erro</code></td><td>Problema com um repositório (rede, endereço errado).</td></tr>
+<tr><td>Última linha</td><td>Quantos pacotes instalados têm versão nova.</td></tr>
+</table>
+</div>
+
+<h3>Ver o que vai ser atualizado</h3>
+<pre class="term">$ apt list --upgradable
+firefox/resolute-updates 1:1snap1-0ubuntu8 amd64 [atualizável de: 1:1snap1-0ubuntu7]
+mesa-vulkan-drivers/resolute-updates 26.0.8-1ubuntu0.3 amd64 [atualizável de: 26.0.8-1ubuntu0.2]</pre>
+<p>Cada linha mostra o pacote, de onde vem a versão nova, a versão nova e, entre colchetes, a versão que você tem. Esse comando só consulta, então não precisa de sudo.</p>
+
+<div class="note">
+<strong>A lista abriu numa tela separada?</strong>
+<p>No Ubuntu 26.04, o <code>apt</code> mostra resultados longos dentro de um paginador, como o <code>less</code>, com <code>(END)</code> no rodapé. Use as setas para rolar e <kbd>q</kbd> para sair.</p>
+</div>
+
+<h3>apt upgrade: instala as atualizações</h3>
+<dl class="anatomy">
+  <dt>sudo apt</dt><dd>Gerenciador de pacotes, como administrador.</dd>
+  <dt>upgrade</dt><dd>Instala as versões novas dos pacotes que você <strong>já tem</strong>, usando a lista baixada pelo <code>update</code>.</dd>
+</dl>
+
+<pre class="term">$ sudo apt upgrade
+Atualizando:
+  firefox  mesa-vulkan-drivers
+
+Resumo:
+  Atualizando: 2, Instalando: 0, Removendo: 0, Não atualizando: 0
+  Tamanho de download: 4.312 kB
+  Espaço necessário: 120 kB / 321 GB disponível
+
+Você quer continuar? [S/n] s                 « S maiúsculo = padrão; Enter já aceita
+Obter:1 http://br.archive.ubuntu.com/ubuntu resolute-updates/main amd64 mesa-vulkan-drivers amd64 26.0.8-1ubuntu0.3 [4.240 kB]
+…
+Configurando mesa-vulkan-drivers:amd64 (26.0.8-1ubuntu0.3) ...</pre>
+
+<p>Os números e versões variam de máquina para máquina. A regra é: <strong>sempre <code>update</code> antes de <code>upgrade</code></strong>. Sem o <code>update</code>, o <code>upgrade</code> trabalha com uma lista velha e acha que está tudo em dia.</p>
+
+<div class="tip">
+<strong>As duas de uma vez</strong>
+<p><code>sudo apt update &amp;&amp; sudo apt upgrade</code>. O <code>&amp;&amp;</code> roda o segundo só se o primeiro der certo. Mais sobre a rotina em <a href="atualizacoes.html">Atualizações</a>.</p>
+</div>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Precisa de sudo?</th></tr>
+<tr><td><code>apt update</code></td><td>Atualiza a lista do que existe</td><td>Sim</td></tr>
+<tr><td><code>apt list --upgradable</code></td><td>Mostra o que tem versão nova</td><td>Não</td></tr>
+<tr><td><code>apt upgrade</code></td><td>Atualiza os pacotes, sem remover nenhum</td><td>Sim</td></tr>
+<tr><td><code>apt full-upgrade</code></td><td>Atualiza e pode remover pacotes que atrapalham (ex.: troca de kernel)</td><td>Sim</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Achar o nome do pacote</h2>
+<p>O nome do pacote nem sempre é o nome do programa. Antes de instalar, descubra o nome certo. Há várias formas:</p>
+
+<h3>Forma 1: <code>apt search</code></h3>
+<dl class="anatomy">
+  <dt>apt search</dt><dd>Procura no nome e na descrição dos pacotes.</dd>
+  <dt>"editor de imagem"</dt><dd>O que você procura. Em geral, as descrições estão em inglês: <code>"image editor"</code> acha mais.</dd>
+</dl>
+
+<pre class="term">$ apt search "image editor"
+gimp/resolute 3.0.4-1 amd64
+  GNU Image Manipulation Program
+
+kolourpaint/resolute 4:25.04.0-0ubuntu1 amd64
+  paint program by KDE
+…</pre>
+
+<p>A lista costuma ser longa. Para procurar só no nome, use <code>apt search --names-only htop</code>.</p>
+
+<h3>Forma 2: <code>apt show</code>, para ver os detalhes</h3>
+<pre class="term">$ apt show tree
+Package: tree
+Version: 2.3.1-1
+Priority: optional
+Section: universe/utils
+Installed-Size: 125 kB
+Depends: libc6 (&gt;= 2.38)
+Download-Size: 53,5 kB
+APT-Sources: http://archive.ubuntu.com/ubuntu resolute/universe amd64 Packages
+Description: displays an indented directory tree, in color
+…</pre>
+
+<h3>Forma 3: o próprio terminal sugere</h3>
+<p>Digite o comando que você quer. Se ele não existir, o Ubuntu diz qual pacote o fornece:</p>
+<pre class="term">$ htop
+Comando 'htop' não encontrado, mas poder ser instalado com:
+sudo snap install htop  # version 3.5.3, or
+sudo apt  install htop  # version 3.4.1-5build2
+Veja 'snap info htop' para versões adicionais.</pre>
+
+<h3>Forma 4: a Central de Aplicativos</h3>
+<p>O app <strong>Central de Aplicativos</strong> busca pelo nome amigável e mostra telas e avaliações. Ele instala pacotes do apt e snaps.</p>
+
+<hr>
+
+<h2>Instalar</h2>
+<dl class="anatomy">
+  <dt>sudo apt</dt><dd>Gerenciador de pacotes, como administrador.</dd>
+  <dt>install</dt><dd>Instala.</dd>
+  <dt>tree</dt><dd>O nome do pacote (pode ser mais de um, separados por espaço).</dd>
+</dl>
+
+<pre class="term">$ sudo apt install tree
+Instalando:
+  tree
+
+Resumo:
+  Atualizando: 0, Instalando: 1, Removendo: 0, Não atualizando: 0
+  Tamanho de download: 53,5 kB
+  Espaço necessário: 125 kB / 321 GB disponível
+
+Obter:1 http://br.archive.ubuntu.com/ubuntu resolute/universe amd64 tree amd64 2.3.1-1 [53,5 kB]
+Obtidos 53,5 kB em 0s (412 kB/s)
+Selecionando pacote previamente não selecionado tree.
+Preparando para desempacotar .../tree_2.3.1-1_amd64.deb ...
+Desempacotando tree (2.3.1-1) ...
+Configurando tree (2.3.1-1) ...
+Processando gatilhos para man-db (2.13.1-1) ...
+$ which tree
+/usr/bin/tree                                « instalado e pronto para usar</pre>
+
+<p>Repare que a saída mistura português e inglês: é assim mesmo no apt 3 do Ubuntu 26.04. As etapas são: baixar (<code>Obter</code>), desempacotar e configurar.</p>
+
+<h3>Formas diferentes de instalar</h3>
+<pre class="term">$ sudo apt install htop tree ncdu
+$ sudo apt install -y htop
+$ sudo apt install --no-install-recommends gimp
+$ sudo apt install ./programa.deb</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Para quê</th></tr>
+<tr><td>Vários nomes</td><td>Instala tudo de uma vez.</td></tr>
+<tr><td><code>-y</code></td><td>Responde "sim" sozinho (bom para scripts; confira o que vai instalar antes).</td></tr>
+<tr><td><code>--no-install-recommends</code></td><td>Instala só o essencial, sem os pacotes "recomendados".</td></tr>
+<tr><td><code>./arquivo.deb</code></td><td>Instala um <code>.deb</code> baixado de um site, resolvendo as dependências. O <code>./</code> é obrigatório. Veja <a href="dpkg.html">dpkg e .deb</a>.</td></tr>
+</table>
+</div>
+
+<h3>Se já estiver instalado</h3>
+<pre class="term">$ sudo apt install tree
+tree já é a versão mais nova (2.3.1-1).</pre>
+
+<hr>
+
+<h2>Remover: remove, purge e autoremove</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Remove o programa</th><th>Remove a configuração do sistema</th><th>Remove dependências que sobraram</th></tr>
+<tr><td><code>apt remove</code></td><td>Sim</td><td>Não</td><td>Não</td></tr>
+<tr><td><code>apt purge</code></td><td>Sim</td><td>Sim (arquivos em <code>/etc</code>)</td><td>Não</td></tr>
+<tr><td><code>apt autoremove</code></td><td>—</td><td>—</td><td>Sim</td></tr>
+</table>
+</div>
+
+<pre class="term">$ sudo apt remove tree
+Removendo:
+  tree
+
+Resumo:
+  Atualizando: 0, Instalando: 0, Removendo: 1, Não atualizando: 0
+  Espaço liberado: 125 kB
+
+Você quer continuar? [S/n]
+Removendo tree (2.3.1-1) ...
+Processando gatilhos para man-db (2.13.1-1) ...</pre>
+
+<p>Nenhum dos três apaga arquivos da sua pasta pessoal, como configurações em <code>~/.config</code>. Isso é proposital: seus dados são seus.</p>
+
+<p>Depois de remover programas, rode <code>sudo apt autoremove</code> de vez em quando. Ele apaga dependências que nenhum programa usa mais, incluindo kernels antigos.</p>
+
+<div class="warning">
+<strong>Atenção: leia antes de confirmar</strong>
+<p>Remover um pacote pode levar junto outros que dependem dele. Antes de responder "s", leia a lista "Removendo:". Se aparecer algo como <code>ubuntu-desktop</code> ou <code>gnome-shell</code>, responda "n".</p>
+</div>
+
+<hr>
+
+<h2>Outras tarefas úteis</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Para quê</th></tr>
+<tr><td><code>apt list --installed</code></td><td>Lista tudo o que está instalado.</td></tr>
+<tr><td><code>apt list --installed | grep -i nome</code></td><td>Confere se algo está instalado.</td></tr>
+<tr><td><code>apt policy nome</code></td><td>Versão instalada, versão disponível e de qual repositório vem.</td></tr>
+<tr><td><code>sudo apt reinstall nome</code></td><td>Reinstala um pacote com arquivos danificados.</td></tr>
+<tr><td><code>sudo apt clean</code></td><td>Apaga os <code>.deb</code> baixados que ficaram em cache.</td></tr>
+<tr><td><code>sudo apt-mark hold nome</code></td><td>Congela um pacote: o <code>upgrade</code> não mexe nele (<code>unhold</code> desfaz).</td></tr>
+</table>
+</div>
+
+<pre class="term">$ apt policy tree
+tree:
+  Instalado: 2.3.1-1
+  Candidato: 2.3.1-1
+  Tabela de versão:
+ *** 2.3.1-1 500
+        500 http://br.archive.ubuntu.com/ubuntu resolute/universe amd64 Packages
+        100 /var/lib/dpkg/status</pre>
+
+<p>Os comandos do apt não rodam no terminal simulado deste guia, porque mexeriam no sistema. Pratique numa máquina virtual (veja <a href="instalacao.html">Instalação</a>).</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"você é root?"</strong>
+<pre class="term">$ apt install htop
+Erro: Não foi possível abrir arquivo de trava /var/lib/dpkg/lock-frontend - open (13: Permissão negada)
+Erro: Não é possível adquirir a trava da interface do dpkg (/var/lib/dpkg/lock-frontend), você é root?</pre>
+<p><strong>O que aconteceu:</strong> faltou o <code>sudo</code>.</p>
+<p><strong>Como resolver:</strong> <code>sudo !!</code> repete o comando com sudo.</p>
+</div>
+
+<div class="cenario">
+<strong>"Não foi possível obter a trava… Ela está sendo mantida pelo processo"</strong>
+<pre class="term">$ sudo apt install htop
+Erro: Não foi possível obter a trava /var/lib/dpkg/lock-frontend. Ela está sendo mantida pelo processo 2147 (unattended-upgr)</pre>
+<p><strong>O que aconteceu:</strong> outro programa já está instalando pacotes. Só um pode mexer de cada vez. Aqui é o <code>unattended-upgrades</code>, que instala atualizações de segurança sozinho, normalmente logo depois de ligar o computador. Também pode ser a Central de Aplicativos ou outro terminal.</p>
+<p><strong>Como resolver:</strong> espere alguns minutos e tente de novo. Para ver se ainda está rodando: <code>ps aux | grep -i '[a]pt'</code>.</p>
+<div class="warning">
+<strong>Não apague as travas</strong>
+<p>Muitos tutoriais mandam apagar <code>/var/lib/dpkg/lock*</code>. Se outro processo estiver instalando, isso pode quebrar o sistema de pacotes. Só considere isso se tiver certeza de que nenhum processo do apt ou do dpkg está rodando, e depois rode <code>sudo dpkg --configure -a</code>.</p>
+</div>
+</div>
+
+<div class="cenario">
+<strong>"Não é possível encontrar o pacote"</strong>
+<pre class="term">$ sudo apt install vscode
+Erro: Não é possível encontrar o pacote vscode</pre>
+<p><strong>O que aconteceu:</strong> nenhum repositório configurado tem um pacote com esse nome. Ou o nome é outro, ou a lista está velha, ou o programa não está nos repositórios do Ubuntu.</p>
+<p><strong>Como resolver:</strong> rode <code>sudo apt update</code>; procure o nome com <code>apt search</code>. O VS Code, por exemplo, vem como snap (<code>sudo snap install code --classic</code>) ou como <code>.deb</code> do site oficial.</p>
+</div>
+
+<div class="cenario">
+<strong>Dependências quebradas</strong>
+<pre class="term">$ sudo apt install programa
+Erro: Dependências desencontradas. Tente 'apt --fix-broken install' sem nenhum pacote (ou especifique uma solução).</pre>
+<p><strong>O que aconteceu:</strong> uma instalação anterior (geralmente de um <code>.deb</code> avulso) ficou pela metade.</p>
+<p><strong>Como resolver:</strong> rode exatamente o sugerido, <code>sudo apt --fix-broken install</code>, e leia o que ele propõe antes de confirmar.</p>
+</div>
+
+<div class="cenario">
+<strong>Aviso "apt does not have a stable CLI interface"</strong>
+<pre class="term">$ apt list --installed | wc -l
+
+WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+2187</pre>
+<p><strong>O que aconteceu:</strong> quando a saída vai para outro comando (com <code>|</code>), o apt avisa que o formato dele pode mudar entre versões.</p>
+<p><strong>Como resolver:</strong> é só um aviso. Em scripts, prefira <code>apt-get</code> e <code>apt-cache</code>, que têm saída estável.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Descrição</th></tr>
+<tr><td><code>sudo apt update</code></td><td>Atualiza a lista de pacotes</td></tr>
+<tr><td><code>sudo apt upgrade</code></td><td>Atualiza os pacotes instalados</td></tr>
+<tr><td><code>sudo apt full-upgrade</code></td><td>Atualiza, podendo remover pacotes</td></tr>
+<tr><td><code>apt search texto</code></td><td>Procura pacotes</td></tr>
+<tr><td><code>apt show pacote</code></td><td>Detalhes de um pacote</td></tr>
+<tr><td><code>sudo apt install pacote</code></td><td>Instala (<code>-y</code> confirma sozinho)</td></tr>
+<tr><td><code>sudo apt remove pacote</code></td><td>Remove o programa</td></tr>
+<tr><td><code>sudo apt purge pacote</code></td><td>Remove programa e configuração do sistema</td></tr>
+<tr><td><code>sudo apt autoremove</code></td><td>Remove dependências órfãs</td></tr>
+<tr><td><code>apt list --installed</code></td><td>Lista os instalados</td></tr>
+<tr><td><code>apt list --upgradable</code></td><td>Lista os atualizáveis</td></tr>
+<tr><td><code>apt policy pacote</code></td><td>Versões e origem</td></tr>
+<tr><td><code>sudo apt --fix-broken install</code></td><td>Conserta dependências quebradas</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Atualizar tudo</h3>
+<p>Complete para atualizar a lista e depois os pacotes, só seguindo se o primeiro der certo:</p>
+<div class="ex-code">sudo apt <input data-answer="update" aria-label="primeiro"> &amp;&amp; sudo apt <input data-answer="upgrade|full-upgrade" aria-label="segundo"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Remover com a configuração</h3>
+<p>Complete para remover o <code>nginx</code> junto com os arquivos de configuração dele em <code>/etc</code>:</p>
+<div class="ex-code">sudo apt <input data-answer="purge|remove --purge" aria-label="ação"> nginx</div>
+</div>
+
+<div class="exercise">
+<h3>3. Detalhes de um pacote</h3>
+<p>Complete para ver a descrição e o tamanho do pacote <code>htop</code> antes de instalar:</p>
+<div class="ex-code">apt <input data-answer="show" aria-label="ação"> htop</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. O que o <code>sudo apt update</code> faz?</p>
+<label><input type="radio" name="q4"> Atualiza todos os programas instalados.</label>
+<label><input type="radio" name="q4"> Baixa a lista atualizada do que existe nos repositórios, sem instalar nada.</label>
+<label><input type="radio" name="q4"> Atualiza o Ubuntu para a próxima versão.</label>
+<label><input type="radio" name="q4"> Remove pacotes antigos.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. Apareceu "Ela está sendo mantida pelo processo 2147 (unattended-upgr)". O que fazer?</p>
+<label><input type="radio" name="q5"> Apagar <code>/var/lib/dpkg/lock-frontend</code>.</label>
+<label><input type="radio" name="q5"> Reiniciar o computador na hora.</label>
+<label><input type="radio" name="q5"> Rodar <code>kill -9 2147</code>.</label>
+<label><input type="radio" name="q5"> Esperar as atualizações automáticas terminarem e tentar de novo.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>update</code> atualiza a <strong>lista</strong>; <code>upgrade</code> atualiza os <strong>programas</strong>. Sempre nessa ordem.</li>
+  <li>Descubra o nome do pacote com <code>apt search</code>, <code>apt show</code> ou a sugestão do próprio terminal.</li>
+  <li><code>remove</code> tira o programa; <code>purge</code> tira também a configuração; <code>autoremove</code> limpa as sobras.</li>
+  <li>Consultas não precisam de sudo; mudanças precisam.</li>
+  <li>Trava ocupada: espere. Não apague os arquivos de trava.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

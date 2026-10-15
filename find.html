@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu find e locate — encontrar arquivos | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a encontrar arquivos no Ubuntu com find e locate: cada parte do comando explicada, busca por nome, tipo, tamanho e data, ações com -exec e -delete, erros reais e terminal simulado.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">find e locate</span></h1>
+
+<p class="intro">"Onde eu salvei aquele arquivo?" O <code>find</code> (em inglês, "encontrar") responde essa pergunta. Ele percorre as pastas uma por uma e mostra tudo o que combina com o que você pediu: um nome, um tipo, um tamanho ou uma data. O <code>locate</code> faz algo parecido, mais rápido, mas com uma lista que pode estar desatualizada.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Como o <code>find</code> pensa: ponto de partida, testes e ação.</li>
+  <li>Buscar por nome, tipo, tamanho, data e dono.</li>
+  <li>Combinar testes com "e", "ou" e "não".</li>
+  <li>Fazer algo com o que foi encontrado: <code>-exec</code> e <code>-delete</code>.</li>
+  <li>Quando usar <code>find</code>, <code>locate</code>, <code>ls -R | grep</code> ou a busca do Arquivos.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Como o find pensa</h2>
+<p>Imagine que você entra numa pasta, abre cada gaveta, cada subpasta e cada arquivo, e pergunta: "este combina com o que procuro?". É exatamente o que o <code>find</code> faz. Todo comando <code>find</code> tem três partes:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Parte</th><th>Pergunta que responde</th><th>Exemplo</th></tr>
+<tr><td>Ponto de partida</td><td>Onde começar a procurar?</td><td><code>.</code> (aqui), <code>~</code> (pasta pessoal), <code>/etc</code></td></tr>
+<tr><td>Testes</td><td>O que conta como "achei"?</td><td><code>-name "*.txt"</code>, <code>-type d</code>, <code>-size +10M</code></td></tr>
+<tr><td>Ação</td><td>O que fazer com cada achado?</td><td>Mostrar (padrão), <code>-exec</code>, <code>-delete</code></td></tr>
+</table>
+</div>
+
+<pre class="syntax">find [ponto de partida] [testes] [ação]</pre>
+
+<p>Se você não informar a ação, o <code>find</code> só mostra o caminho de cada item encontrado. Se não informar o ponto de partida, ele começa na pasta atual.</p>
+
+<hr>
+
+<h2>Buscar pelo nome: <code>-name</code></h2>
+
+<dl class="anatomy">
+  <dt>find</dt><dd>O programa que procura.</dd>
+  <dt>.</dt><dd>O ponto de partida: a pasta atual (e todas as subpastas dela).</dd>
+  <dt>-name</dt><dd>O teste: compara o <strong>nome</strong> de cada arquivo.</dd>
+  <dt>"*.txt"</dt><dd>O padrão: qualquer nome que termine em <code>.txt</code>. As aspas são obrigatórias (veja abaixo).</dd>
+</dl>
+
+<pre class="term">$ find . -name "*.txt"
+./Documentos/notas.txt
+./frutas.txt</pre>
+
+<p>Cada linha é um caminho a partir do ponto de partida. <code>./frutas.txt</code> está na própria pasta pessoal. <code>./Documentos/notas.txt</code> está dentro de <code>Documentos</code>. O <code>find</code> entrou nas subpastas sozinho.</p>
+
+<h3>Por que as aspas?</h3>
+<p>Sem aspas, quem lê o <code>*</code> é o <strong>shell</strong>, antes do <code>find</code>. Se houver arquivos <code>.jpg</code> na pasta atual, o shell troca <code>*.jpg</code> pelos nomes deles, e o <code>find</code> recebe uma ordem sem sentido:</p>
+
+<pre class="term" data-cwd="~/Imagens">$ ls
+foto1.jpg  foto2.jpg
+$ find . -name *.jpg
+find: os caminhos devem preceder a expressão: "foto2.jpg"
+find: possível padrão sem aspas após o predicado "-name'?</pre>
+
+<p>O shell transformou o comando em <code>find . -name foto1.jpg foto2.jpg</code>. Com aspas, o <code>*</code> chega intacto ao <code>find</code>, que faz a comparação ele mesmo. Regra simples: <strong>sempre coloque o padrão entre aspas</strong>.</p>
+
+<h3>Ignorar maiúsculas: <code>-iname</code></h3>
+<p>O <code>-name</code> diferencia maiúsculas de minúsculas: <code>FOTO.JPG</code> e <code>foto.jpg</code> são nomes diferentes. O <code>-iname</code> (de <em>insensitive</em>, "insensível") não diferencia:</p>
+
+<pre class="term">$ find . -iname "*.JPG"
+./Downloads/foto.jpg
+./Imagens/ferias.jpg</pre>
+
+<div class="try" data-goal="contains:~/lista.txt=frutas.txt,contains:~/lista.txt=notas.txt">
+<p class="try-task"><strong>Missão:</strong> encontre todos os arquivos <code>.txt</code> da pasta pessoal e salve a lista no arquivo <code>lista.txt</code>. Dica: <code>find … &gt; lista.txt</code>. Confira com <code>cat lista.txt</code>.</p>
+</div>
+
+<hr>
+
+<h2>Buscar pelo tipo: <code>-type</code></h2>
+<p>Às vezes você quer só pastas, ou só arquivos. O teste <code>-type</code> filtra pelo tipo:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Valor</th><th>Tipo</th><th>Exemplo</th></tr>
+<tr><td><code>f</code></td><td>Arquivo comum (<em>file</em>)</td><td><code>find . -type f</code></td></tr>
+<tr><td><code>d</code></td><td>Pasta (<em>directory</em>)</td><td><code>find . -type d</code></td></tr>
+<tr><td><code>l</code></td><td>Link simbólico (<em>link</em>)</td><td><code>find . -type l</code></td></tr>
+</table>
+</div>
+
+<pre class="term">$ find Documentos -type d
+Documentos
+Documentos/projetos
+Documentos/projetos/site</pre>
+
+<p>Repare que o próprio ponto de partida, <code>Documentos</code>, aparece na lista: ele também é uma pasta.</p>
+
+<hr>
+
+<h2>Limitar a profundidade: <code>-maxdepth</code></h2>
+<p>Por padrão o <code>find</code> desce em todas as subpastas. O <code>-maxdepth</code> (profundidade máxima) diz até onde ir: <code>1</code> é só a pasta atual, <code>2</code> inclui as subpastas, e assim por diante.</p>
+
+<dl class="anatomy">
+  <dt>find .</dt><dd>Comece na pasta atual.</dd>
+  <dt>-maxdepth 1</dt><dd>Não entre em nenhuma subpasta.</dd>
+  <dt>-type f</dt><dd>Só arquivos comuns.</dd>
+</dl>
+
+<pre class="term">$ find . -maxdepth 1 -type f
+./.bash_history
+./.bashrc
+./.profile
+./frutas.txt</pre>
+
+<p>Diferente do <code>ls</code>, o <code>find</code> mostra os arquivos ocultos (os que começam com ponto) sem precisar de opção extra.</p>
+
+<div class="tip">
+<strong>Coloque -maxdepth logo depois do ponto de partida</strong>
+<p>Ele vale para a busca toda, não só para o teste ao lado. Escrever primeiro deixa o comando mais fácil de ler.</p>
+</div>
+
+<hr>
+
+<h2>Buscar pelo tamanho: <code>-size</code></h2>
+<p>Disco cheio? Procure os arquivos grandes. O número leva uma letra de unidade e um sinal:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Escrita</th><th>Significado</th></tr>
+<tr><td><code>-size +10M</code></td><td>Maior que 10 megabytes</td></tr>
+<tr><td><code>-size -100k</code></td><td>Menor que 100 kilobytes</td></tr>
+<tr><td><code>-size +1G</code></td><td>Maior que 1 gigabyte</td></tr>
+<tr><td><code>-size 0</code></td><td>Exatamente zero (vazio)</td></tr>
+</table>
+</div>
+
+<p>Unidades: <code>c</code> = bytes, <code>k</code> = kilobytes, <code>M</code> = megabytes, <code>G</code> = gigabytes. Sem o sinal, o tamanho precisa ser exatamente aquele, o que quase nunca é o que você quer.</p>
+
+<pre class="term">$ find Downloads -size +10M
+Downloads/fotos-viagem.zip
+Downloads/ubuntu-26.04-desktop-amd64.iso</pre>
+
+<p>Para ver o tamanho de cada um, junte com uma ação (veja <a href="#exec">-exec</a>, mais abaixo).</p>
+
+<hr>
+
+<h2>Buscar pela data: <code>-mtime</code> e <code>-mmin</code></h2>
+<p><code>-mtime</code> conta em <strong>dias</strong> desde a última modificação (<em>modification time</em>); <code>-mmin</code> conta em <strong>minutos</strong>. O sinal muda o sentido:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Escrita</th><th>Significado</th><th>Uso típico</th></tr>
+<tr><td><code>-mtime -1</code></td><td>Modificado nas últimas 24 horas</td><td>"O que eu mexi hoje?"</td></tr>
+<tr><td><code>-mtime +30</code></td><td>Modificado há mais de 30 dias</td><td>Logs e backups antigos</td></tr>
+<tr><td><code>-mmin -10</code></td><td>Modificado nos últimos 10 minutos</td><td>"Que arquivo esse programa acabou de criar?"</td></tr>
+</table>
+</div>
+
+<pre class="term">$ find ~/Documentos -mtime -1
+/home/ana/Documentos/acesso.log
+$ find /var/log -name "*.gz" -mtime +30
+/var/log/syslog.4.gz
+/var/log/auth.log.4.gz</pre>
+
+<p>A segunda busca mostra uma saída típica: arquivos de log compactados há mais de um mês. Os nomes mudam de máquina para máquina.</p>
+
+<hr>
+
+<h2>Outros testes úteis</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Teste</th><th>O que encontra</th><th>Exemplo</th></tr>
+<tr><td><code>-empty</code></td><td>Arquivos vazios e pastas vazias</td><td><code>find . -empty</code></td></tr>
+<tr><td><code>-user</code></td><td>Arquivos de um dono</td><td><code>find /tmp -user ana</code></td></tr>
+<tr><td><code>-perm</code></td><td>Arquivos com certa permissão</td><td><code>find . -perm 777</code></td></tr>
+<tr><td><code>-newer</code></td><td>Mais novos que outro arquivo</td><td><code>find . -newer notas.txt</code></td></tr>
+<tr><td><code>-path</code></td><td>Compara o caminho inteiro, não só o nome</td><td><code>find . -path "*/site/*"</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Combinar testes: e, ou, não</h2>
+<p>Vários testes lado a lado precisam ser <strong>todos</strong> verdadeiros (um "e" implícito). Para "ou", use <code>-o</code>; para "não", use <code>!</code> ou <code>-not</code>.</p>
+
+<dl class="anatomy">
+  <dt>find .</dt><dd>Comece aqui.</dd>
+  <dt>\( -name "*.jpg" -o -name "*.png" \)</dt><dd>Nome termina em .jpg <strong>ou</strong> .png. Os parênteses agrupam o "ou"; a barra invertida impede o shell de interpretá-los.</dd>
+  <dt>-size +1M</dt><dd><strong>E</strong> maior que 1 MB.</dd>
+</dl>
+
+<pre class="term">$ find . \( -name "*.jpg" -o -name "*.png" \) -size +1M
+./Imagens/ferias.jpg
+$ find Documentos -type f ! -name "*.txt"
+Documentos/acesso.log
+Documentos/projetos/backup.sh
+Documentos/projetos/site/index.html
+Documentos/projetos/site/style.css
+Documentos/relatorio.odt</pre>
+
+<p>A segunda busca pede arquivos que <strong>não</strong> terminam em <code>.txt</code>.</p>
+
+<hr>
+
+<h2 id="exec">Fazer algo com o que foi encontrado</h2>
+
+<h3><code>-exec</code>: rodar um comando em cada achado</h3>
+
+<dl class="anatomy">
+  <dt>find . -name "*.sh"</dt><dd>Encontre os scripts…</dd>
+  <dt>-exec</dt><dd>…e, para cada um, execute:</dd>
+  <dt>ls -l</dt><dd>o comando que você quiser…</dd>
+  <dt>{}</dt><dd>…onde <code>{}</code> é trocado pelo caminho do arquivo encontrado.</dd>
+  <dt>\;</dt><dd>Fim do comando. A barra impede o shell de usar o <code>;</code>.</dd>
+</dl>
+
+<pre class="term">$ find . -name "*.sh" -exec ls -l {} \;
+-rwxrwxr-x 1 ana ana 45 Oct 15 09:15 ./Documentos/projetos/backup.sh</pre>
+
+<p>Terminando com <code>+</code> em vez de <code>\;</code>, o <code>find</code> junta todos os achados e roda o comando <strong>uma vez só</strong>, o que é bem mais rápido com muitos arquivos:</p>
+
+<pre class="term">$ find Downloads -size +10M -exec ls -lh {} +
+-rw-rw-r-- 1 ana ana 100M Oct  1 19:30 Downloads/fotos-viagem.zip
+-rw-rw-r-- 1 ana ana 5,9G Oct 10 21:14 Downloads/ubuntu-26.04-desktop-amd64.iso</pre>
+
+<h3><code>-delete</code>: apagar o que foi encontrado</h3>
+
+<div class="warning">
+<strong>Perigo: -delete não pede confirmação</strong>
+<p>Rode a busca <strong>sem</strong> <code>-delete</code> primeiro, leia a lista, e só então acrescente <code>-delete</code> no fim. Nunca coloque <code>-delete</code> antes dos testes: <code>find . -delete -name "*.tmp"</code> apaga <strong>tudo</strong>, porque a ação roda antes do teste.</p>
+</div>
+
+<pre class="term" data-cwd="~/projeto">$ find . -name "*.tmp"            # 1. confira a lista
+./cache/a.tmp
+./cache/b.tmp
+$ find . -name "*.tmp" -delete    # 2. agora apague
+$ find . -name "*.tmp"            # 3. confira de novo
+$</pre>
+
+<div class="try" data-setup="mkdir -p logs;;touch logs/vazio1.log logs/vazio2.log;;echo erro grave &gt; logs/sistema.log" data-goal="absent:~/logs/vazio1.log,absent:~/logs/vazio2.log,file:~/logs/sistema.log">
+<p class="try-task"><strong>Missão:</strong> a pasta <code>logs</code> tem arquivos vazios misturados com um que tem conteúdo. Apague só os vazios usando <code>find</code> com <code>-empty</code> e <code>-delete</code>. Antes de apagar, rode a busca sem <code>-delete</code> para conferir.</p>
+</div>
+
+<hr>
+
+<h2>O que o find devolve</h2>
+<p>O <code>find</code> mostra um caminho por linha. Quando não encontra nada, <strong>não mostra nada e devolve 0</strong>: para ele, a busca correu bem, só não teve resultado. O código vira <code>1</code> quando há algum erro, como uma pasta sem permissão.</p>
+
+<pre class="term">$ find . -name "*.mp4"
+$ echo $?
+0                                  « nada encontrado, mas sem erro
+$ find /root -name "*.conf"
+find: ‘/root’: Permissão negada
+$ echo $?
+1                                  « houve erro</pre>
+
+<p>Por isso, em scripts, não use o código do <code>find</code> para saber se algo foi achado. Conte as linhas: <code>find . -name "*.mp4" | wc -l</code>.</p>
+
+<hr>
+
+<h2>Formas diferentes de procurar arquivos</h2>
+
+<h3>locate: busca instantânea numa lista pronta</h3>
+<p>O <code>locate</code> não percorre as pastas: ele consulta uma lista de todos os arquivos do sistema, atualizada uma vez por dia. Por isso é instantâneo, mas não acha arquivos criados depois da última atualização. No Ubuntu 26.04 ele <strong>não vem instalado</strong>; o pacote é o <code>plocate</code>:</p>
+
+<pre class="term">$ locate notas
+Comando 'locate' não encontrado, mas poder ser instalado com:
+sudo apt install plocate                « o Ubuntu sugere o pacote
+$ sudo apt install plocate
+$ sudo updatedb                     # atualiza a lista agora
+$ locate -i notas.txt
+/home/ana/Documentos/notas.txt</pre>
+
+<p>Quando você digita um comando que não está instalado, o Ubuntu diz qual pacote o fornece. O "poder" no lugar de "pode" é um erro da tradução original.</p>
+
+<dl class="anatomy">
+  <dt>locate</dt><dd>Busca na lista pronta.</dd>
+  <dt>-i</dt><dd>Ignora maiúsculas e minúsculas.</dd>
+  <dt>notas.txt</dt><dd>Um pedaço do caminho. Não precisa de <code>*</code>: qualquer caminho que contenha o texto aparece.</dd>
+</dl>
+
+<h3>ls -R com grep</h3>
+<p>Funciona para uma olhada rápida, mas não mostra o caminho completo de cada arquivo:</p>
+<pre class="term">$ ls -R | grep notas
+notas.txt</pre>
+
+<h3>Busca do aplicativo Arquivos</h3>
+<p>No desktop, abra o <strong>Arquivos</strong>, entre na pasta e pressione <kbd>Ctrl</kbd>+<kbd>F</kbd>. É ótimo para quem não lembra o nome exato e quer ver miniaturas.</p>
+
+<h3>Qual usar?</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Ferramenta</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td><code>find</code></td><td><code>find ~ -name "*.pdf"</code></td><td>Você precisa de filtros (tamanho, data, tipo) ou de agir sobre os achados.</td></tr>
+<tr><td><code>locate</code></td><td><code>locate -i contrato</code></td><td>Você quer a resposta na hora, no sistema inteiro, e o arquivo não é de hoje.</td></tr>
+<tr><td><code>ls -R | grep</code></td><td><code>ls -R | grep foto</code></td><td>Só quer saber se o nome existe, sem precisar do caminho.</td></tr>
+<tr><td>Arquivos (<kbd>Ctrl</kbd>+<kbd>F</kbd>)</td><td>—</td><td>Prefere ver ícones e miniaturas.</td></tr>
+</table>
+</div>
+
+<div class="try" data-goal="ran:find.*-size">
+<p class="try-task"><strong>Missão:</strong> descubra quais arquivos da pasta <code>Downloads</code> têm mais de 50 MB. Depois, use <code>-exec ls -lh {} +</code> para ver o tamanho de cada um.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"os caminhos devem preceder a expressão"</strong>
+<pre class="term">$ find . -name *.jpg
+find: os caminhos devem preceder a expressão: "foto2.jpg"
+find: possível padrão sem aspas após o predicado "-name'?</pre>
+<p><strong>O que aconteceu:</strong> o padrão estava sem aspas e o shell trocou <code>*.jpg</code> pelos nomes dos arquivos da pasta atual.</p>
+<p><strong>Como resolver:</strong> coloque o padrão entre aspas: <code>find . -name "*.jpg"</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Uma enxurrada de "Permissão negada"</strong>
+<pre class="term">$ find /etc -name "hosts"
+find: ‘/etc/credstore.encrypted’: Permissão negada
+/etc/hosts
+find: ‘/etc/ssl/private’: Permissão negada
+find: ‘/etc/polkit-1/rules.d’: Permissão negada
+find: ‘/etc/sssd’: Permissão negada
+/etc/avahi/hosts
+find: ‘/etc/credstore’: Permissão negada
+find: ‘/etc/cups/ssl’: Permissão negada</pre>
+<p><strong>O que aconteceu:</strong> o <code>find</code> tenta entrar em pastas do sistema que só o root pode ler. Os resultados úteis (<code>/etc/hosts</code> e <code>/etc/avahi/hosts</code>) ficam escondidos no meio dos erros. Procurando a partir de <code>/</code>, são centenas de linhas assim.</p>
+<p><strong>Como resolver:</strong> mande os erros para o "lixo" com <code>2&gt;/dev/null</code> (veja <a href="redirecionamento.html">Redirecionamento</a>):</p>
+<pre class="term">$ find /etc -name "hosts" 2&gt;/dev/null
+/etc/hosts
+/etc/avahi/hosts</pre>
+</div>
+
+<div class="cenario">
+<strong>Não apareceu nada, mas o arquivo existe</strong>
+<pre class="term">$ find . -name "Notas.txt"
+$</pre>
+<p><strong>O que aconteceu:</strong> o nome real é <code>notas.txt</code>, com n minúsculo. O <code>-name</code> diferencia maiúsculas. Outras causas comuns: começar a busca na pasta errada, ou digitar o nome inteiro quando só lembra um pedaço.</p>
+<p><strong>Como resolver:</strong> use <code>-iname</code> e curingas dos dois lados: <code>find ~ -iname "*notas*"</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"faltando argumento para -exec"</strong>
+<pre class="term">$ find . -name "*.sh" -exec ls -l {}
+find: faltando argumento para "-exec"</pre>
+<p><strong>O que aconteceu:</strong> faltou o <code>\;</code> (ou <code>+</code>) que fecha o comando do <code>-exec</code>.</p>
+<p><strong>Como resolver:</strong> <code>find . -name "*.sh" -exec ls -l {} \;</code></p>
+</div>
+
+<div class="cenario">
+<strong>"Argumento desconhecido para -type"</strong>
+<pre class="term">$ find . -type pasta
+find: Argumento desconhecido para -type: pasta</pre>
+<p><strong>Como resolver:</strong> o <code>-type</code> aceita só letras: <code>f</code>, <code>d</code>, <code>l</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<h3>find</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-name</code></td><td>Nome, com curingas; diferencia maiúsculas</td><td><code>-name "*.log"</code></td></tr>
+<tr><td><code>-iname</code></td><td>Nome, sem diferenciar maiúsculas</td><td><code>-iname "*.jpg"</code></td></tr>
+<tr><td><code>-type</code></td><td><code>f</code> arquivo, <code>d</code> pasta, <code>l</code> link</td><td><code>-type d</code></td></tr>
+<tr><td><code>-size</code></td><td>Tamanho: <code>+</code> maior, <code>-</code> menor; <code>c k M G</code></td><td><code>-size +100M</code></td></tr>
+<tr><td><code>-mtime</code> / <code>-mmin</code></td><td>Modificado há N dias / minutos</td><td><code>-mtime -7</code></td></tr>
+<tr><td><code>-maxdepth</code></td><td>Profundidade máxima</td><td><code>-maxdepth 2</code></td></tr>
+<tr><td><code>-empty</code></td><td>Arquivo ou pasta vazia</td><td><code>-empty</code></td></tr>
+<tr><td><code>-user</code></td><td>Dono do arquivo</td><td><code>-user ana</code></td></tr>
+<tr><td><code>-perm</code></td><td>Permissões</td><td><code>-perm 644</code></td></tr>
+<tr><td><code>-o</code> / <code>!</code></td><td>"ou" / "não"</td><td><code>! -name "*.txt"</code></td></tr>
+<tr><td><code>-exec … {} \;</code></td><td>Roda um comando para cada achado</td><td><code>-exec ls -l {} \;</code></td></tr>
+<tr><td><code>-exec … {} +</code></td><td>Roda um comando com todos os achados juntos</td><td><code>-exec ls -lh {} +</code></td></tr>
+<tr><td><code>-delete</code></td><td>Apaga os achados (sempre no fim!)</td><td><code>-name "*.tmp" -delete</code></td></tr>
+<tr><td><code>-print0</code></td><td>Separa por caractere nulo, seguro para nomes com espaço</td><td><code>-print0 | xargs -0 …</code></td></tr>
+</table>
+</div>
+<h3>locate</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-i</code></td><td>Ignora maiúsculas</td><td><code>locate -i readme</code></td></tr>
+<tr><td><code>-c</code></td><td>Só conta quantos resultados</td><td><code>locate -c .jpg</code></td></tr>
+<tr><td><code>-l N</code></td><td>Mostra no máximo N resultados</td><td><code>locate -l 5 .conf</code></td></tr>
+<tr><td><code>sudo updatedb</code></td><td>Atualiza a lista do locate</td><td><code>sudo updatedb</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Só pastas</h3>
+<p>Complete para listar apenas as <strong>pastas</strong> dentro de <code>Documentos</code>:</p>
+<div class="ex-code">find Documentos -type <input data-answer="d" aria-label="tipo"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Arquivos grandes</h3>
+<p>Complete para encontrar arquivos <strong>maiores que 500 MB</strong> na pasta pessoal:</p>
+<div class="ex-code">find ~ -size <input data-answer="+500M" aria-label="tamanho"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Sem diferenciar maiúsculas</h3>
+<p>Complete para achar <code>Relatorio.PDF</code>, <code>relatorio.pdf</code> e variações:</p>
+<div class="ex-code">find ~ <input data-answer="-iname" aria-label="teste"> "relatorio.pdf"</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. <code>find . -name "*.mp4"</code> não mostrou nada. O que <code>echo $?</code> mostra logo depois?</p>
+<label><input type="radio" name="q4"> 1, porque não achou nada.</label>
+<label><input type="radio" name="q4"> 0, porque a busca rodou sem erros.</label>
+<label><input type="radio" name="q4"> 127, porque o comando não existe.</label>
+<label><input type="radio" name="q4"> Uma mensagem de erro.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. Qual comando é <strong>perigoso</strong> e pode apagar tudo na pasta?</p>
+<label><input type="radio" name="q5"> <code>find . -name "*.tmp"</code></label>
+<label><input type="radio" name="q5"> <code>find . -name "*.tmp" -delete</code></label>
+<label><input type="radio" name="q5"> <code>find . -name "*.tmp" -exec ls {} \;</code></label>
+<label><input type="radio" name="q5"> <code>find . -delete -name "*.tmp"</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>find [onde] [testes] [ação]</code>: sem ação, ele só mostra os caminhos.</li>
+  <li>Sempre coloque o padrão de <code>-name</code> entre aspas.</li>
+  <li>Filtros principais: <code>-name</code>, <code>-iname</code>, <code>-type</code>, <code>-size</code>, <code>-mtime</code>, <code>-maxdepth</code>.</li>
+  <li><code>-exec cmd {} \;</code> roda um comando por achado; <code>{} +</code> roda uma vez com todos.</li>
+  <li>Confira a lista antes de usar <code>-delete</code>, e ponha <code>-delete</code> sempre no fim.</li>
+  <li><code>2&gt;/dev/null</code> esconde os erros de permissão.</li>
+  <li><code>locate</code> (pacote <code>plocate</code>) é instantâneo, mas usa uma lista atualizada uma vez por dia.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

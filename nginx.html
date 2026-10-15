@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu nginx — servidor web, sites e proxy reverso | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a instalar e configurar o nginx no Ubuntu: estrutura de pastas, server block comentado, nginx -t, reload, logs, proxy reverso e os erros 502, 403 e porta ocupada.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">nginx</span></h1>
+
+<p class="intro">O <strong>nginx</strong> (pronuncia-se "engine-x") é um <strong>servidor web</strong>: o programa que recebe os pedidos do navegador e devolve as páginas. Ele também é muito usado como <strong>proxy reverso</strong>, a "recepção" que fica na frente de uma aplicação (Node, Python, PHP) e repassa os pedidos para ela.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Como um pedido viaja do navegador até o nginx.</li>
+  <li>Instalar o nginx e testá-lo com <code>curl</code>.</li>
+  <li>Onde ficam as configurações e o que cada linha de um <em>server block</em> faz.</li>
+  <li>Publicar um site, testar a configuração com <code>nginx -t</code> e aplicar com <code>reload</code>.</li>
+  <li>Ler os logs e resolver os erros 502, 403 e "porta ocupada".</li>
+</ul>
+</div>
+
+<p>Os exemplos acontecem na máquina fictícia <strong>servidor</strong> (IP <code>192.168.0.50</code>), com a usuária <strong>ana</strong>. Para praticar, uma VM com Ubuntu Server ou o Multipass (<code>multipass launch --name web</code>) servem bem.</p>
+
+<hr>
+
+<h2>Conceito: o caminho de um pedido</h2>
+<ol class="passo">
+  <li>Você digita <code>http://meusite.com.br</code> no navegador.</li>
+  <li>O DNS traduz o nome para o IP do servidor (veja <a href="redes.html">Conceitos de Rede</a>).</li>
+  <li>O navegador se conecta à <strong>porta 80</strong> (HTTP) ou <strong>443</strong> (HTTPS) desse IP.</li>
+  <li>O nginx, que está "escutando" nessa porta, olha o nome pedido (<code>Host: meusite.com.br</code>) e escolhe qual configuração (<strong>server block</strong>) usar.</li>
+  <li>Ele entrega um arquivo da pasta do site, ou repassa o pedido para uma aplicação (proxy reverso).</li>
+</ol>
+
+<p>Um mesmo nginx pode atender dezenas de sites, cada um com seu server block. Isso se chama <em>virtual hosts</em>.</p>
+
+<hr>
+
+<h2>Instalar e testar</h2>
+<pre class="term" data-host="servidor">$ sudo apt install nginx
+$ systemctl is-active nginx
+active                                         « já está rodando</pre>
+
+<p>Teste do próprio servidor com <code>curl</code>. A opção <code>-I</code> mostra só os <strong>cabeçalhos</strong> da resposta:</p>
+
+<dl class="anatomy">
+  <dt>curl</dt><dd>Faz pedidos HTTP pelo terminal (veja <a href="curl-wget.html">curl, wget, dig</a>).</dd>
+  <dt>-I</dt><dd>Pede só os cabeçalhos (<em>head</em>), sem o corpo da página.</dd>
+  <dt>http://localhost</dt><dd><code>localhost</code> = a própria máquina.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ curl -I http://localhost
+HTTP/1.1 200 OK                                  « 200 = deu certo
+Server: nginx/1.28.3 (Ubuntu)                     « quem respondeu
+Date: Thu, 15 Oct 2026 13:30:00 GMT
+Content-Type: text/html
+Content-Length: 615
+Last-Modified: Thu, 15 Oct 2026 13:25:41 GMT
+Connection: keep-alive
+ETag: "6a0f7a85-267"
+Accept-Ranges: bytes</pre>
+
+<p>De outro computador da rede, abra <code>http://192.168.0.50</code> no navegador: aparece a página "Welcome to nginx!". Se não abrir e o firewall estiver ligado, libere as portas (veja <a href="ufw.html">Firewall (ufw)</a>):</p>
+
+<pre class="term" data-host="servidor">$ sudo ufw allow 'Nginx Full'
+Regra adicionada
+Regra adicionada (v6)</pre>
+
+<p><code>Nginx Full</code> é um perfil que o pacote instala: libera as portas 80 e 443. Também existem <code>Nginx HTTP</code> (só 80) e <code>Nginx HTTPS</code> (só 443). Veja todos com <code>sudo ufw app list</code>.</p>
+
+<hr>
+
+<h2>Onde fica cada coisa</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Caminho</th><th>O que é</th></tr>
+<tr><td><code>/etc/nginx/nginx.conf</code></td><td>Configuração principal. Raramente precisa mexer</td></tr>
+<tr><td><code>/etc/nginx/sites-available/</code></td><td>Um arquivo por site: as configurações <strong>disponíveis</strong></td></tr>
+<tr><td><code>/etc/nginx/sites-enabled/</code></td><td>Atalhos (links) para os sites <strong>ativados</strong>. O nginx só lê esta pasta</td></tr>
+<tr><td><code>/etc/nginx/conf.d/</code></td><td>Trechos extras de configuração (<code>*.conf</code>)</td></tr>
+<tr><td><code>/etc/nginx/snippets/</code></td><td>Pedaços reaproveitáveis (ex.: configurações de SSL)</td></tr>
+<tr><td><code>/var/www/html/</code></td><td>Pasta do site padrão</td></tr>
+<tr><td><code>/var/log/nginx/access.log</code></td><td>Registro de cada pedido</td></tr>
+<tr><td><code>/var/log/nginx/error.log</code></td><td>Registro de erros</td></tr>
+</table>
+</div>
+
+<p>A ideia de <code>sites-available</code> + <code>sites-enabled</code>: você escreve o site em um lugar e o liga ou desliga criando ou apagando um atalho, sem perder a configuração.</p>
+
+<pre class="term" data-host="servidor">$ ls -l /etc/nginx/sites-enabled/
+total 0
+lrwxrwxrwx 1 root root 34 Oct 15 13:25 default -&gt; /etc/nginx/sites-available/default</pre>
+
+<hr>
+
+<h2>Publicar o seu primeiro site</h2>
+
+<ol class="passo">
+  <li><strong>Crie a pasta e uma página.</strong>
+<pre class="term" data-host="servidor">$ sudo mkdir -p /var/www/meusite
+$ echo '&lt;h1&gt;Olá do meu site!&lt;/h1&gt;' | sudo tee /var/www/meusite/index.html
+&lt;h1&gt;Olá do meu site!&lt;/h1&gt;</pre></li>
+  <li><strong>Escreva o server block</strong> com <code>sudo nano /etc/nginx/sites-available/meusite</code>:
+<pre class="file" data-file="/etc/nginx/sites-available/meusite">server {
+    listen 80;                       # escuta na porta 80 (IPv4)
+    listen [::]:80;                  # e também em IPv6
+    server_name meusite.local www.meusite.local;   # nomes que este bloco atende
+
+    root /var/www/meusite;           # pasta com os arquivos do site
+    index index.html;                # arquivo aberto quando pedem só "/"
+
+    location / {
+        # tenta o arquivo, depois uma pasta com esse nome; se não achar, erro 404
+        try_files $uri $uri/ =404;
+    }
+
+    access_log /var/log/nginx/meusite.access.log;   # log só deste site
+    error_log  /var/log/nginx/meusite.error.log;
+}</pre>
+  <p>Cada instrução termina com <code>;</code>. Blocos ficam entre <code>{ }</code>. Linhas com <code>#</code> são comentários.</p></li>
+  <li><strong>Ative o site</strong> criando o atalho:
+<pre class="term" data-host="servidor">$ sudo ln -s /etc/nginx/sites-available/meusite /etc/nginx/sites-enabled/</pre></li>
+  <li><strong>Teste a configuração antes de aplicar.</strong> Nunca pule este passo:
+<pre class="term" data-host="servidor">$ sudo nginx -t
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful</pre></li>
+  <li><strong>Aplique</strong> sem derrubar quem está conectado:
+<pre class="term" data-host="servidor">$ sudo systemctl reload nginx</pre></li>
+  <li><strong>Teste.</strong> Como <code>meusite.local</code> não existe no DNS, diga ao <code>curl</code> qual nome usar com o cabeçalho <code>Host</code>:
+<pre class="term" data-host="servidor">$ curl -H "Host: meusite.local" http://localhost
+&lt;h1&gt;Olá do meu site!&lt;/h1&gt;</pre>
+  <p>Para testar no navegador do seu computador, adicione <code>192.168.0.50 meusite.local</code> ao <code>/etc/hosts</code> <strong>do seu computador</strong>.</p></li>
+</ol>
+
+<h3><code>reload</code> ou <code>restart</code>?</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Quando usar</th></tr>
+<tr><td><code>sudo nginx -t</code></td><td>Só confere a sintaxe</td><td>Sempre, antes dos outros</td></tr>
+<tr><td><code>sudo systemctl reload nginx</code></td><td>Relê a configuração; conexões abertas continuam</td><td>Depois de mudar um site</td></tr>
+<tr><td><code>sudo systemctl restart nginx</code></td><td>Para e inicia de novo; derruba as conexões</td><td>Atualizações do nginx ou quando o reload não resolve</td></tr>
+<tr><td><code>sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code></td><td>Só recarrega se o teste passar</td><td>O jeito mais seguro, numa linha</td></tr>
+</table>
+</div>
+
+<p>O <code>&amp;&amp;</code> só roda o segundo comando se o primeiro der certo (código de saída 0). Assim, uma configuração quebrada nunca é aplicada.</p>
+
+<hr>
+
+<h2>Ler os logs</h2>
+<p>Cada pedido vira uma linha no <code>access.log</code>. Acompanhe ao vivo com <code>tail -f</code> enquanto abre o site no navegador:</p>
+
+<pre class="term" data-host="servidor">$ sudo tail -f /var/log/nginx/meusite.access.log
+192.168.0.15 - - [15/Oct/2026:13:41:07 -0300] "GET / HTTP/1.1" 200 28 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0"
+192.168.0.15 - - [15/Oct/2026:13:41:07 -0300] "GET /favicon.ico HTTP/1.1" 404 162 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0"</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Trecho</th><th>Significado</th></tr>
+<tr><td><code>192.168.0.15</code></td><td>IP de quem pediu</td></tr>
+<tr><td><code>[15/Oct/2026:13:41:07 -0300]</code></td><td>Data e hora</td></tr>
+<tr><td><code>"GET / HTTP/1.1"</code></td><td>Método, caminho pedido e versão do protocolo</td></tr>
+<tr><td><code>200</code> / <code>404</code></td><td>Código de resposta: 200 ok, 404 não encontrado</td></tr>
+<tr><td><code>28</code></td><td>Tamanho da resposta em bytes</td></tr>
+<tr><td><code>"Mozilla/5.0 …"</code></td><td>Navegador de quem pediu (<em>user agent</em>)</td></tr>
+</table>
+</div>
+
+<p>Combinando com o que você aprendeu em <a href="texto.html">sort, uniq, cut</a>, descubra quem mais acessa:</p>
+<pre class="term" data-host="servidor">$ sudo cut -d ' ' -f 1 /var/log/nginx/access.log | sort | uniq -c | sort -nr | head -3
+    412 192.168.0.15
+     87 192.168.0.23
+      9 203.0.113.44</pre>
+
+<h3>Códigos de resposta mais comuns</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Código</th><th>Significado</th><th>Causa típica</th></tr>
+<tr><td>200</td><td>OK</td><td>Tudo certo</td></tr>
+<tr><td>301 / 302</td><td>Redirecionado</td><td>Ex.: de HTTP para HTTPS</td></tr>
+<tr><td>403</td><td>Proibido</td><td>Permissão de arquivo ou pasta sem <code>index</code></td></tr>
+<tr><td>404</td><td>Não encontrado</td><td>Arquivo não existe na pasta <code>root</code></td></tr>
+<tr><td>500</td><td>Erro interno</td><td>A aplicação quebrou</td></tr>
+<tr><td>502</td><td>Bad Gateway</td><td>A aplicação atrás do proxy está fora do ar</td></tr>
+<tr><td>504</td><td>Gateway Timeout</td><td>A aplicação demorou demais para responder</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Proxy reverso: nginx na frente de uma aplicação</h2>
+<p>Aplicações em Node.js, Python ou Go costumam rodar numa porta alta, como <code>3000</code>, e não devem ficar expostas direto. O nginx recebe na porta 80/443 e repassa para elas.</p>
+
+<p>Para testar sem ter uma aplicação, o Python serve uma pasta na porta 3000:</p>
+<pre class="term" data-host="servidor" data-cwd="~/app">$ echo 'Resposta da aplicação' &gt; index.html
+$ python3 -m http.server 3000 --bind 127.0.0.1
+Serving HTTP on 127.0.0.1 port 3000 (http://127.0.0.1:3000/) ...</pre>
+
+<p>Deixe esse terminal aberto. Em outro, crie <code>/etc/nginx/sites-available/app</code>:</p>
+<pre class="file" data-file="/etc/nginx/sites-available/app">server {
+    listen 80;
+    server_name app.local;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;          # para onde repassar
+        proxy_set_header Host $host;               # nome original pedido
+        proxy_set_header X-Real-IP $remote_addr;   # IP real do visitante
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme; # http ou https
+    }
+}</pre>
+
+<p>Sem os <code>proxy_set_header</code>, a aplicação acharia que todos os visitantes vêm de <code>127.0.0.1</code>, porque quem fala com ela é o nginx.</p>
+
+<pre class="term" data-host="servidor">$ sudo ln -s /etc/nginx/sites-available/app /etc/nginx/sites-enabled/
+$ sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+$ curl -H "Host: app.local" http://localhost
+Resposta da aplicação                          « veio da porta 3000, passando pelo nginx</pre>
+
+<div class="tip">
+<strong>Próximo passo: HTTPS</strong>
+<p>Com o site respondendo na porta 80 e um domínio apontando para o servidor, você coloca o cadeado em poucos minutos. Veja <a href="https.html">HTTPS (Let's Encrypt)</a>.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>502 Bad Gateway</strong>
+<pre class="term" data-host="servidor">$ curl -I -H "Host: app.local" http://localhost
+HTTP/1.1 502 Bad Gateway
+$ sudo tail -1 /var/log/nginx/error.log
+2026/10/15 13:55:02 [error] 2210#2210: *17 connect() failed (111: Connection refused) while connecting to upstream, client: 127.0.0.1, server: app.local, request: "HEAD / HTTP/1.1", upstream: "http://127.0.0.1:3000/", host: "app.local"</pre>
+<p><strong>O que aconteceu:</strong> o nginx funciona, mas a aplicação na porta 3000 não está rodando. "<em>upstream</em>" é o nome que o nginx dá para a aplicação de trás.</p>
+<p><strong>Como confirmar:</strong> <code>ss -tlnp | grep 3000</code> não mostra nada.</p>
+<p><strong>Como resolver:</strong> inicie a aplicação (de preferência como serviço, veja <a href="criar-servico.html">Criar um Serviço</a>) e confira se a porta do <code>proxy_pass</code> é a mesma da aplicação.</p>
+</div>
+
+<div class="cenario">
+<strong>403 Forbidden</strong>
+<pre class="term" data-host="servidor">$ sudo tail -1 /var/log/nginx/meusite.error.log
+2026/10/15 14:02:11 [error] 2210#2210: *21 directory index of "/var/www/meusite/" is forbidden, client: 192.168.0.15, server: meusite.local, request: "GET / HTTP/1.1", host: "meusite.local"</pre>
+<p><strong>O que aconteceu:</strong> a pasta existe, mas não tem o arquivo do <code>index</code> (ex.: você chamou de <code>Index.html</code> ou <code>home.html</code>).</p>
+<p>Outra causa comum aparece como <code>open() "/home/ana/site/index.html" failed (13: Permission denied)</code>: o nginx roda como o usuário <code>www-data</code> e não consegue entrar na sua pasta pessoal (que no Ubuntu é <code>drwxr-x---</code>).</p>
+<p><strong>Como resolver:</strong> confira o nome do arquivo com <code>ls /var/www/meusite</code>. Mantenha sites em <code>/var/www</code>, e não na pasta pessoal. Teste o acesso como o nginx com <code>sudo -u www-data cat /var/www/meusite/index.html</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O nginx não sobe: porta 80 ocupada</strong>
+<pre class="term" data-host="servidor">$ sudo systemctl restart nginx
+Job for nginx.service failed because the control process exited with error code.
+See "systemctl status nginx.service" and "journalctl -xeu nginx.service" for details.
+$ sudo journalctl -u nginx -n 3 --no-pager
+Oct 15 14:10:22 servidor nginx[3112]: nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)
+Oct 15 14:10:22 servidor systemd[1]: nginx.service: Control process exited, code=exited, status=1/FAILURE
+Oct 15 14:10:22 servidor systemd[1]: nginx.service: Failed with result 'exit-code'.</pre>
+<p><strong>O que aconteceu:</strong> outro programa já usa a porta 80. Geralmente o Apache, instalado junto com algum pacote.</p>
+<p><strong>Como confirmar:</strong></p>
+<pre class="term" data-host="servidor">$ sudo ss -tlnp 'sport = :80'
+State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process
+LISTEN 0      511          0.0.0.0:80        0.0.0.0:*     users:(("apache2",pid=1890,fd=4))</pre>
+<p><strong>Como resolver:</strong> se não precisa do Apache: <code>sudo systemctl disable --now apache2</code> e depois <code>sudo systemctl start nginx</code>.</p>
+</div>
+
+<div class="cenario">
+<strong><code>nginx -t</code> acusa erro de sintaxe</strong>
+<pre class="term" data-host="servidor">$ sudo nginx -t
+nginx: [emerg] unexpected "}" in /etc/nginx/sites-enabled/meusite:12
+nginx: configuration file /etc/nginx/nginx.conf test failed</pre>
+<p><strong>O que aconteceu:</strong> falta um <code>;</code> ou sobra/falta uma chave. O número no fim (<code>:12</code>) é a linha; o erro real costuma estar na linha anterior.</p>
+<p><strong>Como resolver:</strong> abra o arquivo direto na linha: <code>sudo nano +11 /etc/nginx/sites-available/meusite</code>. Como você não rodou o reload, o site que está no ar continua funcionando com a configuração antiga.</p>
+</div>
+
+<div class="cenario">
+<strong>Aparece a página "Welcome to nginx!" em vez do seu site</strong>
+<p><strong>O que aconteceu:</strong> o nome pedido não bateu com nenhum <code>server_name</code>, e o nginx usou o site padrão (<code>default</code>).</p>
+<p><strong>Como resolver:</strong> confira o <code>server_name</code> e o nome que você usa no navegador. Se não precisa do site padrão, desative: <code>sudo rm /etc/nginx/sites-enabled/default</code> e recarregue.</p>
+</div>
+
+<hr>
+
+<h2>Referência rápida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando / instrução</th><th>O que faz</th></tr>
+<tr><td><code>sudo nginx -t</code></td><td>Testa a configuração</td></tr>
+<tr><td><code>sudo nginx -T</code></td><td>Testa e mostra a configuração completa que está valendo</td></tr>
+<tr><td><code>sudo systemctl reload nginx</code></td><td>Aplica mudanças sem derrubar conexões</td></tr>
+<tr><td><code>sudo ln -s ../sites-available/X /etc/nginx/sites-enabled/</code></td><td>Ativa um site</td></tr>
+<tr><td><code>sudo rm /etc/nginx/sites-enabled/X</code></td><td>Desativa um site (a configuração fica guardada)</td></tr>
+<tr><td><code>listen 80;</code></td><td>Porta em que o bloco atende</td></tr>
+<tr><td><code>server_name a.com www.a.com;</code></td><td>Nomes que o bloco atende</td></tr>
+<tr><td><code>root /var/www/x;</code></td><td>Pasta dos arquivos</td></tr>
+<tr><td><code>index index.html;</code></td><td>Arquivo padrão de uma pasta</td></tr>
+<tr><td><code>location /caminho { … }</code></td><td>Regras para uma parte do site</td></tr>
+<tr><td><code>proxy_pass http://127.0.0.1:3000;</code></td><td>Repassa para uma aplicação</td></tr>
+<tr><td><code>return 301 https://$host$request_uri;</code></td><td>Redireciona (ex.: para HTTPS)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Testar antes de aplicar</h3>
+<p>Complete para recarregar o nginx <strong>só se</strong> a configuração estiver correta:</p>
+<div class="ex-code">sudo nginx <input data-answer="-t" aria-label="opção"> <input data-answer="&amp;&amp;" aria-label="operador"> sudo systemctl reload nginx</div>
+</div>
+
+<div class="exercise">
+<h3>2. Ativar um site</h3>
+<p>Complete para ativar o site <code>loja</code>:</p>
+<div class="ex-code">sudo ln -s /etc/nginx/sites-available/loja /etc/nginx/<input data-answer="sites-enabled/|sites-enabled|sites-enabled/loja" aria-label="pasta"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Proxy reverso</h3>
+<p>Complete a instrução que repassa os pedidos para uma aplicação na porta 8080 da própria máquina:</p>
+<div class="ex-code">proxy_pass <input data-answer="http://127.0.0.1:8080;|http://localhost:8080;" aria-label="destino"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. O site retorna <strong>502 Bad Gateway</strong>. Qual a causa mais provável?</p>
+<label><input type="radio" name="q4"> Erro de sintaxe no nginx.</label>
+<label><input type="radio" name="q4"> A aplicação atrás do proxy não está rodando.</label>
+<label><input type="radio" name="q4"> O arquivo <code>index.html</code> não existe.</label>
+<label><input type="radio" name="q4"> O firewall bloqueou a porta 80.</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Qual a diferença entre <code>reload</code> e <code>restart</code>?</p>
+<label><input type="radio" name="q5"> Nenhuma, são sinônimos.</label>
+<label><input type="radio" name="q5"> <code>reload</code> instala atualizações; <code>restart</code> não.</label>
+<label><input type="radio" name="q5"> <code>reload</code> relê a configuração sem derrubar conexões; <code>restart</code> para e inicia de novo.</label>
+<label><input type="radio" name="q5"> <code>restart</code> testa a sintaxe antes; <code>reload</code> não.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Sites ficam em <code>/etc/nginx/sites-available/</code> e são ativados com um link em <code>sites-enabled/</code>.</li>
+  <li>Um <strong>server block</strong> define porta (<code>listen</code>), nomes (<code>server_name</code>) e pasta (<code>root</code>) ou destino (<code>proxy_pass</code>).</li>
+  <li>Sempre <code>sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code>.</li>
+  <li>Logs em <code>/var/log/nginx/</code>: o <code>error.log</code> diz o porquê de cada 403, 404 e 502.</li>
+  <li>Teste nomes sem DNS com <code>curl -H "Host: nome" http://localhost</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

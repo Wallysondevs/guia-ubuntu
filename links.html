@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu ln — links simbólicos e físicos | Guia Ubuntu</title>
+<meta name="description" content="Entenda links no Ubuntu: link simbólico (atalho) e link físico, o comando ln -s parte por parte, links relativos e absolutos, links quebrados, erros reais e exercícios.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Links (ln)</span></h1>
+
+<p class="intro">Um <strong>link</strong> é um segundo nome para um arquivo ou pasta que já existe. É como um atalho da área de trabalho do Windows, só que funciona para qualquer programa, inclusive no terminal. O comando que cria links é o <code>ln</code> (de <em>link</em>, "ligação").</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A diferença entre link <strong>simbólico</strong> (atalho) e link <strong>físico</strong> (outro nome para os mesmos dados).</li>
+  <li>Criar, ver, atualizar e apagar links com segurança.</li>
+  <li>Por que um link "quebra", e como evitar com caminhos relativos e absolutos.</li>
+  <li>Onde o próprio Ubuntu usa links, como em <code>/bin</code> e <code>python3</code>.</li>
+</ul>
+</div>
+
+<p>O simulador desta página não cria links. Os exemplos são sessões mostradas, conferidas num Ubuntu 26.04 real. Para praticar, use o seu terminal numa pasta de testes.</p>
+
+<hr>
+
+<h2>Dois tipos de link</h2>
+<p>Para entender links, é preciso saber como o Linux guarda arquivos. O <strong>nome</strong> que você vê numa pasta é só uma etiqueta. Os <strong>dados</strong> ficam num lugar do disco identificado por um número, o <strong>inode</strong>. A etiqueta aponta para o inode.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>Link simbólico (<code>ln -s</code>)</th><th>Link físico (<code>ln</code>)</th></tr>
+<tr><td>O que é</td><td>Um arquivinho que guarda o <strong>caminho</strong> de outro</td><td>Uma segunda etiqueta para o <strong>mesmo inode</strong></td></tr>
+<tr><td>Parece com</td><td>Atalho do Windows</td><td>O mesmo arquivo com dois nomes</td></tr>
+<tr><td>Se o original for apagado</td><td>O link quebra</td><td>Os dados continuam acessíveis pelo outro nome</td></tr>
+<tr><td>Funciona com pastas?</td><td>Sim</td><td>Não</td></tr>
+<tr><td>Funciona entre discos diferentes?</td><td>Sim</td><td>Não</td></tr>
+<tr><td>Como aparece no <code>ls -l</code></td><td><code>l</code> no começo e <code>-&gt;</code> mostrando o destino</td><td>Igual a um arquivo comum, com contador de links maior que 1</td></tr>
+</table>
+</div>
+
+<p>No dia a dia, você vai usar o <strong>simbólico</strong> em 95% dos casos. Ele é o "atalho".</p>
+
+<hr>
+
+<h2>Criar um link simbólico</h2>
+
+<dl class="anatomy">
+  <dt>ln</dt><dd>O programa que cria links.</dd>
+  <dt>-s</dt><dd>Link <strong>simbólico</strong> (de <em>symbolic</em>). Sem o <code>-s</code>, vira link físico.</dd>
+  <dt>Documentos/trabalho/2026/projeto-site</dt><dd>O <strong>alvo</strong>: para onde o link vai apontar. Vem primeiro.</dd>
+  <dt>projeto</dt><dd>O <strong>nome do link</strong>: o atalho que será criado. Vem por último.</dd>
+</dl>
+
+<p>A ordem é a mesma do <code>cp</code>: primeiro o que já existe, depois o nome novo. Uma forma de lembrar: "<code>ln -s</code> <em>de onde vem</em> <em>como vai se chamar</em>".</p>
+
+<pre class="term">$ ln -s Documentos/trabalho/2026/projeto-site projeto
+$ ls -l projeto
+lrwxrwxrwx 1 ana ana 37 Oct 15 11:02 projeto -&gt; Documentos/trabalho/2026/projeto-site</pre>
+
+<p>Leia a linha do <code>ls -l</code>:</p>
+<ul>
+  <li>O <code>l</code> no começo indica que é um link.</li>
+  <li>As permissões <code>rwxrwxrwx</code> são sempre assim em links simbólicos; o que vale são as permissões do alvo.</li>
+  <li><code>37</code> é o tamanho do link: o número de caracteres do caminho que ele guarda.</li>
+  <li><code>projeto -&gt; Documentos/…</code> mostra o nome do link e para onde ele aponta.</li>
+</ul>
+
+<p>Agora o atalho funciona como se fosse a pasta:</p>
+
+<pre class="term">$ cd projeto
+$ pwd
+/home/ana/projeto                    « o caminho "pelo atalho"
+$ pwd -P
+/home/ana/Documentos/trabalho/2026/projeto-site     « o caminho real</pre>
+
+<p>O <code>-P</code> (de <em>physical</em>) mostra onde você está de verdade, sem atalhos.</p>
+
+<hr>
+
+<h2>Descobrir para onde um link aponta</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que mostra</th></tr>
+<tr><td><code>ls -l link</code></td><td>O link e o destino, depois de <code>-&gt;</code></td></tr>
+<tr><td><code>readlink link</code></td><td>Só o destino, exatamente como foi gravado</td></tr>
+<tr><td><code>readlink -f link</code></td><td>O caminho final, completo, seguindo links em cadeia</td></tr>
+</table>
+</div>
+
+<p>O Ubuntu usa links em cadeia. O comando <code>editor</code>, por exemplo, aponta para outro link, que aponta para o editor escolhido:</p>
+
+<pre class="term">$ ls -l /usr/bin/editor
+lrwxrwxrwx 1 root root 24 Mar 30  2024 /usr/bin/editor -&gt; /etc/alternatives/editor
+$ ls -l /etc/alternatives/editor
+lrwxrwxrwx 1 root root 9 Feb  9  2026 /etc/alternatives/editor -&gt; /bin/nano
+$ readlink -f /usr/bin/editor
+/usr/bin/nano                        « o destino final</pre>
+
+<p>Repare que o destino final é <code>/usr/bin/nano</code>, e não <code>/bin/nano</code>. É que o próprio <code>/bin</code> também é um link:</p>
+
+<pre class="term">$ ls -ld /bin /lib /sbin
+lrwxrwxrwx 1 root root 7 Apr 22  2024 /bin -&gt; usr/bin
+lrwxrwxrwx 1 root root 7 Apr 22  2024 /lib -&gt; usr/lib
+lrwxrwxrwx 1 root root 8 Apr 22  2024 /sbin -&gt; usr/sbin
+$ ls -l /usr/bin/python3
+lrwxrwxrwx 1 root root 10 Mar 21  2026 /usr/bin/python3 -&gt; python3.14</pre>
+
+<p>Quando o Python for atualizado, basta mudar o link <code>python3</code>; quem digita <code>python3</code> nem percebe.</p>
+
+<hr>
+
+<h2>Relativo ou absoluto: a causa nº 1 de links quebrados</h2>
+<p>O caminho que você escreve como alvo é gravado <strong>do jeito que foi digitado</strong>. Se for relativo, ele é lido a partir da <strong>pasta onde o link está</strong>, e não de onde você estava quando o criou.</p>
+
+<pre class="term">$ ls
+Documentos  notas.txt
+$ ln -s notas.txt Documentos/atalho-notas
+$ cat Documentos/atalho-notas
+cat: Documentos/atalho-notas: No such file or directory
+$ ls -l Documentos/atalho-notas
+lrwxrwxrwx 1 ana ana 9 Oct 15 11:10 Documentos/atalho-notas -&gt; notas.txt     « procura Documentos/notas.txt</pre>
+
+<p>O link mora em <code>Documentos/</code> e aponta para <code>notas.txt</code>. Então ele procura <code>Documentos/notas.txt</code>, que não existe. Três formas de acertar:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Comando</th><th>Quando usar</th></tr>
+<tr><td>Caminho absoluto</td><td><code>ln -s ~/notas.txt Documentos/atalho-notas</code></td><td>O alvo nunca muda de lugar. É o mais simples.</td></tr>
+<tr><td>Relativo ao link</td><td><code>ln -s ../notas.txt Documentos/atalho-notas</code></td><td>Você vai mover a pasta inteira junto (projetos, backups).</td></tr>
+<tr><td>Deixar o ln calcular</td><td><code>ln -sr notas.txt Documentos/atalho-notas</code></td><td>Quer relativo sem fazer a conta. O <code>-r</code> (<em>relative</em>) calcula sozinho.</td></tr>
+</table>
+</div>
+
+<p>O <code>~</code> é expandido pelo shell para <code>/home/ana</code> antes de o <code>ln</code> rodar, por isso vira um caminho absoluto.</p>
+
+<hr>
+
+<h2>Link físico</h2>
+
+<dl class="anatomy">
+  <dt>ln</dt><dd>Sem <code>-s</code>: link físico.</dd>
+  <dt>original.txt</dt><dd>O arquivo que já existe.</dd>
+  <dt>outro-nome.txt</dt><dd>O novo nome para os mesmos dados.</dd>
+</dl>
+
+<pre class="term">$ ln original.txt outro-nome.txt
+$ ls -li original.txt outro-nome.txt
+1835023 -rw-rw-r-- 2 ana ana 6 Oct 15 11:20 original.txt
+1835023 -rw-rw-r-- 2 ana ana 6 Oct 15 11:20 outro-nome.txt
+ « mesmo inode (1835023) e contador de links = 2</pre>
+
+<p>O <code>-i</code> do <code>ls</code> mostra o número do inode, na primeira coluna. Os dois nomes têm o <strong>mesmo</strong> número: são o mesmo arquivo. O <code>2</code> depois das permissões diz quantos nomes ele tem.</p>
+
+<pre class="term">$ rm original.txt
+$ cat outro-nome.txt
+ideia                                « os dados continuam lá
+$ ls -l outro-nome.txt
+-rw-rw-r-- 1 ana ana 6 Oct 15 11:20 outro-nome.txt     « contador voltou para 1</pre>
+
+<p>Os dados só são apagados de verdade quando o último nome é removido.</p>
+
+<div class="note">
+<strong>Link físico não é backup</strong>
+<p>Como é o mesmo arquivo, editar por um nome altera o outro. Para ter uma cópia independente, use <code>cp</code>.</p>
+</div>
+
+<hr>
+
+<h2>Atualizar e apagar links</h2>
+
+<h3>Trocar o destino: <code>-f</code></h3>
+<p>Se o nome do link já existe, o <code>ln</code> recusa. O <code>-f</code> (de <em>force</em>) substitui o link antigo:</p>
+<pre class="term">$ ln -s ~/Documentos/v2 atual
+ln: failed to create symbolic link 'atual': Already exists
+$ ln -sfn ~/Documentos/v2 atual
+$ ls -l atual
+lrwxrwxrwx 1 ana ana 23 Oct 15 11:30 atual -&gt; /home/ana/Documentos/v2</pre>
+<p>Com links para <strong>pastas</strong>, junte também o <code>-n</code>. Sem ele, o <code>ln</code> entra na pasta apontada e cria o link novo lá dentro, em vez de substituir.</p>
+
+<h3>Apagar um link</h3>
+<p>Apagar o link <strong>não</strong> apaga o alvo. Use <code>rm</code> ou <code>unlink</code> no nome do link, <strong>sem barra no fim</strong>:</p>
+
+<pre class="term">$ rm projeto/
+rm: não foi possível remover 'projeto/': É um diretório
+$ rm projeto
+$ ls Documentos/trabalho/2026/
+projeto-site                         « a pasta original continua lá</pre>
+
+<div class="warning">
+<strong>Nunca use <code>rm -r</code> num link com barra no fim</strong>
+<p><code>rm -r projeto/</code> entra na pasta apontada e apaga o <strong>conteúdo real</strong>. Depois ainda mostra <code>rm: não foi possível remover 'projeto/': Não é um diretório</code>, e o atalho continua lá, apontando para uma pasta agora vazia. Para remover um atalho, é sempre <code>rm projeto</code>, sem <code>-r</code> e sem barra.</p>
+</div>
+
+<hr>
+
+<h2>Formas diferentes de criar atalhos</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td>Link simbólico</td><td><code>ln -s ~/Documentos/trabalho ~/trabalho</code></td><td>Quer um atalho que funcione no terminal e em qualquer programa.</td></tr>
+<tr><td>Favorito no Arquivos</td><td>Arraste a pasta para a barra lateral, ou <kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Só quer acesso rápido no gerenciador de arquivos.</td></tr>
+<tr><td>alias no <code>.bashrc</code></td><td><code>alias trab='cd ~/Documentos/trabalho'</code></td><td>Quer um "comando" que leve até a pasta. Veja <a href="bashrc.html">.bashrc, alias, PATH</a>.</td></tr>
+<tr><td>Link físico</td><td><code>ln dados.csv backup/dados.csv</code></td><td>Precisa que o arquivo continue existindo mesmo se um nome for apagado, no mesmo disco.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"No such file or directory" ao abrir um link que existe</strong>
+<pre class="term">$ ls -l ideias.txt
+lrwxrwxrwx 1 ana ana 22 Oct 15 11:40 ideias.txt -&gt; /home/ana/rascunho.txt
+$ cat ideias.txt
+cat: ideias.txt: No such file or directory</pre>
+<p><strong>O que aconteceu:</strong> o link está <strong>quebrado</strong>: o alvo (<code>rascunho.txt</code>) foi apagado, renomeado ou movido. No terminal, links quebrados costumam aparecer em vermelho.</p>
+<p><strong>Como confirmar:</strong> <code>find . -xtype l</code> lista todos os links quebrados a partir da pasta atual.</p>
+<p><strong>Como resolver:</strong> recrie apontando para o lugar certo: <code>ln -sf ~/Documentos/rascunho.txt ideias.txt</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Already exists"</strong>
+<pre class="term">$ ln -s ~/notas.txt atalho.txt
+ln: failed to create symbolic link 'atalho.txt': Already exists</pre>
+<p><strong>Como resolver:</strong> escolha outro nome, ou substitua de propósito com <code>ln -sf</code>. A mensagem sai em inglês no Ubuntu 26.04.</p>
+</div>
+
+<div class="cenario">
+<strong>"hard link not allowed for directory"</strong>
+<pre class="term">$ ln Documentos docs
+ln: Documentos: hard link not allowed for directory</pre>
+<p><strong>O que aconteceu:</strong> faltou o <code>-s</code>. Links físicos não podem apontar para pastas.</p>
+<p><strong>Como resolver:</strong> <code>ln -s Documentos docs</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"target 'x' is not a directory"</strong>
+<pre class="term">$ ln -s Meus Documentos atalho
+ln: target 'atalho' is not a directory</pre>
+<p><strong>O que aconteceu:</strong> o nome com espaço virou dois argumentos. Com três nomes, o <code>ln</code> entende que o último é uma pasta onde criar dois links.</p>
+<p><strong>Como resolver:</strong> aspas: <code>ln -s "Meus Documentos" atalho</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-s</code></td><td>Cria link simbólico</td><td><code>ln -s alvo nome</code></td></tr>
+<tr><td><code>-f</code></td><td>Substitui se o nome já existir</td><td><code>ln -sf alvo nome</code></td></tr>
+<tr><td><code>-n</code></td><td>Trata um link para pasta como arquivo (use com <code>-f</code>)</td><td><code>ln -sfn nova atual</code></td></tr>
+<tr><td><code>-r</code></td><td>Calcula o caminho relativo automaticamente</td><td><code>ln -sr arq pasta/link</code></td></tr>
+<tr><td><code>-v</code></td><td>Mostra o que foi criado</td><td><code>ln -sv alvo nome</code></td></tr>
+<tr><td><code>-i</code></td><td>Pergunta antes de substituir</td><td><code>ln -si alvo nome</code></td></tr>
+</table>
+</div>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando relacionado</th><th>Para quê</th></tr>
+<tr><td><code>readlink -f nome</code></td><td>Destino final de um link</td></tr>
+<tr><td><code>unlink nome</code></td><td>Apaga um link (igual a <code>rm nome</code>)</td></tr>
+<tr><td><code>find . -type l</code></td><td>Lista todos os links</td></tr>
+<tr><td><code>find . -xtype l</code></td><td>Lista só os links quebrados</td></tr>
+<tr><td><code>ls -li</code></td><td>Mostra o inode, para identificar links físicos</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Atalho para uma pasta</h3>
+<p>Complete para criar na pasta pessoal um atalho chamado <code>fotos</code> que aponta para <code>/media/ana/HD/Fotos</code>:</p>
+<div class="ex-code">ln <input data-answer="-s" aria-label="opção"> /media/ana/HD/Fotos ~/fotos</div>
+</div>
+
+<div class="exercise">
+<h3>2. Para onde aponta?</h3>
+<p>Complete para ver o destino <strong>final</strong> do link <code>/usr/bin/python3</code>:</p>
+<div class="ex-code">readlink <input data-answer="-f" aria-label="opção"> /usr/bin/python3</div>
+</div>
+
+<div class="exercise">
+<h3>3. Apagar só o atalho</h3>
+<p>Complete para apagar o atalho <code>projeto</code> sem tocar na pasta original:</p>
+<div class="ex-code"><input data-answer="rm|unlink" aria-label="comando"> projeto</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Você apagou o arquivo original. O que acontece com um <strong>link simbólico</strong> que apontava para ele?</p>
+<label><input type="radio" name="q4"> Continua mostrando o conteúdo normalmente.</label>
+<label><input type="radio" name="q4"> É apagado junto, automaticamente.</label>
+<label><input type="radio" name="q4"> Continua existindo, mas quebrado: abrir dá "No such file or directory".</label>
+<label><input type="radio" name="q4"> Vira um link físico.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. Em <code>ln -s A B</code>, quem é quem?</p>
+<label><input type="radio" name="q5"> A é o que já existe; B é o nome do atalho novo.</label>
+<label><input type="radio" name="q5"> A é o atalho novo; B é o que já existe.</label>
+<label><input type="radio" name="q5"> Os dois são criados.</label>
+<label><input type="radio" name="q5"> A ordem não importa.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>ln -s alvo nome</code> cria um atalho (link simbólico); a ordem é a mesma do <code>cp</code>.</li>
+  <li>No <code>ls -l</code>, links aparecem com <code>l</code> e <code>-&gt;</code>; <code>readlink -f</code> mostra o destino final.</li>
+  <li>Alvos relativos são lidos a partir da pasta do link; na dúvida, use caminho absoluto ou <code>ln -sr</code>.</li>
+  <li>Link físico (<code>ln</code> sem <code>-s</code>) é outro nome para os mesmos dados; não serve para pastas.</li>
+  <li>Para apagar um atalho: <code>rm nome</code>, sem <code>-r</code> e sem barra no fim.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

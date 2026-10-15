@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Ansible — configurar vários servidores de uma vez | Guia Ubuntu</title>
+<meta name="description" content="Ansible no Ubuntu: control node e hosts, inventário, comandos ad-hoc, playbook comentado que instala nginx e cria usuário, idempotência, --check e erros comuns.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Ansible</span></h1>
+
+<p class="intro">Configurar um servidor à mão leva uma tarde. Configurar dez servidores iguais à mão leva uma semana, e cada um sai um pouco diferente. O <strong>Ansible</strong> resolve isso: você descreve num arquivo como os servidores devem ficar, e ele aplica em todos, pelo SSH, quantas vezes precisar.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Quem é o <em>control node</em> e quem são os <em>hosts</em>.</li>
+  <li>Escrever um inventário (a lista de servidores).</li>
+  <li>Rodar comandos rápidos em todos os servidores (ad-hoc).</li>
+  <li>Escrever e ler um playbook que instala o nginx e cria um usuário.</li>
+  <li>O que é idempotência e por que rodar o playbook duas vezes é seguro.</li>
+  <li>Testar antes com <code>--check</code> e <code>--diff</code>.</li>
+</ul>
+</div>
+
+<p>Pré-requisitos: <a href="ssh.html">SSH com chave</a> e <a href="sudo.html">sudo</a>. Nos exemplos, a Ana controla dois servidores, <code>servidor1</code> (192.168.0.21) e <code>servidor2</code> (192.168.0.22), a partir do <strong>notebook</strong>. As saídas são ilustrativas.</p>
+
+<hr>
+
+<h2>Conceito: quem manda e quem obedece</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Termo</th><th>O que é</th><th>No exemplo</th></tr>
+<tr><td><strong>Control node</strong></td><td>A máquina onde o Ansible está instalado e de onde você roda os comandos</td><td>o notebook da Ana</td></tr>
+<tr><td><strong>Hosts</strong> (nós gerenciados)</td><td>Os servidores configurados. Não precisam de Ansible instalado: só SSH e Python</td><td>servidor1, servidor2</td></tr>
+<tr><td><strong>Inventário</strong></td><td>Arquivo com a lista de hosts, em grupos</td><td><code>inventario.ini</code></td></tr>
+<tr><td><strong>Módulo</strong></td><td>Uma ação pronta: instalar pacote, copiar arquivo, criar usuário…</td><td><code>apt</code>, <code>user</code>, <code>copy</code></td></tr>
+<tr><td><strong>Playbook</strong></td><td>Arquivo YAML com a lista de tarefas</td><td><code>site.yml</code></td></tr>
+</table>
+</div>
+<p>O Ansible não deixa nenhum programa rodando nos servidores: a cada execução, ele entra por SSH, faz o trabalho e sai.</p>
+
+<hr>
+
+<h2>Instalar e preparar</h2>
+<pre class="term">$ sudo apt install ansible
+$ ansible --version | head -1
+ansible [core 2.19.2]                       « versão ilustrativa</pre>
+
+<p>O Ansible entra nos servidores por SSH. Garanta que a sua chave já funciona sem senha em cada um:</p>
+<pre class="term">$ ssh-copy-id ana@192.168.0.21
+$ ssh-copy-id ana@192.168.0.22
+$ ssh ana@192.168.0.21 hostname
+servidor1</pre>
+
+<hr>
+
+<h2>O inventário</h2>
+<pre class="file" data-file="~/infra/inventario.ini"># Grupo "web" com dois servidores
+[web]
+servidor1 ansible_host=192.168.0.21
+servidor2 ansible_host=192.168.0.22
+
+# Variáveis que valem para todo o grupo "web"
+[web:vars]
+ansible_user=ana</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Parte</th><th>Significado</th></tr>
+<tr><td><code>[web]</code></td><td>Nome do grupo. Você roda tarefas em grupos inteiros.</td></tr>
+<tr><td><code>servidor1</code></td><td>O apelido do host dentro do Ansible.</td></tr>
+<tr><td><code>ansible_host=</code></td><td>O endereço real (IP ou nome) para o SSH.</td></tr>
+<tr><td><code>ansible_user=</code></td><td>O usuário do SSH.</td></tr>
+</table>
+</div>
+
+<p>Para não digitar <code>-i inventario.ini</code> toda vez, crie um <code>ansible.cfg</code> na mesma pasta:</p>
+<pre class="file" data-file="~/infra/ansible.cfg">[defaults]
+inventory = inventario.ini</pre>
+
+<hr>
+
+<h2>Comandos ad-hoc: uma ação, em todos</h2>
+
+<h3>Testar a conexão: módulo <code>ping</code></h3>
+<dl class="anatomy">
+  <dt>ansible</dt><dd>O comando para ações avulsas (ad-hoc).</dd>
+  <dt>all</dt><dd>Em quais hosts: <code>all</code>, um grupo (<code>web</code>) ou um host (<code>servidor1</code>).</dd>
+  <dt>-m ping</dt><dd>O módulo. O <code>ping</code> do Ansible testa SSH + Python (não é o ping de rede).</dd>
+</dl>
+<pre class="term" data-cwd="~/infra">$ ansible all -m ping
+servidor1 | SUCCESS =&gt; {
+    "ansible_facts": {
+        "discovered_interpreter_python": "/usr/bin/python3"
+    },
+    "changed": false,
+    "ping": "pong"                          « respondeu: SSH e Python funcionando
+}
+servidor2 | SUCCESS =&gt; {
+    …
+    "ping": "pong"
+}</pre>
+
+<h3>Rodar um comando qualquer: <code>-a</code></h3>
+<pre class="term" data-cwd="~/infra">$ ansible web -a "uptime"
+servidor1 | CHANGED | rc=0 &gt;&gt;
+ 10:52:01 up 3 days,  2:10,  0 user,  load average: 0.00, 0.01, 0.00
+servidor2 | CHANGED | rc=0 &gt;&gt;
+ 10:52:01 up 12 days,  6:31,  0 user,  load average: 0.08, 0.03, 0.01</pre>
+<p><code>rc=0</code> é o código de saída do comando em cada servidor (0 = sucesso). <code>CHANGED</code> aparece porque o Ansible não sabe se um comando avulso mudou algo, então assume que sim.</p>
+
+<h3>Como administrador: <code>-b</code> e <code>-K</code></h3>
+<dl class="anatomy">
+  <dt>-b</dt><dd><em>become</em>: rode com sudo nos servidores.</dd>
+  <dt>-K</dt><dd>Pergunte a senha do sudo (<em>ask become pass</em>).</dd>
+  <dt>-m apt -a "name=htop state=present"</dt><dd>Módulo <code>apt</code> com os argumentos: o pacote e o estado desejado.</dd>
+</dl>
+<pre class="term" data-cwd="~/infra">$ ansible web -b -K -m apt -a "name=htop state=present"
+BECOME password:
+servidor1 | CHANGED =&gt; { … "changed": true … }       « instalou
+servidor2 | SUCCESS =&gt; { … "changed": false … }      « já estava instalado: nada a fazer</pre>
+
+<hr>
+
+<h2>Playbook: a receita completa</h2>
+<p>Comandos ad-hoc são para ações rápidas. Para a configuração de verdade, escreva um <strong>playbook</strong>. Este instala o nginx, garante que ele está rodando, cria um usuário e publica uma página:</p>
+
+<pre class="file" data-file="~/infra/site.yml">- name: Configura os servidores web       # um "play": um alvo + tarefas
+  hosts: web                              # em quais hosts (grupo do inventário)
+  become: true                            # usar sudo
+
+  tasks:
+    - name: Instala o nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present                    # "presente": instale se não estiver
+        update_cache: true                # equivale a "apt update" antes
+
+    - name: Garante o nginx rodando e ligando no boot
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
+
+    - name: Cria o usuário deploy
+      ansible.builtin.user:
+        name: deploy
+        shell: /bin/bash
+        groups: www-data
+        append: true                      # como o -a do usermod
+
+    - name: Publica a página inicial
+      ansible.builtin.copy:
+        content: "&lt;h1&gt;Servidor {{ inventory_hostname }}&lt;/h1&gt;\n"
+        dest: /var/www/html/index.html
+        owner: deploy
+        mode: "0644"</pre>
+
+<p>Repare que cada tarefa descreve um <strong>estado</strong> ("nginx presente", "serviço iniciado"), e não um comando ("instale o nginx"). <code>{{ inventory_hostname }}</code> é uma variável trocada pelo nome de cada host.</p>
+
+<div class="warning">
+<strong>Atenção: YAML e espaços</strong>
+<p>Como no <a href="docker-compose.html">Compose</a>, a hierarquia é feita por espaços (nunca tab). Os itens de <code>tasks</code> começam com <code>- </code> e o que pertence a cada um fica mais para dentro.</p>
+</div>
+
+<h3>Rodar: <code>ansible-playbook</code></h3>
+<pre class="term" data-cwd="~/infra">$ ansible-playbook site.yml -K
+BECOME password:
+
+PLAY [Configura os servidores web] *********************************************
+
+TASK [Gathering Facts] *********************************************************     « coleta informações dos hosts
+ok: [servidor1]
+ok: [servidor2]
+
+TASK [Instala o nginx] *********************************************************
+changed: [servidor1]
+changed: [servidor2]
+
+TASK [Garante o nginx rodando e ligando no boot] *******************************
+ok: [servidor1]                                                                    « o pacote já liga o serviço
+ok: [servidor2]
+
+TASK [Cria o usuário deploy] ***************************************************
+changed: [servidor1]
+changed: [servidor2]
+
+TASK [Publica a página inicial] ************************************************
+changed: [servidor1]
+changed: [servidor2]
+
+PLAY RECAP *********************************************************************
+servidor1                  : ok=5    changed=3    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+servidor2                  : ok=5    changed=3    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Resultado</th><th>Significado</th></tr>
+<tr><td><code>ok</code></td><td>Já estava no estado pedido: nada foi feito</td></tr>
+<tr><td><code>changed</code></td><td>O Ansible mudou algo para chegar ao estado pedido</td></tr>
+<tr><td><code>failed</code></td><td>A tarefa deu erro (o host para de receber tarefas)</td></tr>
+<tr><td><code>unreachable</code></td><td>Não conseguiu entrar por SSH</td></tr>
+<tr><td><code>skipped</code></td><td>Tarefa pulada por uma condição (<code>when:</code>)</td></tr>
+</table>
+</div>
+
+<h3>Idempotência: rodar de novo é seguro</h3>
+<pre class="term" data-cwd="~/infra">$ ansible-playbook site.yml -K
+…
+PLAY RECAP *********************************************************************
+servidor1                  : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   « nada mudou
+servidor2                  : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0</pre>
+<p><strong>Idempotente</strong> quer dizer: rodar uma vez ou cem vezes dá o mesmo resultado. Como as tarefas descrevem estados, a segunda execução encontra tudo certo e não faz nada. Se alguém mudar algo à mão num servidor, a próxima execução corrige.</p>
+
+<h3>Testar antes: <code>--check</code> e <code>--diff</code></h3>
+<p>Suponha que você mudou, no playbook, o texto da página para <code>Servidor web {{ inventory_hostname }}</code>. Antes de aplicar, veja o que mudaria:</p>
+<pre class="term" data-cwd="~/infra">$ ansible-playbook site.yml -K --check --diff
+…
+TASK [Publica a página inicial] ************************************************
+--- before: /var/www/html/index.html
++++ after: /var/www/html/index.html
+@@ -1 +1 @@
+-&lt;h1&gt;Servidor servidor1&lt;/h1&gt;
++&lt;h1&gt;Servidor web servidor1&lt;/h1&gt;
+changed: [servidor1]                    « mostraria a mudança, mas não aplicou nada</pre>
+<p><code>--check</code> simula sem mudar nada; <code>--diff</code> mostra o que mudaria nos arquivos. Use os dois antes de rodar em produção.</p>
+
+<hr>
+
+<h2>Formas de automatizar a configuração</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td>Script Bash + SSH</td><td><code>for h in s1 s2; do ssh $h 'sudo apt install -y nginx'; done</code></td><td>Uma ação simples, uma vez.</td></tr>
+<tr><td>Ansible ad-hoc</td><td><code>ansible web -b -m apt -a "name=nginx"</code></td><td>Uma ação em muitos servidores, agora.</td></tr>
+<tr><td>Ansible playbook</td><td><code>ansible-playbook site.yml</code></td><td>Configuração completa e repetível, guardada no <a href="git.html">Git</a>.</td></tr>
+<tr><td><a href="cloud-init.html">cloud-init</a></td><td><code>user-data</code></td><td>Configuração no <strong>primeiro boot</strong> de uma máquina nova.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>UNREACHABLE</strong>
+<pre class="term" data-cwd="~/infra">$ ansible all -m ping
+servidor2 | UNREACHABLE! =&gt; {
+    "changed": false,
+    "msg": "Failed to connect to the host via ssh: ssh: connect to host 192.168.0.22 port 22: No route to host",
+    "unreachable": true
+}</pre>
+<p><strong>O que aconteceu:</strong> o SSH não conectou (servidor desligado, IP errado, firewall). <strong>Como confirmar:</strong> <code>ssh ana@192.168.0.22</code> à mão. O Ansible só funciona se o SSH funcionar.</p>
+</div>
+
+<div class="cenario">
+<strong>"Missing sudo password"</strong>
+<pre class="term" data-cwd="~/infra">$ ansible-playbook site.yml
+…
+fatal: [servidor1]: FAILED! =&gt; {"msg": "Missing sudo password"}</pre>
+<p><strong>Como resolver:</strong> rode com <code>-K</code> para informar a senha do sudo.</p>
+</div>
+
+<div class="cenario">
+<strong>Erro de sintaxe no YAML</strong>
+<pre class="term" data-cwd="~/infra">$ ansible-playbook site.yml --syntax-check
+ERROR! We were unable to read either as JSON nor YAML, these are the errors we got from each:
+…
+The offending line appears to be:
+        name: nginx
+       state: present
+       ^ here</pre>
+<p><strong>O que aconteceu:</strong> indentação desalinhada. O <code>--syntax-check</code> aponta a linha. Alinhe com espaços.</p>
+</div>
+
+<div class="cenario">
+<strong>"Host key verification failed"</strong>
+<p>É a primeira conexão com aquele servidor e o SSH quer confirmar a impressão digital. Conecte uma vez à mão com <code>ssh ana@IP</code> e responda <code>yes</code> (veja <a href="ssh.html">SSH</a>).</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando / opção</th><th>O que faz</th></tr>
+<tr><td><code>ansible ALVO -m MÓDULO -a "ARGS"</code></td><td>Ação ad-hoc</td></tr>
+<tr><td><code>ansible-playbook ARQ.yml</code></td><td>Roda um playbook</td></tr>
+<tr><td><code>-i ARQUIVO</code></td><td>Inventário a usar</td></tr>
+<tr><td><code>-b</code> / <code>-K</code></td><td>Usar sudo / perguntar a senha do sudo</td></tr>
+<tr><td><code>--check</code> / <code>--diff</code></td><td>Simular / mostrar diferenças</td></tr>
+<tr><td><code>--limit servidor1</code></td><td>Restringe a alguns hosts</td></tr>
+<tr><td><code>--syntax-check</code></td><td>Só valida o arquivo</td></tr>
+<tr><td><code>-v</code>, <code>-vvv</code></td><td>Mais detalhes (para depurar)</td></tr>
+<tr><td><code>ansible-inventory --graph</code></td><td>Mostra os grupos e hosts</td></tr>
+<tr><td><code>ansible-doc apt</code></td><td>Documentação de um módulo</td></tr>
+</table>
+</div>
+
+<h3>Módulos mais usados</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Módulo</th><th>Para quê</th></tr>
+<tr><td><code>apt</code></td><td>Instalar/remover pacotes</td></tr>
+<tr><td><code>service</code> / <code>systemd</code></td><td>Iniciar, parar e habilitar serviços</td></tr>
+<tr><td><code>user</code> / <code>group</code></td><td>Contas e grupos</td></tr>
+<tr><td><code>copy</code> / <code>template</code></td><td>Arquivos (fixos / com variáveis)</td></tr>
+<tr><td><code>file</code></td><td>Pastas, permissões, links</td></tr>
+<tr><td><code>lineinfile</code></td><td>Garantir uma linha num arquivo de configuração</td></tr>
+<tr><td><code>ufw</code></td><td>Regras de firewall (coleção <code>community.general</code>)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Testar todos</h3>
+<div class="ex-code">ansible all -m <input data-answer="ping" aria-label="módulo"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Simular antes</h3>
+<p>Complete para simular o playbook sem mudar nada:</p>
+<div class="ex-code">ansible-playbook site.yml -K <input data-answer="--check|-C" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Estado desejado</h3>
+<p>Complete a tarefa para garantir que o pacote <code>git</code> esteja instalado:</p>
+<div class="ex-code">ansible.builtin.apt:
+  name: git
+  state: <input data-answer="present|latest" aria-label="estado"></div>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">4. Você rodou o mesmo playbook duas vezes seguidas. O que é esperado na segunda vez?</p>
+<label><input type="radio" name="q4"> <code>changed=0</code>: tudo já estava no estado pedido.</label>
+<label><input type="radio" name="q4"> Erro, porque o nginx já existe.</label>
+<label><input type="radio" name="q4"> O nginx é reinstalado do zero.</label>
+<label><input type="radio" name="q4"> O usuário deploy é criado de novo, duplicado.</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. O que precisa existir nos servidores gerenciados?</p>
+<label><input type="radio" name="q5"> O Ansible instalado e rodando como serviço.</label>
+<label><input type="radio" name="q5"> Uma interface gráfica.</label>
+<label><input type="radio" name="q5"> Acesso SSH e Python.</label>
+<label><input type="radio" name="q5"> Docker.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>O Ansible roda no seu computador e configura os servidores por SSH: nada para instalar neles além de Python.</li>
+  <li>Inventário lista os hosts; <code>ansible all -m ping</code> testa tudo.</li>
+  <li>Playbooks descrevem <strong>estados</strong>; por isso são idempotentes e podem rodar sempre.</li>
+  <li><code>-b -K</code> para sudo; <code>--check --diff</code> antes de produção.</li>
+  <li>Guarde inventário e playbooks no Git: a configuração dos servidores vira código.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

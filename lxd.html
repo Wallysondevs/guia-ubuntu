@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu LXD — containers de sistema completos | Guia Ubuntu</title>
+<meta name="description" content="LXD no Ubuntu: instalar com snap, lxd init comentado, lxc launch, exec, list, snapshots, limites e a diferença para o Docker.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">LXD</span></h1>
+
+<p class="intro">O <strong>LXD</strong> cria "mini-servidores" Ubuntu dentro do seu Ubuntu: cada um tem usuários, <code>apt</code>, <code>systemd</code> e IP próprios, como uma máquina virtual, mas sobe em segundos e gasta pouca memória. É o lugar perfeito para testar uma instalação ou estudar administração sem medo de estragar o sistema.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A diferença entre container de sistema (LXD) e container de aplicação (Docker).</li>
+  <li>Instalar e configurar o LXD, entendendo cada resposta do <code>lxd init</code>.</li>
+  <li>Criar, entrar, listar, parar e apagar instâncias.</li>
+  <li>Tirar um snapshot antes de algo arriscado e voltar no tempo.</li>
+  <li>Limitar CPU e memória e copiar arquivos para dentro.</li>
+</ul>
+</div>
+
+<p>Exemplos na máquina fictícia <strong>notebook</strong>. IPs, versões e tempos variam: as saídas são ilustrativas.</p>
+
+<hr>
+
+<h2>Conceito: container de sistema</h2>
+<p>O Docker roda <strong>um programa</strong> por container. O LXD roda <strong>um sistema operacional inteiro</strong>, com o <code>systemd</code> como primeiro processo, igual a um servidor de verdade. Os dois usam o mesmo kernel do Ubuntu.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>LXD</th><th>Docker</th><th>VM (KVM)</th></tr>
+<tr><td>O que roda dentro</td><td>Um sistema completo</td><td>Um programa</td><td>Um sistema completo, com kernel próprio</td></tr>
+<tr><td>Dá para <code>apt install</code> e <code>systemctl</code>?</td><td>Sim, como num servidor</td><td>Não é o uso normal</td><td>Sim</td></tr>
+<tr><td>Vida útil</td><td>Longa (dias, meses)</td><td>Descartável</td><td>Longa</td></tr>
+<tr><td>Sobe em</td><td>~2 segundos</td><td>&lt; 1 segundo</td><td>~20 segundos</td></tr>
+<tr><td>Melhor para</td><td>Laboratório, servidores leves</td><td>Empacotar e entregar apps</td><td>Outro kernel ou Windows</td></tr>
+</table>
+</div>
+
+<p>O LXD também cria máquinas virtuais (<code>--vm</code>), com os mesmos comandos. Os nomes: <strong>LXD</strong> é o serviço; <strong>lxc</strong> é o comando que você digita. Existe também o <strong>Incus</strong>, um projeto derivado do LXD mantido pela comunidade, com comandos quase iguais.</p>
+
+<hr>
+
+<h2>Instalar e configurar</h2>
+<pre class="term">$ sudo snap install lxd
+lxd (5.21/stable) 5.21.3-c5ae129 from Canonical✓ installed      « versão ilustrativa
+$ sudo usermod -aG lxd $USER
+$ newgrp lxd</pre>
+<p>Como no <a href="docker.html">Docker</a>, o grupo <code>lxd</code> dá controle total do LXD, o que equivale a poder de root. No Ubuntu Server, o LXD pode já estar disponível: o primeiro <code>lxc</code> oferece instalá-lo.</p>
+
+<h3><code>lxd init</code>: as perguntas, uma a uma</h3>
+<p>Rode uma vez, antes de criar qualquer instância. Para um notebook de estudos, aceitar quase tudo com <kbd>Enter</kbd> funciona:</p>
+
+<pre class="term">$ lxd init
+Would you like to use LXD clustering? (yes/no) [default=no]:                « vários servidores juntos: não
+Do you want to configure a new storage pool? (yes/no) [default=yes]:
+Name of the new storage pool [default=default]:
+Name of the storage backend to use (btrfs, ceph, dir, lvm, powerflex, zfs) [default=zfs]: « zfs permite snapshots rápidos
+Create a new ZFS pool? (yes/no) [default=yes]:
+Would you like to use an existing empty block device (e.g. a disk or partition)? (yes/no) [default=no]:
+Size in GiB of the new loop device (1GiB minimum) [default=30GiB]: 20GiB   « um arquivo de 20 GB fará o papel de disco
+Would you like to connect to a MAAS server? (yes/no) [default=no]:
+Would you like to create a new local network bridge? (yes/no) [default=yes]:  « rede interna para as instâncias
+What should the new bridge be called? [default=lxdbr0]:
+What IPv4 address should be used? (CIDR subnet notation, “auto” or “none”) [default=auto]:
+What IPv6 address should be used? (CIDR subnet notation, “auto” or “none”) [default=auto]:
+Would you like the LXD server to be available over the network? (yes/no) [default=no]:  « só local: mais seguro
+Would you like stale cached images to be updated automatically? (yes/no) [default=yes]:
+Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]:</pre>
+
+<p>Com pressa? <code>lxd init --minimal</code> aceita todos os padrões sem perguntar (usa o armazenamento <code>dir</code>, mais simples e sem snapshots instantâneos).</p>
+
+<hr>
+
+<h2>Criar a primeira instância: <code>lxc launch</code></h2>
+<dl class="anatomy">
+  <dt>lxc</dt><dd>O comando cliente do LXD.</dd>
+  <dt>launch</dt><dd>Baixa a imagem (se preciso), cria e inicia a instância.</dd>
+  <dt>ubuntu:26.04</dt><dd><code>remoto:imagem</code>. O remoto <code>ubuntu:</code> tem as imagens oficiais.</dd>
+  <dt>lab</dt><dd>O nome da instância.</dd>
+</dl>
+
+<pre class="term">$ lxc launch ubuntu:26.04 lab
+Creating lab
+Starting lab
+$ lxc list
++------+---------+----------------------+------------------------------------------------+-----------+-----------+
+| NAME |  STATE  |         IPV4         |                      IPV6                      |   TYPE    | SNAPSHOTS |
++------+---------+----------------------+------------------------------------------------+-----------+-----------+
+| lab  | RUNNING | 10.48.112.37 (eth0)  | fd42:9c3e:51a0:7d1b:216:3eff:fe2c:91aa (eth0)  | CONTAINER | 0         |
++------+---------+----------------------+------------------------------------------------+-----------+-----------+</pre>
+
+<p>A instância ganhou o IP <code>10.48.112.37</code> na rede interna <code>lxdbr0</code>. Do seu Ubuntu você alcança esse IP direto: <code>ping 10.48.112.37</code> funciona.</p>
+
+<h3>Entrar: <code>lxc exec</code> e <code>lxc shell</code></h3>
+<dl class="anatomy">
+  <dt>lxc exec lab</dt><dd>Roda um comando dentro da instância <code>lab</code>.</dd>
+  <dt>--</dt><dd>Daqui para frente, tudo é do comando de dentro (não são opções do lxc).</dd>
+  <dt>bash</dt><dd>O comando: um shell, como root da instância.</dd>
+</dl>
+<pre class="term">$ lxc exec lab -- bash</pre>
+<pre class="term" data-user="root" data-host="lab" data-cwd="/root">#> cat /etc/os-release | head -1
+PRETTY_NAME="Ubuntu 26.04.1 LTS"
+#> apt update -q &amp;&amp; apt install -y -q nginx &gt; /dev/null
+#> systemctl is-active nginx
+active                                « systemd funciona: é um sistema completo
+#> exit</pre>
+<pre class="term">$ curl -s 10.48.112.37 | grep -o "&lt;title&gt;.*&lt;/title&gt;"
+&lt;title&gt;Welcome to nginx!&lt;/title&gt;     « o nginx da instância respondeu</pre>
+
+<p>Atalho: <code>lxc shell lab</code> faz o mesmo que <code>lxc exec lab -- su -l</code>, abrindo uma sessão de login do root.</p>
+
+<h3>Rodar um comando sem entrar</h3>
+<pre class="term">$ lxc exec lab -- df -h /
+Sist. Arq.                   Tam. Usado Disp. Uso% Montado em
+default/containers/lab        18G  1,2G   17G   7% /
+$ lxc exec lab -- su - ubuntu -c "whoami"
+ubuntu</pre>
+
+<hr>
+
+<h2>Snapshots: voltar no tempo</h2>
+<p>Antes de algo arriscado (atualizar a versão, mexer no firewall), tire um <strong>snapshot</strong>, uma foto do estado atual. Se der errado, volte a ele em segundos.</p>
+<pre class="term">$ lxc snapshot lab antes-teste
+$ lxc exec lab -- rm -rf /etc/nginx                 « estragando de propósito
+$ lxc exec lab -- systemctl restart nginx
+Job for nginx.service failed because the control process exited with error code.
+$ lxc restore lab antes-teste
+$ lxc exec lab -- systemctl is-active nginx
+active                                              « tudo de volta
+$ lxc info lab | sed -n '/Snapshots:/,$p'
+Snapshots:
++-------------+----------------------+------------+----------+
+|    NAME     |       TAKEN AT       | EXPIRES AT | STATEFUL |
++-------------+----------------------+------------+----------+
+| antes-teste | 2026/10/15 10:42 -03 |            | NO       |
++-------------+----------------------+------------+----------+</pre>
+
+<div class="tip">
+<strong>Laboratório perfeito</strong>
+<p>Os projetos <a href="projeto-quebre-conserte.html">Quebre e Conserte</a> ficam muito mais tranquilos numa instância LXD com snapshot: estrague, aprenda e restaure.</p>
+</div>
+
+<hr>
+
+<h2>Gerenciar instâncias</h2>
+<pre class="term">$ lxc stop lab
+$ lxc start lab
+$ lxc config set lab limits.cpu 2
+$ lxc config set lab limits.memory 1GiB
+$ lxc file push ~/site/index.html lab/var/www/html/index.html
+$ lxc file pull lab/etc/hostname .
+$ lxc copy lab lab2                               « clona a instância
+$ lxc delete lab2 --force</pre>
+
+<h3>Máquina virtual com os mesmos comandos</h3>
+<pre class="term">$ lxc launch ubuntu:26.04 vm1 --vm
+$ lxc list -c ns4t
++------+---------+-----------------------+-----------------+
+| NAME |  STATE  |         IPV4          |      TYPE       |
++------+---------+-----------------------+-----------------+
+| lab  | RUNNING | 10.48.112.37 (eth0)   | CONTAINER       |
+| vm1  | RUNNING | 10.48.112.140 (enp5s0)| VIRTUAL-MACHINE |
++------+---------+-----------------------+-----------------+</pre>
+
+<hr>
+
+<h2>Formas de ter um "servidor de teste"</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Comando</th><th>Melhor quando…</th></tr>
+<tr><td>LXD container</td><td><code>lxc launch ubuntu:26.04 lab</code></td><td>Leve e rápido; vários ao mesmo tempo.</td></tr>
+<tr><td>LXD VM</td><td><code>lxc launch ubuntu:26.04 vm1 --vm</code></td><td>Precisa de kernel próprio (módulos, Docker dentro).</td></tr>
+<tr><td>Multipass</td><td><code>multipass launch 26.04</code></td><td>Uma VM Ubuntu com zero configuração (veja <a href="kvm.html">KVM</a>).</td></tr>
+<tr><td>Docker</td><td><code>docker run -it ubuntu:26.04</code></td><td>Testar um comando rápido e jogar fora.</td></tr>
+<tr><td>virt-manager</td><td>interface gráfica</td><td>Instalar outro sistema a partir de uma ISO.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Error: The LXD daemon doesn't appear to be started"</strong>
+<p><strong>O que aconteceu:</strong> o serviço do snap não está rodando. <strong>Como resolver:</strong> <code>sudo snap start lxd</code>; veja o motivo em <code>sudo snap logs lxd</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Permissão negada ao usar o <code>lxc</code></strong>
+<p><strong>O que aconteceu:</strong> seu usuário ainda não está no grupo <code>lxd</code> nesta sessão. <strong>Como confirmar:</strong> <code>groups</code>. <strong>Como resolver:</strong> <code>sudo usermod -aG lxd $USER</code> e abra uma sessão nova (ou <code>newgrp lxd</code>).</p>
+</div>
+
+<div class="cenario">
+<strong>A instância não tem IPv4 (coluna vazia)</strong>
+<p><strong>O que aconteceu:</strong> quase sempre é o firewall do Ubuntu bloqueando o DHCP da ponte <code>lxdbr0</code>, ou o Docker instalado na mesma máquina, que muda regras de rede.</p>
+<p><strong>Como resolver (ufw):</strong></p>
+<pre class="term">$ sudo ufw allow in on lxdbr0
+$ sudo ufw route allow in on lxdbr0
+$ sudo ufw route allow out on lxdbr0
+$ lxc restart lab</pre>
+</div>
+
+<div class="cenario">
+<strong>"Error: Instance is running"</strong>
+<p>Você tentou apagar uma instância ligada. Pare antes (<code>lxc stop lab</code>) ou use <code>lxc delete lab --force</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>lxd init</code></td><td>Configuração inicial (uma vez)</td></tr>
+<tr><td><code>lxc launch IMAGEM NOME [--vm]</code></td><td>Cria e inicia</td></tr>
+<tr><td><code>lxc list</code></td><td>Lista instâncias</td></tr>
+<tr><td><code>lxc exec NOME -- CMD</code></td><td>Roda comando dentro</td></tr>
+<tr><td><code>lxc shell NOME</code></td><td>Abre sessão de root</td></tr>
+<tr><td><code>lxc start</code> / <code>stop</code> / <code>restart NOME</code></td><td>Liga, desliga, reinicia</td></tr>
+<tr><td><code>lxc delete NOME [--force]</code></td><td>Apaga</td></tr>
+<tr><td><code>lxc snapshot NOME SNAP</code></td><td>Tira snapshot</td></tr>
+<tr><td><code>lxc restore NOME SNAP</code></td><td>Volta ao snapshot</td></tr>
+<tr><td><code>lxc info NOME</code></td><td>Detalhes, uso de recursos e snapshots</td></tr>
+<tr><td><code>lxc config set NOME limits.memory 1GiB</code></td><td>Limita recursos</td></tr>
+<tr><td><code>lxc file push/pull</code></td><td>Copia arquivos para dentro/fora</td></tr>
+<tr><td><code>lxc image list ubuntu:</code></td><td>Imagens disponíveis no remoto</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Criar</h3>
+<p>Complete para criar uma instância chamada <code>teste</code> com Ubuntu 26.04:</p>
+<div class="ex-code">lxc <input data-answer="launch" aria-label="subcomando"> ubuntu:26.04 teste</div>
+</div>
+
+<div class="exercise">
+<h3>2. Rodar um comando dentro</h3>
+<div class="ex-code">lxc exec teste <input data-answer="--" aria-label="separador"> apt update</div>
+</div>
+
+<div class="exercise">
+<h3>3. Snapshot</h3>
+<p>Complete para voltar a instância <code>teste</code> ao snapshot <code>limpo</code>:</p>
+<div class="ex-code">lxc <input data-answer="restore" aria-label="subcomando"> teste limpo</div>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">4. Qual a principal diferença entre um container LXD e um container Docker?</p>
+<label><input type="radio" name="q4"> O LXD roda um sistema completo (com systemd); o Docker roda um programa.</label>
+<label><input type="radio" name="q4"> O LXD tem kernel próprio; o Docker não.</label>
+<label><input type="radio" name="q4"> O Docker só roda no Windows.</label>
+<label><input type="radio" name="q4"> O LXD não tem rede.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>LXD = mini-servidores completos que sobem em segundos; <code>lxc</code> é o comando.</li>
+  <li><code>snap install lxd</code>, grupo <code>lxd</code> e <code>lxd init</code> uma vez.</li>
+  <li><code>lxc launch ubuntu:26.04 nome</code> cria; <code>lxc exec nome -- bash</code> entra; <code>lxc list</code> mostra.</li>
+  <li>Snapshot antes de qualquer teste arriscado; <code>lxc restore</code> volta no tempo.</li>
+  <li><code>--vm</code> cria máquina virtual com os mesmos comandos.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

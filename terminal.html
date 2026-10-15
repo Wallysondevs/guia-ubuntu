@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Terminal — abrir, ler o prompt, Tab, histórico e atalhos | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a usar o terminal do Ubuntu: abrir, ler o prompt, autocompletar com Tab, reaproveitar o histórico, atalhos de edição, copiar e colar, senhas invisíveis e o terminal de emergência.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">O Terminal</span></h1>
+
+<p class="intro">O <strong>terminal</strong> é uma janela onde você controla o computador digitando, em vez de clicar. No começo parece difícil, mas é mais rápido, mais preciso e deixa você automatizar tarefas. Nesta aula você aprende a abrir, ler e dominar essa janela.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A diferença entre terminal, shell e Bash.</li>
+  <li>Ler o prompt: quem você é, onde está e se é administrador.</li>
+  <li>Digitar menos com a tecla <kbd>Tab</kbd>.</li>
+  <li>Reaproveitar comandos antigos com o histórico (<kbd>↑</kbd>, <code>history</code>, <code>!!</code>, <kbd>Ctrl</kbd>+<kbd>R</kbd>).</li>
+  <li>Editar a linha, copiar, colar e cancelar sem medo.</li>
+  <li>Que existe um terminal de emergência para quando a tela trava.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Terminal, shell e Bash</h2>
+<p>Três palavras aparecem o tempo todo e costumam ser confundidas:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Termo</th><th>O que é</th><th>Comparação</th></tr>
+<tr><td><strong>Terminal</strong></td><td>O programa com a janela onde você digita. No Ubuntu, o aplicativo se chama <strong>Terminal</strong>.</td><td>A tela e o teclado</td></tr>
+<tr><td><strong>Shell</strong></td><td>O programa que lê o que você digitou e executa. O nome vem de "concha": é a camada em volta do sistema.</td><td>O intérprete</td></tr>
+<tr><td><strong>Bash</strong></td><td>O shell padrão do Ubuntu. O nome vem de <em>Bourne Again SHell</em>.</td><td>Um intérprete específico</td></tr>
+</table>
+</div>
+
+<p>Você pode perguntar qual shell está usando:</p>
+
+<pre class="term">$ echo $SHELL
+/bin/bash</pre>
+
+<hr>
+
+<h2>Como abrir o terminal</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Como</th><th>Abre em…</th></tr>
+<tr><td>Atalho</td><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd></td><td>Sua pasta pessoal</td></tr>
+<tr><td>Busca</td><td><kbd>Super</kbd>, digitar <code>terminal</code>, <kbd>Enter</kbd></td><td>Sua pasta pessoal</td></tr>
+<tr><td>Pelo Arquivos</td><td>Botão direito numa pasta → <strong>Abrir no Terminal</strong></td><td>Aquela pasta</td></tr>
+<tr><td>Servidor, Multipass, WSL</td><td>Você já está no terminal</td><td>—</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Existe um terminal fora da interface gráfica</strong>
+<p>Além da janela de terminal, o Ubuntu tem consoles de texto (os <strong>TTYs</strong>) que funcionam mesmo se a interface gráfica travar. Você abre um com <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>. Não teste agora sem ler antes <a href="travamentos.html">Quando o Sistema Trava</a>, que explica como entrar e como voltar.</p>
+</div>
+
+<hr>
+
+<h2>Lendo o prompt</h2>
+<p>O <strong>prompt</strong> é o texto que aparece antes do cursor. Ele diz que o shell está pronto e traz quatro informações:</p>
+
+<pre class="term">$ </pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Pedaço</th><th>Significado</th></tr>
+<tr><td><code>ana</code></td><td>Seu nome de usuário.</td></tr>
+<tr><td><code>@notebook</code></td><td>Em qual computador ("@" se lê "em"). É o <em>hostname</em>.</td></tr>
+<tr><td><code>:~</code></td><td>A pasta onde você está. <code>~</code> é a sua pasta pessoal, <code>/home/ana</code>.</td></tr>
+<tr><td><code>$</code></td><td>Você é usuário comum. Vira <code>#</code> quando você é o administrador (root).</td></tr>
+</table>
+</div>
+
+<p>O prompt muda conforme você anda pelas pastas. Repare na parte azul:</p>
+
+<pre class="term">$ cd Documentos
+$ cd projetos
+$ cd /etc
+$ cd</pre>
+
+<p>O último <code>cd</code>, sem nada depois, volta para a pasta pessoal. E quando alguém vira administrador, o <code>$</code> vira <code>#</code>, um aviso de "cuidado":</p>
+
+<pre class="term">$ sudo -i
+[sudo: authenticate] Senha:
+#> whoami
+root
+#> exit
+sair</pre>
+
+<div class="note">
+<strong>Nos exemplos do guia</strong>
+<p>As linhas com o prompt colorido são o que a pessoa digitou; as outras são a resposta do computador. O botão <strong>copiar</strong> copia só os comandos, sem o prompt.</p>
+</div>
+
+<hr>
+
+<h2>Seu primeiro comando</h2>
+
+<dl class="anatomy">
+  <dt>echo</dt><dd>De "eco": repete na tela o que recebeu.</dd>
+  <dt>"Olá, terminal!"</dt><dd>O texto a mostrar. As aspas mantêm tudo como uma coisa só.</dd>
+</dl>
+
+<pre class="term">$ echo "Olá, terminal!"
+Olá, terminal!</pre>
+
+<p>Digitar um comando sempre segue o mesmo ritmo: você escreve, aperta <kbd>Enter</kbd>, o computador responde e um prompt novo aparece. Enquanto o prompt não voltar, o comando ainda está rodando.</p>
+
+<hr>
+
+<h2>Digite menos: a tecla Tab</h2>
+<p>A tecla <kbd>Tab</kbd> completa nomes de comandos, pastas e arquivos. Digite o começo e aperte <kbd>Tab</kbd>:</p>
+
+<pre class="term"># você digita "cd Doc" e aperta Tab; o shell completa:
+$ cd Documentos/</pre>
+
+<p>Quando há mais de uma opção, o primeiro <kbd>Tab</kbd> completa só a parte em comum. Aperte <kbd>Tab</kbd> <strong>duas vezes</strong> para ver a lista:</p>
+
+<pre class="term"># você digita "cd D" e aperta Tab duas vezes:
+$ cd D
+Documentos/ Downloads/                          « as duas opções que começam com D</pre>
+
+<div class="tip">
+<strong>O Tab também acha erros</strong>
+<p>Se o <kbd>Tab</kbd> não completa, é porque não existe nada com esse começo. Isso evita erros de digitação, como <code>documentos</code> em vez de <code>Documentos</code>.</p>
+</div>
+
+<div class="try" data-goal="cwd:~/Documentos/projetos/site">
+<p class="try-task"><strong>Missão:</strong> entre na pasta <code>Documentos/projetos/site</code> usando <kbd>Tab</kbd> para completar cada nome. Digite <code>cd Doc</code>, aperte <kbd>Tab</kbd>, depois <code>pro</code> + <kbd>Tab</kbd>, depois <code>s</code> + <kbd>Tab</kbd>, e <kbd>Enter</kbd>.</p>
+</div>
+
+<hr>
+
+<h2>Histórico: reaproveitar comandos</h2>
+<p>O Bash guarda tudo o que você digita. Há quatro formas de voltar a um comando antigo, da mais simples à mais poderosa.</p>
+
+<h3>Forma 1: setas</h3>
+<p><kbd>↑</kbd> volta ao comando anterior; <kbd>↓</kbd> avança. Você pode editar o comando antes de apertar <kbd>Enter</kbd>.</p>
+
+<h3>Forma 2: o comando <code>history</code></h3>
+<p>Mostra a lista numerada de comandos digitados:</p>
+
+<pre class="term">$ history
+  495  sudo apt update
+  496  ls -l
+  497  cd Documentos
+  498  echo "Olá, terminal!"
+  499  history</pre>
+
+<p>Ela fica gravada no arquivo <code>~/.bash_history</code> quando você fecha o terminal. Para ver só os últimos, junte com <code>tail</code>: <code>history | tail -5</code> (o <code>|</code> é explicado em <a href="pipes.html">Pipes</a>).</p>
+
+<h3>Forma 3: atalhos com <code>!</code></h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Expressão</th><th>O que faz</th><th>Exemplo</th></tr>
+<tr><td><code>!!</code></td><td>Repete o último comando</td><td><code>sudo !!</code></td></tr>
+<tr><td><code>!n</code></td><td>Repete o comando número <em>n</em> do <code>history</code></td><td><code>!496</code></td></tr>
+<tr><td><code>!texto</code></td><td>Repete o último comando que começa com <em>texto</em></td><td><code>!echo</code></td></tr>
+</table>
+</div>
+
+<p>O uso mais famoso é o <code>sudo !!</code>, quando você esquece o <code>sudo</code>:</p>
+
+<pre class="term">$ apt update
+Erro: Não foi possível abrir arquivo de trava /var/lib/apt/lists/lock - open (13: Permissão negada)
+Erro: Não é possível travar o diretório /var/lib/apt/lists/
+$ sudo !!
+sudo apt update                                  « o Bash mostra o comando que montou
+[sudo: authenticate] Senha:
+Atingido:1 http://br.archive.ubuntu.com/ubuntu resolute InRelease
+...</pre>
+
+<h3>Forma 4: busca com <kbd>Ctrl</kbd>+<kbd>R</kbd></h3>
+<p>Aperte <kbd>Ctrl</kbd>+<kbd>R</kbd> e digite parte de um comando antigo. O Bash mostra o mais recente que combina:</p>
+
+<pre class="term" data-title="Ctrl+R: busca no histórico">(reverse-i-search)`upd': sudo apt update</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Durante a busca</th><th>Efeito</th></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>R</kbd> de novo</td><td>Mostra a ocorrência anterior</td></tr>
+<tr><td><kbd>Enter</kbd></td><td>Executa o comando encontrado</td></tr>
+<tr><td><kbd>→</kbd> ou <kbd>Esc</kbd></td><td>Coloca o comando na linha para você editar</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>G</kbd></td><td>Desiste da busca</td></tr>
+</table>
+</div>
+
+<h3>Qual forma usar?</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Situação</th><th>Use</th></tr>
+<tr><td>O comando foi agora há pouco</td><td><kbd>↑</kbd></td></tr>
+<tr><td>Esqueceu o <code>sudo</code></td><td><code>sudo !!</code></td></tr>
+<tr><td>Foi ontem e você lembra uma palavra</td><td><kbd>Ctrl</kbd>+<kbd>R</kbd></td></tr>
+<tr><td>Quer ver tudo o que fez</td><td><code>history</code></td></tr>
+</table>
+</div>
+
+<div class="try" data-goal="ran:^history">
+<p class="try-task"><strong>Missão:</strong> rode três comandos quaisquer (por exemplo <code>pwd</code>, <code>ls</code> e <code>whoami</code>), use <kbd>↑</kbd> para repetir um deles e depois veja a lista com <code>history</code>. O simulador não entende <code>!!</code> nem <kbd>Ctrl</kbd>+<kbd>R</kbd>; esses, teste no seu Ubuntu.</p>
+</div>
+
+<hr>
+
+<h2>Editar a linha sem o mouse</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>O que faz</th></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>Vai para o início da linha</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>E</kbd></td><td>Vai para o fim da linha</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>←</kbd> / <kbd>→</kbd></td><td>Pula uma palavra para trás / para frente</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>U</kbd></td><td>Apaga do cursor até o início da linha</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>Apaga do cursor até o fim da linha</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>Apaga a palavra antes do cursor</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Cola o que foi apagado com <kbd>Ctrl</kbd>+<kbd>U</kbd>, <kbd>K</kbd> ou <kbd>W</kbd></td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>Limpa a tela (igual ao comando <code>clear</code>)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Cancela o comando que está rodando, ou a linha atual</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Numa linha vazia, fecha o terminal (igual a <code>exit</code>)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Pausa o comando atual (veja <a href="jobs.html">Jobs</a>)</td></tr>
+</table>
+</div>
+
+<div class="warning">
+<strong>Atenção: Ctrl+C não copia</strong>
+<p>No terminal, <kbd>Ctrl</kbd>+<kbd>C</kbd> <strong>interrompe</strong> o comando em execução. Para copiar, use <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd>.</p>
+</div>
+
+<h3>Cancelar um comando que não termina</h3>
+<p>Alguns comandos rodam até você mandar parar. O <code>ping</code>, por exemplo, testa a conexão sem fim. O <kbd>Ctrl</kbd>+<kbd>C</kbd> aparece como <code>^C</code>:</p>
+
+<pre class="term">$ ping ubuntu.com
+PING ubuntu.com (185.125.190.20) 56(84) bytes of data.
+64 bytes from 185.125.190.20: icmp_seq=1 ttl=50 time=212 ms
+64 bytes from 185.125.190.20: icmp_seq=2 ttl=50 time=211 ms
+^C                                               « você apertou Ctrl+C
+--- ubuntu.com ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms</pre>
+
+<hr>
+
+<h2>Copiar e colar</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Ação</th><th>No terminal</th></tr>
+<tr><td>Copiar o texto selecionado</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd></td></tr>
+<tr><td>Colar</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd></td></tr>
+<tr><td>Colar a última seleção</td><td>Selecionar com o mouse e clicar com o botão do meio</td></tr>
+<tr><td>Pelo menu</td><td>Botão direito do mouse</td></tr>
+</table>
+</div>
+
+<div class="warning">
+<strong>Leia antes de colar comandos da internet</strong>
+<p>Um texto colado que termina com uma quebra de linha é executado na hora, sem você apertar <kbd>Enter</kbd>. Cole primeiro num editor de texto se não tiver certeza do que o comando faz.</p>
+</div>
+
+<hr>
+
+<h2>Senhas invisíveis</h2>
+<p>Quando um comando pede senha, como o <code>sudo</code>, <strong>nada aparece</strong> enquanto você digita: nem letras, nem asteriscos. É proposital, para ninguém ver o tamanho da sua senha. Digite normalmente e aperte <kbd>Enter</kbd>.</p>
+
+<pre class="term">$ sudo apt update
+[sudo: authenticate] Senha:                      « digite aqui, mesmo sem ver nada</pre>
+
+<hr>
+
+<h2>Abas, janelas e tamanho da letra</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>O que faz</th></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></td><td>Nova aba</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td><td>Nova janela</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd></td><td>Fecha a aba</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Page Up</kbd> / <kbd>Page Down</kbd></td><td>Troca de aba</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd></td><td>Aumenta / diminui a letra</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>0</kbd></td><td>Volta a letra ao tamanho normal</td></tr>
+</table>
+</div>
+
+<h2>Limpar a tela e sair</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>clear</code> ou <kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>Limpa a tela. O histórico continua lá.</td></tr>
+<tr><td><code>reset</code></td><td>Conserta um terminal "bagunçado", com símbolos estranhos depois de mostrar um arquivo binário.</td></tr>
+<tr><td><code>exit</code> ou <kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Fecha o terminal, ou encerra a conexão num servidor remoto.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"comando não encontrado" com sugestão de instalação</strong>
+<pre class="term">$ sl
+Comando 'sl' não encontrado, mas poder ser instalado com:
+sudo apt install sl</pre>
+<p><strong>O que aconteceu:</strong> o comando existe, mas o programa não está instalado. O Ubuntu já sugere o pacote. O "poder" no lugar de "pode" é um erro da tradução original do Ubuntu.</p>
+<p><strong>Como resolver:</strong> rode o comando sugerido, se quiser o programa.</p>
+</div>
+
+<div class="cenario">
+<strong>"comando não encontrado" sem sugestão</strong>
+<pre class="term">$ Ls
+Ls: comando não encontrado</pre>
+<p><strong>O que aconteceu:</strong> não existe nenhum programa com esse nome. O Linux diferencia maiúsculas: <code>Ls</code> não é <code>ls</code>.</p>
+<p><strong>Como resolver:</strong> confira a digitação. Use <kbd>Tab</kbd> para completar o nome do comando.</p>
+</div>
+
+<div class="cenario">
+<strong>Apareceu um <code>&gt;</code> e nada acontece</strong>
+<pre class="term">$ echo "Olá
+&gt;
+&gt;</pre>
+<p><strong>O que aconteceu:</strong> você abriu aspas e não fechou. O <code>&gt;</code> é o shell pedindo o resto do comando.</p>
+<p><strong>Como resolver:</strong> aperte <kbd>Ctrl</kbd>+<kbd>C</kbd> e digite de novo, fechando as aspas.</p>
+</div>
+
+<div class="cenario">
+<strong>O terminal "travou"</strong>
+<p><strong>O que aconteceu:</strong> algum comando ainda está rodando, ou esperando você digitar algo (como uma senha ou um texto).</p>
+<p><strong>Como resolver:</strong> aperte <kbd>Ctrl</kbd>+<kbd>C</kbd>. Se a <strong>janela inteira</strong> do Ubuntu parou de responder, o problema é outro: veja <a href="travamentos.html">Quando o Sistema Trava</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>Apareceu <code>^V</code> ao colar</strong>
+<p><strong>O que aconteceu:</strong> você usou <kbd>Ctrl</kbd>+<kbd>V</kbd>, que no terminal tem outra função.</p>
+<p><strong>Como resolver:</strong> use <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Esqueci o sudo</h3>
+<p>Você digitou <code>apt update</code> e recebeu erro de permissão. Complete para repetir o último comando com <code>sudo</code>:</p>
+<div class="ex-code">sudo <input data-answer="!!" aria-label="expressão"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Qual é o meu shell?</h3>
+<p>Complete o comando que mostra o shell em uso:</p>
+<div class="ex-code">echo <input data-answer="$SHELL" aria-label="variável"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Os últimos comandos</h3>
+<p>Complete para ver o histórico de comandos:</p>
+<div class="ex-code"><input data-answer="history" aria-label="comando"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Qual atalho busca um comando antigo no histórico?</p>
+<label><input type="radio" name="q4"> <kbd>Ctrl</kbd>+<kbd>F</kbd></label>
+<label><input type="radio" name="q4"> <kbd>Ctrl</kbd>+<kbd>R</kbd></label>
+<label><input type="radio" name="q4"> <kbd>Ctrl</kbd>+<kbd>H</kbd></label>
+<label><input type="radio" name="q4"> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd></label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. O prompt é <code>root@notebook:/etc#</code>. O que isso indica?</p>
+<label><input type="radio" name="q5"> Você é a usuária ana, na pasta pessoal.</label>
+<label><input type="radio" name="q5"> Você está no computador "etc".</label>
+<label><input type="radio" name="q5"> Você é o administrador (root), na pasta <code>/etc</code>.</label>
+<label><input type="radio" name="q5"> O terminal travou.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">6. Como copiar um texto selecionado no terminal?</p>
+<label><input type="radio" name="q6"> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd></label>
+<label><input type="radio" name="q6"> <kbd>Ctrl</kbd>+<kbd>C</kbd></label>
+<label><input type="radio" name="q6"> <kbd>Ctrl</kbd>+<kbd>Insert</kbd>+<kbd>C</kbd></label>
+<label><input type="radio" name="q6"> <kbd>Alt</kbd>+<kbd>C</kbd></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Abra com <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd>. O prompt <code>ana@notebook:~$</code> diz quem, onde e se é root (<code>#</code>).</li>
+  <li><kbd>Tab</kbd> completa nomes; <kbd>Tab</kbd> duas vezes lista as opções.</li>
+  <li><kbd>↑</kbd>, <code>history</code>, <code>sudo !!</code> e <kbd>Ctrl</kbd>+<kbd>R</kbd> reaproveitam comandos.</li>
+  <li><kbd>Ctrl</kbd>+<kbd>C</kbd> cancela; copiar e colar usam <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd>/<kbd>V</kbd>.</li>
+  <li>Senhas não aparecem enquanto você digita. Se a tela inteira travar, existe o TTY (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>).</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

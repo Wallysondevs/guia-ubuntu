@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Flatpak — instalar programas do Flathub | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a instalar o Flatpak no Ubuntu, adicionar o Flathub, procurar, instalar, rodar, atualizar e remover aplicativos, e quando escolher Flatpak, Snap, apt ou AppImage.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Flatpak</span></h1>
+
+<p class="intro">O Flatpak é um formato de aplicativo que traz o programa junto com tudo o que ele precisa e o roda isolado do resto do sistema, como o <a href="snap.html">Snap</a>. A principal loja de Flatpaks é o <strong>Flathub</strong> (flathub.org), usada por quase todas as distribuições Linux. Ele não vem instalado no Ubuntu, mas é fácil de adicionar.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que são aplicativo, <em>runtime</em> e <em>remote</em> no Flatpak.</li>
+  <li>Como instalar o Flatpak e adicionar o Flathub.</li>
+  <li>Procurar, instalar, rodar, atualizar e remover aplicativos.</li>
+  <li>A diferença entre instalação de sistema e de usuário.</li>
+  <li>Quando escolher Flatpak, Snap, apt ou AppImage.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes do comando: três palavras novas</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Termo</th><th>O que é</th><th>Exemplo</th></tr>
+<tr><td><strong>Aplicativo</strong></td><td>O programa em si, identificado por um ID em formato de "domínio ao contrário"</td><td><code>org.gimp.GIMP</code>, <code>com.spotify.Client</code></td></tr>
+<tr><td><strong>Runtime</strong></td><td>Um pacote de bibliotecas compartilhado por vários aplicativos (ex.: tudo o que apps GNOME precisam). É baixado uma vez e reaproveitado</td><td><code>org.gnome.Platform</code></td></tr>
+<tr><td><strong>Remote</strong></td><td>O nome que o Flatpak dá a um repositório de onde baixa apps</td><td><code>flathub</code></td></tr>
+</table>
+</div>
+
+<p>Por causa dos runtimes, o <strong>primeiro</strong> aplicativo que você instala pode baixar centenas de megabytes. Os seguintes, que usam o mesmo runtime, ficam bem menores.</p>
+
+<hr>
+
+<h2>Instalação (uma vez só)</h2>
+
+<ol class="passo">
+  <li><strong>Instalar o programa <code>flatpak</code></strong> com o apt.
+    <pre class="term">$ sudo apt install flatpak</pre></li>
+  <li><strong>Adicionar o Flathub</strong> como remote.
+    <dl class="anatomy">
+      <dt>flatpak</dt><dd>O programa.</dd>
+      <dt>remote-add</dt><dd>Subcomando: adicionar um repositório.</dd>
+      <dt>--if-not-exists</dt><dd>Não dá erro se o Flathub já estiver adicionado.</dd>
+      <dt>flathub</dt><dd>O nome que você dá ao remote.</dd>
+      <dt>https://dl.flathub.org/repo/flathub.flatpakrepo</dt><dd>O endereço do arquivo de configuração do Flathub.</dd>
+    </dl>
+    <pre class="term">$ flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+$ flatpak remotes
+Nome    Opções
+flathub system                      « adicionado para todos os usuários</pre></li>
+  <li><strong>Sair e entrar de novo na sessão</strong>, para os aplicativos aparecerem no menu.</li>
+</ol>
+
+<div class="note">
+<strong>E na Central de Aplicativos?</strong>
+<p>A Central de Aplicativos do Ubuntu mostra apenas snaps e pacotes <code>.deb</code>. Para instalar Flatpaks pela interface gráfica, use o site do Flathub (botão "Install") ou instale o GNOME Software com o plugin: <code>sudo apt install gnome-software gnome-software-plugin-flatpak</code>.</p>
+</div>
+
+<hr>
+
+<h2>Procurar um aplicativo: <code>search</code></h2>
+
+<dl class="anatomy">
+  <dt>flatpak</dt><dd>O programa.</dd>
+  <dt>search</dt><dd>Procura nos remotes configurados.</dd>
+  <dt>gimp</dt><dd>A palavra a procurar (no nome e na descrição).</dd>
+</dl>
+
+<pre class="term">$ flatpak search gimp
+Nome                                      Descrição                     ID de aplicativo                   Versão  Ramo    Remotos
+Programa de manipulação de imagem do GNU  High-end image creation…      org.gimp.GIMP                      3.2.6   stable  flathub   « este é o GIMP
+GIMP User Manual                          GIMP User Manual              org.gimp.GIMP.Manual               2.10    2.10    flathub
+Resynthesizer                             Resynthesizer GIMP Plugins    org.gimp.GIMP.Plugin.Resynthesizer 3.0.1   3       flathub</pre>
+
+<p>A coluna que importa é <strong>ID de aplicativo</strong>: é ela que você usa nos outros comandos. As versões mudam com o tempo; as do exemplo são ilustrativas.</p>
+
+<hr>
+
+<h2>Instalar: <code>install</code></h2>
+
+<dl class="anatomy">
+  <dt>flatpak install</dt><dd>Subcomando de instalar.</dd>
+  <dt>flathub</dt><dd>De qual remote (opcional se só existe um).</dd>
+  <dt>org.gimp.GIMP</dt><dd>O ID do aplicativo.</dd>
+</dl>
+
+<pre class="term">$ flatpak install flathub org.gimp.GIMP
+Procurando por correspondências…
+Runtime exigido para org.gimp.GIMP/x86_64/stable (runtime/org.gnome.Platform/x86_64/49) localizado no remoto flathub
+Você deseja instalá-lo? [Y/n]: y                     « o runtime vem junto na primeira vez
+…
+Instalação concluída.</pre>
+
+<p>A saída muda conforme o app; o trecho acima é ilustrativo. O importante: confirme com <kbd>y</kbd> quando ele perguntar.</p>
+
+<div class="tip">
+<strong>Sem perguntas</strong>
+<p>Use <code>-y</code> para responder "sim" a tudo: <code>flatpak install -y flathub org.gimp.GIMP</code>. Útil em scripts.</p>
+</div>
+
+<h3>Sistema ou usuário?</h3>
+<p>Por padrão, o Flatpak instala para <strong>todos os usuários</strong> (instalação de sistema) e pede a senha numa janela. Com <code>--user</code>, instala só para você, na sua pasta pessoal, sem senha:</p>
+
+<pre class="term">$ flatpak install --user flathub org.gimp.GIMP</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>Sistema (padrão)</th><th><code>--user</code></th></tr>
+<tr><td>Quem pode usar</td><td>Todos os usuários</td><td>Só você</td></tr>
+<tr><td>Onde fica</td><td><code>/var/lib/flatpak</code></td><td><code>~/.local/share/flatpak</code></td></tr>
+<tr><td>Pede senha</td><td>Sim</td><td>Não</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Rodar, listar, atualizar e remover</h2>
+
+<h3>Rodar: <code>run</code></h3>
+<p>Depois de sair e entrar na sessão, o app aparece no menu. Pelo terminal:</p>
+<pre class="term">$ flatpak run org.gimp.GIMP</pre>
+
+<h3>Listar: <code>list</code></h3>
+<pre class="term">$ flatpak list --app
+Nome          ID de aplicativo        Versão  Ramo    Instalação
+GIMP          org.gimp.GIMP           3.2.6   stable  system</pre>
+
+<p>Sem <code>--app</code>, a lista inclui também os runtimes (Mesa, GNOME Application Platform, temas…), que você não instalou diretamente:</p>
+
+<pre class="term">$ flatpak list
+Nome                 ID de aplicativo            Versão Ramo        Instalação
+Mesa                 …esktop.Platform.GL.default 26.1.4 25.08       user
+GNOME Application P… org.gnome.Platform                 49          user     « um runtime
+Yaru Gtk Theme       org.gtk.Gtk3theme.Yaru             3.22        user</pre>
+
+<h3>Detalhes: <code>info</code></h3>
+<pre class="term">$ flatpak info org.gnome.Platform//49
+
+GNOME Application Platform version 49 - Shared libraries used by GNOME
+applications
+
+        ID: org.gnome.Platform
+       Ref: runtime/org.gnome.Platform/x86_64/49
+      Arq.: x86_64
+      Ramo: 49
+   Licença: GPL-2.0+
+    Origem: flathub
+Instalação: user</pre>
+
+<h3>Atualizar: <code>update</code></h3>
+<pre class="term">$ flatpak update</pre>
+<p>Atualiza todos os aplicativos e runtimes. O <code>sudo apt upgrade</code> <strong>não</strong> atualiza Flatpaks; são sistemas separados (veja <a href="atualizacoes.html">Atualizações</a>).</p>
+
+<h3>Remover: <code>uninstall</code></h3>
+<dl class="anatomy">
+  <dt>flatpak uninstall</dt><dd>Remove um aplicativo.</dd>
+  <dt>--delete-data</dt><dd>Opcional: apaga também as configurações do app em <code>~/.var/app/</code>.</dd>
+  <dt>org.gimp.GIMP</dt><dd>O ID.</dd>
+</dl>
+
+<pre class="term">$ flatpak uninstall org.gimp.GIMP
+# depois, limpe runtimes que nenhum app usa mais
+$ flatpak uninstall --unused</pre>
+
+<p>O <code>--unused</code> é o equivalente do <code>apt autoremove</code>: tira runtimes que ficaram sobrando e libera espaço.</p>
+
+<hr>
+
+<h2>Flatpak, Snap, apt ou AppImage?</h2>
+<p>Muitos programas existem em mais de um formato. Esta tabela ajuda a escolher:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Formato</th><th>Vantagens</th><th>Desvantagens</th><th>Melhor para</th></tr>
+<tr><td><code>apt</code> (.deb)</td><td>Integrado ao sistema, leve, testado pelo Ubuntu</td><td>Versões podem ser antigas numa LTS</td><td>Ferramentas de terminal, servidores, bibliotecas</td></tr>
+<tr><td>Snap</td><td>Vem no Ubuntu, atualiza sozinho, isolado</td><td>Abre um pouco mais devagar na primeira vez</td><td>Apps desktop que a Canonical publica (Firefox, Chromium)</td></tr>
+<tr><td>Flatpak</td><td>Enorme catálogo no Flathub, isolado, versões recentes</td><td>Precisa instalar; runtimes ocupam espaço</td><td>Apps desktop que não existem como snap, ou que você quer na versão mais nova</td></tr>
+<tr><td>AppImage</td><td>Um arquivo só, roda sem instalar</td><td>Não atualiza sozinho, sem isolamento</td><td>Testar um programa rapidamente</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Evite duplicar</strong>
+<p>Tenha cada programa num formato só. Com o mesmo app instalado via apt e Flatpak, aparecem dois ícones iguais no menu e as configurações ficam em lugares diferentes.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"não instalado" ao rodar ou remover</strong>
+<pre class="term">$ flatpak run org.exemplo.Editor
+erro: app/org.exemplo.Editor/x86_64/master não instalado
+$ flatpak uninstall org.exemplo.Editor
+erro: Nenhuma ref instalada localizada para “org.exemplo.Editor”</pre>
+<p><strong>O que aconteceu:</strong> o ID está errado ou o app não está instalado. Repare que o Flatpak diferencia maiúsculas: <code>org.gimp.gimp</code> não é <code>org.gimp.GIMP</code>.</p>
+<p><strong>Como resolver:</strong> copie o ID exato de <code>flatpak list --app</code> ou de <code>flatpak search</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"ID inválido"</strong>
+<pre class="term">$ flatpak run gimp
+erro: ID inválido gimp: Nome deve conter pelo menos 2 pontos</pre>
+<p><strong>O que aconteceu:</strong> você usou o nome comum do programa. O Flatpak exige o ID completo, com pelo menos dois pontos.</p>
+<p><strong>Como resolver:</strong> <code>flatpak run org.gimp.GIMP</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O app não aparece no menu</strong>
+<p><strong>O que aconteceu:</strong> foi a primeira instalação de Flatpak e a sessão ainda não carregou o caminho dos apps Flatpak.</p>
+<p><strong>Como resolver:</strong> saia da sessão e entre de novo. Enquanto isso, rode pelo terminal com <code>flatpak run ID</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O app não enxerga uma pasta</strong>
+<p><strong>O que aconteceu:</strong> por segurança, cada Flatpak só acessa as pastas que declarou. Um app pode não ver um HD externo, por exemplo.</p>
+<p><strong>Como resolver:</strong> libere a pasta para aquele app:</p>
+<pre class="term">$ flatpak override --user --filesystem=/media/ana/HD org.gimp.GIMP</pre>
+<p>Para gerenciar permissões pela interface, instale o app <strong>Flatseal</strong> (<code>com.github.tchx84.Flatseal</code>).</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>flatpak remote-add --if-not-exists nome URL</code></td><td>Adiciona um repositório</td></tr>
+<tr><td><code>flatpak remotes</code></td><td>Lista os repositórios</td></tr>
+<tr><td><code>flatpak search termo</code></td><td>Procura apps</td></tr>
+<tr><td><code>flatpak install [remote] ID</code></td><td>Instala (<code>-y</code> sem perguntas; <code>--user</code> só para você)</td></tr>
+<tr><td><code>flatpak run ID</code></td><td>Abre o app</td></tr>
+<tr><td><code>flatpak list [--app]</code></td><td>Lista instalados (<code>--app</code> esconde runtimes)</td></tr>
+<tr><td><code>flatpak info ID</code></td><td>Detalhes de um app ou runtime</td></tr>
+<tr><td><code>flatpak update</code></td><td>Atualiza tudo</td></tr>
+<tr><td><code>flatpak uninstall ID</code></td><td>Remove (<code>--delete-data</code> apaga as configurações)</td></tr>
+<tr><td><code>flatpak uninstall --unused</code></td><td>Remove runtimes sem uso</td></tr>
+<tr><td><code>flatpak override --user --filesystem=PASTA ID</code></td><td>Libera uma pasta para um app</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Instalar do Flathub</h3>
+<p>Complete para instalar o OBS Studio (<code>com.obsproject.Studio</code>) do Flathub:</p>
+<div class="ex-code">flatpak <input data-answer="install" aria-label="subcomando"> flathub com.obsproject.Studio</div>
+</div>
+
+<div class="exercise">
+<h3>2. Só os aplicativos</h3>
+<p>Complete para listar os apps instalados, sem os runtimes:</p>
+<div class="ex-code">flatpak list <input data-answer="--app" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Liberar espaço</h3>
+<p>Complete para remover runtimes que nenhum aplicativo usa mais:</p>
+<div class="ex-code">flatpak uninstall <input data-answer="--unused" aria-label="opção"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Por que a primeira instalação de um Flatpak costuma ser grande?</p>
+<label><input type="radio" name="q4"> Porque o Flatpak baixa o código-fonte e compila.</label>
+<label><input type="radio" name="q4"> Porque baixa também o runtime, que depois é reaproveitado por outros apps.</label>
+<label><input type="radio" name="q4"> Porque instala duas vezes, uma para cada usuário.</label>
+<label><input type="radio" name="q4"> Porque baixa todas as versões do app.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. O <code>sudo apt upgrade</code> atualiza os aplicativos Flatpak?</p>
+<label><input type="radio" name="q5"> Sim, sempre.</label>
+<label><input type="radio" name="q5"> Só os instalados com <code>--user</code>.</label>
+<label><input type="radio" name="q5"> Só os runtimes.</label>
+<label><input type="radio" name="q5"> Não. Para eles, use <code>flatpak update</code>.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Flatpak = app + dependências, isolado. Loja principal: Flathub.</li>
+  <li>Instalação inicial: <code>sudo apt install flatpak</code> + <code>flatpak remote-add … flathub</code> + sair e entrar na sessão.</li>
+  <li>Use sempre o <strong>ID</strong> do app (<code>org.gimp.GIMP</code>), não o nome comum.</li>
+  <li><code>search</code>, <code>install</code>, <code>run</code>, <code>list --app</code>, <code>update</code>, <code>uninstall</code>, <code>uninstall --unused</code>.</li>
+  <li>Prefira um formato por programa; apt para ferramentas de terminal, Snap/Flatpak para apps desktop.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

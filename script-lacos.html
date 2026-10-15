@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Laços — for, while, until, break e continue no Bash | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a repetir tarefas em scripts Bash com for, while e until: cada parte explicada, como percorrer arquivos e linhas com segurança, erros comuns e terminal simulado para praticar.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Laços</span></h1>
+
+<p class="intro">Um <strong>laço</strong> (em inglês, <em>loop</em>) repete comandos. É ele que transforma "renomear uma foto" em "renomear as 300 fotos da pasta". O Bash tem três laços: <code>for</code>, <code>while</code> e <code>until</code>.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A estrutura do <code>for</code>, parte por parte, e cinco jeitos de montar a lista que ele percorre.</li>
+  <li>Como percorrer arquivos com nomes que têm espaço sem quebrar nada.</li>
+  <li>Quando usar <code>while</code> e <code>until</code>, e como ler um arquivo linha por linha.</li>
+  <li>Como interromper (<code>break</code>), pular (<code>continue</code>) e escapar de um laço infinito.</li>
+</ul>
+</div>
+
+<p>Antes, leia <a href="script-variaveis.html">Variáveis e Argumentos</a> e <a href="script-condicionais.html">Condicionais</a>. Os exemplos rodam na máquina fictícia <strong>notebook</strong>, com a usuária <strong>ana</strong>.</p>
+
+<hr>
+
+<h2>A ideia: "para cada item, faça"</h2>
+<p>Pense numa lista de compras. Você pega o <strong>primeiro</strong> item, coloca no carrinho, pega o <strong>próximo</strong>, coloca no carrinho… até a lista acabar. O <code>for</code> faz isso com qualquer lista de palavras.</p>
+
+<pre class="syntax">for VARIÁVEL in LISTA; do
+  comandos que usam $VARIÁVEL
+done</pre>
+
+<dl class="anatomy">
+  <dt>for fruta</dt><dd>"Para cada…": cria a variável <code>fruta</code>, que vai receber um item por vez.</dd>
+  <dt>in banana maçã uva</dt><dd>A lista. Cada palavra separada por espaço é um item.</dd>
+  <dt>; do</dt><dd>"Faça": começa o bloco que será repetido.</dd>
+  <dt>echo "Eu gosto de $fruta"</dt><dd>O comando repetido. <code>$fruta</code> vale "banana", depois "maçã", depois "uva".</dd>
+  <dt>; done</dt><dd>"Feito": fim do bloco.</dd>
+</dl>
+
+<pre class="term">$ for fruta in banana maçã uva; do echo "Eu gosto de $fruta"; done
+Eu gosto de banana                                  « 1ª volta: fruta=banana
+Eu gosto de maçã                                    « 2ª volta: fruta=maçã
+Eu gosto de uva                                     « 3ª volta: fruta=uva</pre>
+
+<p>Cada repetição se chama <strong>volta</strong> ou <strong>iteração</strong>. Quando a lista acaba, o Bash segue para o que vem depois do <code>done</code>.</p>
+
+<p>Em scripts, escrevemos o mesmo laço em várias linhas, com o bloco recuado:</p>
+
+<pre class="file" data-file="frutas.sh">#!/usr/bin/env bash
+for fruta in banana maçã uva; do
+  echo "Eu gosto de $fruta"
+done</pre>
+
+<hr>
+
+<h2>Cinco formas de montar a lista do for</h2>
+
+<h3>1. Palavras escritas à mão</h3>
+<pre class="term">$ for servidor in web1 web2 banco; do echo "Verificando $servidor"; done
+Verificando web1
+Verificando web2
+Verificando banco</pre>
+
+<h3>2. Sequência com chaves <code>{1..5}</code></h3>
+<p>As chaves geram a lista antes do laço começar (veja <a href="criar.html">touch e mkdir</a>):</p>
+<pre class="term">$ for i in {1..5}; do echo "Volta $i"; done
+Volta 1
+Volta 2
+Volta 3
+Volta 4
+Volta 5</pre>
+
+<h3>3. Arquivos com curinga <code>*</code></h3>
+<p>É o uso mais comum. O <code>*.jpg</code> vira a lista de arquivos que terminam em <code>.jpg</code> (veja <a href="curingas.html">Curingas</a>):</p>
+<pre class="term" data-cwd="~/viagem">$ ls fotos
+ festa.jpg  'minha foto.jpg'   praia.jpg   serra.jpg
+$ for f in fotos/*.jpg; do echo "Achei: $f"; done
+Achei: fotos/festa.jpg
+Achei: fotos/minha foto.jpg                         « o espaço não atrapalhou
+Achei: fotos/praia.jpg
+Achei: fotos/serra.jpg</pre>
+
+<h3>4. A saída de um comando <code>$(…)</code></h3>
+<pre class="term">$ for n in $(seq 1 3); do echo "linha $n"; done
+linha 1
+linha 2
+linha 3</pre>
+<p>Cuidado: <code>$(…)</code> quebra a saída em cada espaço. Funciona bem com números e palavras simples, mas <strong>não com nomes de arquivo</strong>. Veja "Quando não funciona", mais abaixo.</p>
+
+<h3>5. Estilo C: contador com início, condição e passo</h3>
+<dl class="anatomy">
+  <dt>for ((</dt><dd>Abre o laço em estilo C (parênteses duplos).</dd>
+  <dt>i = 0;</dt><dd>Início: a variável começa em 0.</dd>
+  <dt>i &lt; 10;</dt><dd>Condição: continua enquanto <code>i</code> for menor que 10.</dd>
+  <dt>i += 3</dt><dd>Passo: soma 3 depois de cada volta.</dd>
+  <dt>)); do … done</dt><dd>Fecha os parênteses e define o bloco.</dd>
+</dl>
+<pre class="term">$ for ((i = 0; i &lt; 10; i += 3)); do echo "i vale $i"; done
+i vale 0
+i vale 3
+i vale 6
+i vale 9                                            « 12 não é menor que 10: o laço para</pre>
+
+<div class="try" data-goal="file:~/nota1.txt,file:~/nota2.txt,file:~/nota3.txt,file:~/nota4.txt,file:~/nota5.txt">
+<p class="try-task"><strong>Missão:</strong> use um <code>for</code> para criar os arquivos <code>nota1.txt</code> até <code>nota5.txt</code>. Dica: <code>for i in {1..5}; do touch "nota$i.txt"; done</code>. Depois rode <code>for f in *.txt; do echo "arquivo: $f"; done</code> e veja o laço percorrer os arquivos que você criou.</p>
+</div>
+
+<hr>
+
+<h2>Exemplo prático: renomear várias fotos</h2>
+<p>A câmera salvou as fotos como <code>.jpeg</code> e você quer <code>.jpg</code>. Uma por uma, seriam dezenas de <code>mv</code>. Com um laço, é um script de 4 linhas:</p>
+
+<pre class="file" data-file="renomear.sh">#!/usr/bin/env bash
+# Troca a extensão .jpeg por .jpg em todos os arquivos da pasta fotos
+
+for arquivo in fotos/*.jpeg; do
+  novo="${arquivo%.jpeg}.jpg"
+  mv -v "$arquivo" "$novo"
+done</pre>
+
+<dl class="anatomy">
+  <dt>for arquivo in fotos/*.jpeg</dt><dd>Percorre cada arquivo .jpeg da pasta.</dd>
+  <dt>novo="${arquivo%.jpeg}.jpg"</dt><dd><code>${arquivo%.jpeg}</code> é o nome sem o final ".jpeg"; depois colamos ".jpg".</dd>
+  <dt>mv -v "$arquivo" "$novo"</dt><dd>Renomeia e mostra o que fez. As aspas protegem nomes com espaço.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/viagem">$ ./renomear.sh
+renomeado 'fotos/festa.jpeg' -&gt; 'fotos/festa.jpg'
+renomeado 'fotos/minha foto.jpeg' -&gt; 'fotos/minha foto.jpg'
+renomeado 'fotos/praia.jpeg' -&gt; 'fotos/praia.jpg'
+renomeado 'fotos/serra.jpeg' -&gt; 'fotos/serra.jpg'</pre>
+
+<div class="tip">
+<strong>Teste antes de fazer de verdade</strong>
+<p>Troque o <code>mv -v</code> por <code>echo mv</code> na primeira vez. O laço só mostra o que <em>faria</em>, sem mexer em nada. Se a lista estiver certa, volte o <code>mv</code>.</p>
+</div>
+
+<hr>
+
+<h2>while: repetir enquanto for verdade</h2>
+<p>O <code>while</code> ("enquanto") não percorre uma lista: ele repete enquanto um comando ou teste der certo. Use quando você não sabe de antemão quantas voltas serão.</p>
+
+<pre class="syntax">while CONDIÇÃO; do
+  comandos
+done</pre>
+
+<pre class="file" data-file="contagem.sh">#!/usr/bin/env bash
+n=3
+while [ "$n" -gt 0 ]; do
+  echo "Faltam $n..."
+  n=$((n - 1))
+  sleep 1
+done
+echo "Pronto!"</pre>
+
+<dl class="anatomy">
+  <dt>while [ "$n" -gt 0 ]</dt><dd>Enquanto <code>n</code> for maior que 0…</dd>
+  <dt>n=$((n - 1))</dt><dd>…diminui 1. Sem essa linha, o laço nunca terminaria.</dd>
+  <dt>sleep 1</dt><dd>Espera 1 segundo entre as voltas.</dd>
+</dl>
+
+<pre class="term">$ ./contagem.sh
+Faltam 3...
+Faltam 2...
+Faltam 1...
+Pronto!</pre>
+
+<h3>Ler um arquivo linha por linha</h3>
+<p>Este é o uso mais importante do <code>while</code>. O <code>read</code> lê uma linha por vez, e o laço acaba quando o arquivo termina.</p>
+
+<pre class="file" data-file="ler.sh">#!/usr/bin/env bash
+numero=1
+while IFS= read -r linha; do
+  echo "$numero: $linha"
+  numero=$((numero + 1))
+done &lt; frutas.txt</pre>
+
+<dl class="anatomy">
+  <dt>IFS=</dt><dd>Não corta os espaços do começo e do fim da linha.</dd>
+  <dt>read -r linha</dt><dd>Lê uma linha para a variável <code>linha</code>. O <code>-r</code> não trata a barra <code>\</code> como especial.</dd>
+  <dt>done &lt; frutas.txt</dt><dd>O arquivo entra no laço inteiro pelo <code>&lt;</code> (veja <a href="redirecionamento.html">Redirecionamento</a>).</dd>
+</dl>
+
+<pre class="term" data-cwd="~/viagem">$ cat frutas.txt
+banana
+maçã
+laranja
+$ ./ler.sh
+1: banana
+2: maçã
+3: laranja</pre>
+
+<h3>until: repetir até ficar verdade</h3>
+<p><code>until</code> ("até que") é o contrário do <code>while</code>: repete enquanto a condição for <strong>falsa</strong>.</p>
+<pre class="term">$ n=1; until [ $n -gt 3 ]; do echo "n=$n"; n=$((n+1)); done
+n=1
+n=2
+n=3</pre>
+<p>Um uso real: <code>until ping -c 1 192.168.0.1 &gt; /dev/null; do sleep 5; done; echo "A rede voltou"</code> espera a rede voltar.</p>
+
+<hr>
+
+<h2>Controlar o laço: break e continue</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>break</code></td><td>Sai do laço na hora ("quebra" o laço).</td></tr>
+<tr><td><code>continue</code></td><td>Pula o resto desta volta e vai para a próxima.</td></tr>
+</table>
+</div>
+
+<pre class="term">$ for i in {1..10}; do if [ $i -eq 4 ]; then break; fi; echo $i; done
+1
+2
+3                                                   « no 4, o break encerrou o laço
+$ for i in {1..5}; do if [ $i -eq 3 ]; then continue; fi; echo $i; done
+1
+2
+4                                                   « o 3 foi pulado
+5</pre>
+
+<h3>Laço infinito (de propósito)</h3>
+<p><code>while true</code> nunca termina sozinho. É útil para monitorar algo de tempos em tempos. Para parar, aperte <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
+<pre class="term">$ while true; do date +%T; sleep 2; done
+10:30:00
+10:30:02
+10:30:04
+^C                                                  « Ctrl+C interrompe</pre>
+
+<hr>
+
+<h2>Formas diferentes de processar vários arquivos</h2>
+<p>Tarefa: mostrar o nome de cada <code>.jpg</code>, inclusive em subpastas, sem quebrar nomes com espaço.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td>for com curinga</td><td><code>for f in fotos/*.jpg; do …; done</code></td><td>Os arquivos estão numa pasta só. É a forma mais simples e segura.</td></tr>
+<tr><td>for com <code>**</code></td><td><code>shopt -s globstar; for f in **/*.jpg; do …; done</code></td><td>Incluir subpastas, ainda com for.</td></tr>
+<tr><td>find + while read</td><td><code>find . -name "*.jpg" -print0 | while IFS= read -r -d "" f; do …; done</code></td><td>Muitas pastas e filtros do <code>find</code> (data, tamanho).</td></tr>
+<tr><td>find -exec</td><td><code>find . -name "*.jpg" -exec echo {} \;</code></td><td>Um comando só por arquivo, sem laço (veja <a href="find.html">find</a>).</td></tr>
+<tr><td>xargs</td><td><code>find . -name "*.jpg" -print0 | xargs -0 ls -l</code></td><td>Passar muitos arquivos de uma vez a um comando (veja <a href="pipes.html">Pipes e xargs</a>).</td></tr>
+</table>
+</div>
+
+<pre class="term" data-cwd="~/viagem">$ find fotos -name "*.jpg" -print0 | while IFS= read -r -d "" f; do echo "-&gt; $f"; done
+-&gt; fotos/serra.jpg
+-&gt; fotos/praia.jpg
+-&gt; fotos/minha foto.jpg
+-&gt; fotos/festa.jpg</pre>
+<p>O <code>find</code> não ordena: a ordem depende de como os arquivos estão gravados no disco.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Nomes com espaço viraram dois itens</strong>
+<pre class="term" data-cwd="~/viagem">$ for f in $(ls fotos); do echo "[$f]"; done
+[festa.jpg]
+[minha]                                             « "minha foto.jpg" foi partido
+[foto.jpg]
+[praia.jpg]
+[serra.jpg]</pre>
+<p><strong>O que aconteceu:</strong> <code>$(ls …)</code> devolve um texto, e o Bash corta esse texto em cada espaço.</p>
+<p><strong>Como resolver:</strong> nunca use <code>$(ls)</code> num laço. Use o curinga direto: <code>for f in fotos/*; do echo "[$f]"; done</code>. E sempre <code>"$f"</code> entre aspas dentro do laço.</p>
+</div>
+
+<div class="cenario">
+<strong>O laço rodou uma vez com "*.pdf"</strong>
+<pre class="term">$ for f in *.pdf; do echo "Achei: $f"; done
+Achei: *.pdf</pre>
+<p><strong>O que aconteceu:</strong> não havia nenhum PDF. Quando o curinga não encontra nada, o Bash entrega o texto <code>*.pdf</code> como está, e o laço roda uma vez com ele.</p>
+<p><strong>Como resolver:</strong> no começo do script, ative <code>shopt -s nullglob</code> (curinga sem resultado vira lista vazia). Outra opção é testar dentro do laço: <code>[ -e "$f" ] || continue</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>A última linha do arquivo sumiu</strong>
+<pre class="term">$ printf "a\nb" &gt; semfim.txt
+$ while read -r l; do echo "[$l]"; done &lt; semfim.txt
+[a]</pre>
+<p><strong>O que aconteceu:</strong> a última linha não termina com "Enter" (quebra de linha). O <code>read</code> leu o "b", mas devolveu código 1, e o <code>while</code> parou antes de usá-lo. Acontece com arquivos criados no Windows ou em alguns editores.</p>
+<p><strong>Como resolver:</strong> <code>while read -r l || [ -n "$l" ]; do …; done &lt; arquivo</code> processa também essa última linha.</p>
+</div>
+
+<div class="cenario">
+<strong>A variável "perdeu" o valor depois do laço</strong>
+<pre class="term" data-cwd="~/viagem">$ cat frutas.txt | while read -r f; do total=$((total+1)); done; echo "total=$total"
+total=</pre>
+<p><strong>O que aconteceu:</strong> com <code>|</code>, o <code>while</code> roda num processo separado (um "subshell"). O <code>total</code> que ele contou some quando o laço termina.</p>
+<p><strong>Como resolver:</strong> mande o arquivo com <code>&lt;</code> em vez de <code>cat |</code>:</p>
+<pre class="term" data-cwd="~/viagem">$ total=0; while read -r f; do total=$((total+1)); done &lt; frutas.txt; echo "total=$total"
+total=3</pre>
+</div>
+
+<div class="cenario">
+<strong>"erro de sintaxe próximo ao token inesperado `done'"</strong>
+<pre class="term">$ for i in 1 2 3 do echo $i; done
+bash: erro de sintaxe próximo ao token inesperado `done'</pre>
+<p><strong>O que aconteceu:</strong> faltou o <code>;</code> antes do <code>do</code>. O Bash achou que "do" e "echo" eram mais itens da lista.</p>
+<p><strong>Como resolver:</strong> <code>for i in 1 2 3; do echo $i; done</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O laço não para</strong>
+<p><strong>O que aconteceu:</strong> num <code>while</code>, a condição nunca fica falsa, normalmente porque você esqueceu de mudar a variável (o <code>n=$((n - 1))</code> do exemplo).</p>
+<p><strong>Como resolver:</strong> <kbd>Ctrl</kbd>+<kbd>C</kbd> interrompe. Se o laço estiver rodando em segundo plano, encontre e encerre o processo (veja <a href="kill.html">Encerrar Programas</a>).</p>
+</div>
+
+<hr>
+
+<h2>Referência rápida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Estrutura</th><th>Sintaxe</th></tr>
+<tr><td>for em lista</td><td><code>for x in a b c; do …; done</code></td></tr>
+<tr><td>for em sequência</td><td><code>for i in {1..10}; do …; done</code></td></tr>
+<tr><td>for em arquivos</td><td><code>for f in *.txt; do …; done</code></td></tr>
+<tr><td>for estilo C</td><td><code>for ((i=0; i&lt;10; i++)); do …; done</code></td></tr>
+<tr><td>while</td><td><code>while COND; do …; done</code></td></tr>
+<tr><td>Ler linhas</td><td><code>while IFS= read -r l; do …; done &lt; arq</code></td></tr>
+<tr><td>until</td><td><code>until COND; do …; done</code></td></tr>
+<tr><td>Infinito</td><td><code>while true; do …; done</code></td></tr>
+<tr><td>Sair / pular</td><td><code>break</code> / <code>continue</code></td></tr>
+<tr><td>Curinga vazio</td><td><code>shopt -s nullglob</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Completar o for</h3>
+<p>Complete para mostrar os números de 1 a 10:</p>
+<div class="ex-code">for i in <input data-answer="{1..10}|$(seq 1 10)|$(seq 10)" aria-label="lista">; do echo $i; done</div>
+</div>
+
+<div class="exercise">
+<h3>2. Palavras que faltam</h3>
+<p>Complete as duas palavras-chave do laço:</p>
+<div class="ex-code">for f in *.log; <input data-answer="do" aria-label="início do bloco"> gzip "$f"; <input data-answer="done" aria-label="fim do bloco"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Ler linha por linha</h3>
+<p>Complete para ler <code>lista.txt</code> linha por linha:</p>
+<div class="ex-code">while IFS= read -r linha; do echo "$linha"; done <input data-answer="&lt;" aria-label="redirecionamento"> lista.txt</div>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">4. Por que <code>for f in $(ls)</code> é perigoso?</p>
+<label><input type="radio" name="q4"> Porque o <code>ls</code> é lento.</label>
+<label><input type="radio" name="q4"> Porque não mostra arquivos ocultos.</label>
+<label><input type="radio" name="q4"> Porque não funciona em scripts.</label>
+<label><input type="radio" name="q4"> Porque nomes com espaço são partidos em vários itens.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. O que o <code>continue</code> faz dentro de um laço?</p>
+<label><input type="radio" name="q5"> Pula o resto da volta atual e segue para a próxima.</label>
+<label><input type="radio" name="q5"> Encerra o laço.</label>
+<label><input type="radio" name="q5"> Encerra o script.</label>
+<label><input type="radio" name="q5"> Repete a volta atual.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>for</code> percorre uma lista: palavras, <code>{1..10}</code>, arquivos com <code>*</code> ou a saída de <code>$(…)</code>.</li>
+  <li>Para arquivos, use o curinga direto e <code>"$f"</code> entre aspas; nunca <code>$(ls)</code>.</li>
+  <li><code>while</code> repete enquanto der certo; <code>while IFS= read -r l … &lt; arquivo</code> lê linha por linha.</li>
+  <li><code>until</code> repete até dar certo; <code>break</code> sai, <code>continue</code> pula.</li>
+  <li><kbd>Ctrl</kbd>+<kbd>C</kbd> interrompe um laço que não para.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

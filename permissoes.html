@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu permissões — entender rwx, dono, grupo e outros | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a ler as permissões do Linux no Ubuntu: o que significam r, w e x em arquivos e pastas, dono, grupo e outros, valores como 755 e 644, e por que aparece Permissão negada.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Entendendo Permissões</span></h1>
+
+<p class="intro">"Permissão negada" é uma das mensagens mais comuns no Linux. Ela aparece quando você tenta ler, mudar ou executar algo que não é seu. Nesta aula você vai aprender a <strong>ler</strong> as permissões de qualquer arquivo e a entender por que um comando foi bloqueado. Mudar permissões fica para as aulas <a href="chmod.html">chmod</a> e <a href="chown.html">chown</a>.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Quem pode o quê: dono, grupo e outros.</li>
+  <li>O que <code>r</code>, <code>w</code> e <code>x</code> significam em arquivos e em pastas (não é a mesma coisa).</li>
+  <li>Como ler <code>-rwxr-x---</code> de cabeça.</li>
+  <li>O que são os números 644, 755 e 600.</li>
+  <li>Como descobrir, passo a passo, o motivo de uma "Permissão negada".</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>A ideia: três perguntas</h2>
+<p>Para cada arquivo, o Linux responde três perguntas, para três tipos de pessoa:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>Pode ler? (<code>r</code>)</th><th>Pode alterar? (<code>w</code>)</th><th>Pode executar? (<code>x</code>)</th></tr>
+<tr><td><strong>Dono</strong> (<em>user</em>, <code>u</code>)</td><td>sim/não</td><td>sim/não</td><td>sim/não</td></tr>
+<tr><td><strong>Grupo</strong> (<em>group</em>, <code>g</code>)</td><td>sim/não</td><td>sim/não</td><td>sim/não</td></tr>
+<tr><td><strong>Outros</strong> (<em>others</em>, <code>o</code>)</td><td>sim/não</td><td>sim/não</td><td>sim/não</td></tr>
+</table>
+</div>
+
+<ul>
+  <li><strong>Dono:</strong> o usuário a quem o arquivo pertence, normalmente quem o criou.</li>
+  <li><strong>Grupo:</strong> um conjunto de usuários. Todo arquivo pertence a um grupo; quem está nesse grupo usa as permissões do meio.</li>
+  <li><strong>Outros:</strong> todo o resto.</li>
+</ul>
+
+<p>O <strong>root</strong> ignora tudo isso: ele pode tudo. É por isso que o <a href="sudo.html">sudo</a> "resolve" a Permissão negada.</p>
+
+<hr>
+
+<h2>Lendo as permissões com <code>ls -l</code></h2>
+
+<pre class="term">$ ls -l Documentos/projetos
+total 8
+-rwxrwxr-x 1 ana ana   45 Oct 15 09:15 backup.sh
+drwxrwxr-x 2 ana ana 4096 Oct 12 08:03 site</pre>
+
+<p>Os 10 caracteres do começo de cada linha são as permissões. Vamos desmontar o primeiro:</p>
+
+<dl class="anatomy">
+  <dt>-</dt><dd><strong>Tipo:</strong> <code>-</code> arquivo comum, <code>d</code> pasta (<em>directory</em>), <code>l</code> link.</dd>
+  <dt>rwx</dt><dd><strong>Dono</strong> (ana): pode ler, alterar e executar.</dd>
+  <dt>rwx</dt><dd><strong>Grupo</strong> (ana): pode ler, alterar e executar.</dd>
+  <dt>r-x</dt><dd><strong>Outros</strong>: podem ler e executar, mas não alterar. O <code>-</code> no lugar do <code>w</code> é um "não".</dd>
+</dl>
+
+<p>Depois das permissões vêm o número de links, o <strong>dono</strong> (<code>ana</code>) e o <strong>grupo</strong> (<code>ana</code>). No Ubuntu, cada usuário tem um grupo com o mesmo nome dele.</p>
+
+<h3>Outro exemplo: um arquivo protegido</h3>
+<pre class="term">$ ls -l /etc/shadow
+-rw-r----- 1 root shadow 1449 Oct 13 13:05 /etc/shadow</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Parte</th><th>Leitura</th></tr>
+<tr><td><code>-</code></td><td>Arquivo comum.</td></tr>
+<tr><td><code>rw-</code></td><td>O dono (<code>root</code>) lê e altera.</td></tr>
+<tr><td><code>r--</code></td><td>Quem é do grupo <code>shadow</code> só lê.</td></tr>
+<tr><td><code>---</code></td><td>Os outros, incluindo a ana, não podem nada.</td></tr>
+</table>
+</div>
+
+<p>É ali que ficam as senhas (criptografadas) de todos os usuários. Por isso a ana não consegue nem ler:</p>
+
+<pre class="term">$ cat /etc/shadow
+cat: /etc/shadow: Permission denied
+$ echo $?
+1</pre>
+
+<div class="note">
+<strong>"Permission denied" ou "Permissão negada"?</strong>
+<p>São a mesma coisa. No Ubuntu 26.04, alguns comandos (como <code>cat</code>) respondem em inglês e outros (como <code>ls</code> e o próprio bash) em português.</p>
+</div>
+
+<div class="try" data-goal="ran:ls -l.*(shadow|/etc)">
+<p class="try-task"><strong>Missão:</strong> descubra o dono, o grupo e as permissões de <code>/etc/shadow</code> com <code>ls -l</code>. Tente lê-lo com <code>cat</code> e veja o erro. Depois tente com <code>sudo cat /etc/shadow</code>.</p>
+</div>
+
+<hr>
+
+<h2>r, w, x: em arquivo é uma coisa, em pasta é outra</h2>
+<p>Este é o ponto que mais confunde. As mesmas letras têm efeitos diferentes:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Letra</th><th>Num arquivo</th><th>Numa pasta</th></tr>
+<tr><td><code>r</code> (<em>read</em>)</td><td>Ver o conteúdo (<code>cat</code>, abrir no editor).</td><td>Listar os nomes que estão dentro (<code>ls</code>).</td></tr>
+<tr><td><code>w</code> (<em>write</em>)</td><td>Alterar o conteúdo.</td><td>Criar, apagar e renomear arquivos <strong>dentro</strong> dela.</td></tr>
+<tr><td><code>x</code> (<em>execute</em>)</td><td>Rodar como programa ou script.</td><td><strong>Entrar</strong> nela (<code>cd</code>) e acessar o que tem dentro.</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Duas consequências que surpreendem</strong>
+<ul>
+  <li>Quem apaga um arquivo é o <code>w</code> da <strong>pasta</strong>, não o do arquivo. Você pode apagar um arquivo que não consegue alterar, se a pasta for sua.</li>
+  <li>Uma pasta sem <code>x</code> é inútil: mesmo com <code>r</code>, você não entra nela.</li>
+</ul>
+</div>
+
+<pre class="term">$ ls -ld secreta
+drw-r--r-- 2 ana ana 4096 Oct 15 11:02 secreta      « sem x para ninguém
+$ cd secreta
+bash: cd: secreta: Permissão negada</pre>
+
+<p>A própria ana, dona da pasta, não consegue entrar, porque falta o <code>x</code> até para o dono.</p>
+
+<h3>Executar um script</h3>
+<p>Um arquivo só roda como programa se tiver <code>x</code>:</p>
+
+<pre class="term">$ ls -l limpar.sh
+-rw-rw-r-- 1 ana ana 120 Oct 15 10:50 limpar.sh   « nenhum x
+$ ./limpar.sh
+bash: ./limpar.sh: Permissão negada
+$ chmod +x limpar.sh
+$ ls -l limpar.sh
+-rwxrwxr-x 1 ana ana 120 Oct 15 10:50 limpar.sh   « agora tem x
+$ ./limpar.sh
+Limpeza concluída.</pre>
+
+<p><code>chmod +x</code> acrescenta a permissão de execução. Os detalhes estão na aula <a href="chmod.html">chmod</a>.</p>
+
+<hr>
+
+<h2>Permissões em números: 644, 755, 600</h2>
+<p>Você vai ver muito as permissões escritas como três números. Cada letra vale um número, e você soma:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Letra</th><th>Vale</th></tr>
+<tr><td><code>r</code></td><td>4</td></tr>
+<tr><td><code>w</code></td><td>2</td></tr>
+<tr><td><code>x</code></td><td>1</td></tr>
+<tr><td><code>-</code></td><td>0</td></tr>
+</table>
+</div>
+
+<p>Exemplo: <code>rwx</code> = 4 + 2 + 1 = <strong>7</strong>; <code>r-x</code> = 4 + 0 + 1 = <strong>5</strong>; <code>r--</code> = <strong>4</strong>. Cada grupo de três vira um número, na ordem dono, grupo, outros:</p>
+
+<dl class="anatomy">
+  <dt>7</dt><dd>Dono: <code>rwx</code> (4+2+1).</dd>
+  <dt>5</dt><dd>Grupo: <code>r-x</code> (4+0+1).</dd>
+  <dt>5</dt><dd>Outros: <code>r-x</code> (4+0+1).</dd>
+</dl>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Número</th><th>Letras</th><th>Uso típico</th></tr>
+<tr><td><code>644</code></td><td><code>rw-r--r--</code></td><td>Arquivo comum: você altera, os outros só leem.</td></tr>
+<tr><td><code>664</code></td><td><code>rw-rw-r--</code></td><td>Padrão dos arquivos novos no Ubuntu.</td></tr>
+<tr><td><code>600</code></td><td><code>rw-------</code></td><td>Arquivo privado, como a chave SSH.</td></tr>
+<tr><td><code>755</code></td><td><code>rwxr-xr-x</code></td><td>Script ou programa; pasta pública.</td></tr>
+<tr><td><code>775</code></td><td><code>rwxrwxr-x</code></td><td>Padrão das pastas novas no Ubuntu.</td></tr>
+<tr><td><code>700</code></td><td><code>rwx------</code></td><td>Pasta privada, como <code>~/.ssh</code>.</td></tr>
+<tr><td><code>777</code></td><td><code>rwxrwxrwx</code></td><td>Todos podem tudo. <strong>Quase nunca é a resposta certa.</strong></td></tr>
+</table>
+</div>
+
+<p>Para ver o número direto, use <code>stat</code>:</p>
+<pre class="term">$ stat -c "%a %A %U %G %n" /etc/shadow /tmp /usr/bin/passwd
+640 -rw-r----- root shadow /etc/shadow
+1777 drwxrwxrwt root root /tmp
+4755 -rwsr-xr-x root root /usr/bin/passwd</pre>
+
+<p>Os números de quatro dígitos e as letras <code>t</code> e <code>s</code> são as permissões especiais, explicadas no fim da página.</p>
+
+<div class="warning">
+<strong>Atenção: não resolva com 777</strong>
+<p>Na internet, muita gente "resolve" Permissão negada com <code>chmod 777</code>. Isso deixa qualquer usuário, e qualquer programa invasor, alterar o arquivo. Descubra o motivo do bloqueio e dê só a permissão que falta.</p>
+</div>
+
+<hr>
+
+<h2>Diagnosticando uma "Permissão negada"</h2>
+<p>Quando o bloqueio aparecer, siga estas perguntas, nesta ordem:</p>
+<ol class="passo">
+  <li><strong>Quem sou eu?</strong> <code>whoami</code> e <code>id</code> mostram seu usuário e seus grupos.</li>
+  <li><strong>De quem é o arquivo?</strong> <code>ls -l arquivo</code> mostra dono, grupo e permissões.</li>
+  <li><strong>Em qual dos três eu me encaixo?</strong> Se sou o dono, valem as 3 primeiras letras. Se estou no grupo, as do meio. Senão, as últimas.</li>
+  <li><strong>A letra que preciso está lá?</strong> Ler = <code>r</code>; alterar = <code>w</code>; executar ou entrar = <code>x</code>.</li>
+  <li><strong>E as pastas do caminho?</strong> Para chegar em <code>/a/b/arquivo</code>, você precisa de <code>x</code> em <code>/a</code> e em <code>/a/b</code>. Confira com <code>ls -ld /a /a/b</code>.</li>
+</ol>
+
+<pre class="term">$ id
+uid=1000(ana) gid=1000(ana) groups=1000(ana),4(adm),24(cdrom),27(sudo),30(dip),46(plugdev),100(users),114(lpadmin)</pre>
+
+<p>A ana está no grupo <code>adm</code>. Por isso ela consegue ler alguns logs do sistema que pertencem a esse grupo, mesmo sem sudo. E está no grupo <code>sudo</code>, que permite virar administradora.</p>
+
+<div class="try" data-setup="mkdir -p ~/estudos/scripts;;cd ~/estudos" data-goal="ran:^id,ran:ls -ld">
+<p class="try-task"><strong>Missão:</strong> siga o roteiro de diagnóstico na máquina fictícia: veja seus grupos com <code>id</code>, confira as permissões de <code>/root</code> com <code>ls -ld /root</code> e descubra por que <code>ls /root</code> falha.</p>
+</div>
+
+<hr>
+
+<h2>Permissões especiais (visão geral)</h2>
+<p>Há três permissões extras. Você não precisa configurá-las agora, mas vai encontrá-las por aí:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Nome</th><th>Aparece como</th><th>Para que serve</th><th>Exemplo</th></tr>
+<tr><td>SUID</td><td><code>s</code> no lugar do <code>x</code> do dono</td><td>O programa roda com os poderes do dono do arquivo.</td><td><code>/usr/bin/passwd</code>: roda como root para você poder trocar sua senha.</td></tr>
+<tr><td>SGID</td><td><code>s</code> no <code>x</code> do grupo</td><td>Numa pasta, arquivos novos herdam o grupo da pasta.</td><td>Pastas compartilhadas por uma equipe.</td></tr>
+<tr><td>Sticky bit</td><td><code>t</code> no <code>x</code> dos outros</td><td>Numa pasta, cada um só apaga os próprios arquivos.</td><td><code>/tmp</code>: todos escrevem, ninguém apaga o do outro.</td></tr>
+</table>
+</div>
+
+<pre class="term">$ ls -l /usr/bin/passwd
+-rwsr-xr-x 1 root root 93640 Feb  2  2026 /usr/bin/passwd
+$ ls -ld /tmp
+drwxrwxrwt 26 root root 580 Oct 15 10:30 /tmp</pre>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Permissão negada" ao rodar um script</strong>
+<pre class="term">$ ./backup.sh
+bash: ./backup.sh: Permissão negada</pre>
+<p><strong>O que aconteceu:</strong> o arquivo não tem <code>x</code>.</p>
+<p><strong>Como resolver:</strong> <code>chmod +x backup.sh</code>. Outra forma, sem mudar a permissão: <code>bash backup.sh</code>, que pede ao bash para ler o arquivo.</p>
+</div>
+
+<div class="cenario">
+<strong>Consigo ver o arquivo no ls, mas não abrir</strong>
+<p><strong>O que aconteceu:</strong> a pasta tem <code>r</code> (por isso o nome aparece), mas o arquivo não tem <code>r</code> para você.</p>
+<p><strong>Como resolver:</strong> confira com <code>ls -l arquivo</code>. Se é um arquivo do sistema e você realmente precisa ler, use <code>sudo</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Permission denied" numa chave SSH</strong>
+<pre class="term">$ ssh servidor
+Permissions 0644 for '/home/ana/.ssh/id_ed25519' are too open.</pre>
+<p><strong>O que aconteceu:</strong> aqui é o contrário: a permissão está <strong>aberta demais</strong>. O SSH se recusa a usar uma chave privada que outros podem ler.</p>
+<p><strong>Como resolver:</strong> <code>chmod 600 ~/.ssh/id_ed25519</code>. Veja <a href="ssh.html">SSH</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>Entrei no grupo, mas continua negado</strong>
+<p><strong>O que aconteceu:</strong> você foi adicionado a um grupo (por exemplo, com <code>usermod -aG</code>), mas a sessão atual ainda usa a lista antiga de grupos. Confira com <code>id</code>: o grupo novo não aparece.</p>
+<p><strong>Como resolver:</strong> saia da sessão e entre de novo (ou reinicie). Veja <a href="usuarios.html">Usuários e Grupos</a>.</p>
+</div>
+
+<hr>
+
+<h2>Referência rápida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Mostra</th></tr>
+<tr><td><code>ls -l arquivo</code></td><td>Permissões, dono e grupo</td></tr>
+<tr><td><code>ls -ld pasta</code></td><td>As permissões da pasta em si (não do conteúdo)</td></tr>
+<tr><td><code>stat -c "%a %A" arquivo</code></td><td>Permissão em número e em letras</td></tr>
+<tr><td><code>id</code></td><td>Seu usuário e seus grupos</td></tr>
+<tr><td><code>umask</code></td><td>Que permissões os arquivos novos recebem (no Ubuntu, <code>0002</code> → 664 e 775)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. De letras para número</h3>
+<p>Qual é o número de <code>rwxr-x---</code>?</p>
+<div class="ex-code"><input data-answer="750" aria-label="número"></div>
+</div>
+
+<div class="exercise">
+<h3>2. De número para letras</h3>
+<p>Escreva em letras a permissão <code>644</code> (9 caracteres):</p>
+<div class="ex-code"><input data-answer="rw-r--r--" aria-label="letras"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Ver a permissão da pasta em si</h3>
+<p>Complete para ver as permissões da pasta <code>/root</code>, e não do conteúdo dela:</p>
+<div class="ex-code">ls <input data-answer="-ld|-dl|-l -d|-d -l" aria-label="opções"> /root</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Numa <strong>pasta</strong>, o que a permissão <code>x</code> permite?</p>
+<label><input type="radio" name="q4"> Rodar a pasta como programa.</label>
+<label><input type="radio" name="q4"> Apagar a pasta.</label>
+<label><input type="radio" name="q4"> Entrar nela com <code>cd</code> e acessar o que tem dentro.</label>
+<label><input type="radio" name="q4"> Listar os nomes dos arquivos.</label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. O arquivo é <code>-rw-r----- 1 root adm</code> e a ana está no grupo <code>adm</code>. O que a ana pode fazer?</p>
+<label><input type="radio" name="q5"> Nada.</label>
+<label><input type="radio" name="q5"> Ler, mas não alterar.</label>
+<label><input type="radio" name="q5"> Ler e alterar.</label>
+<label><input type="radio" name="q5"> Executar.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Cada arquivo tem dono, grupo e "outros", e cada um tem <code>r</code>, <code>w</code> e <code>x</code>.</li>
+  <li>Em pasta: <code>r</code> lista, <code>w</code> cria e apaga dentro, <code>x</code> deixa entrar.</li>
+  <li>r=4, w=2, x=1: <code>755</code> = <code>rwxr-xr-x</code>, <code>644</code> = <code>rw-r--r--</code>.</li>
+  <li>Diante de "Permissão negada": <code>whoami</code>/<code>id</code>, <code>ls -l</code>, descubra em qual dos três você se encaixa e qual letra falta.</li>
+  <li>Evite <code>777</code>. Para mudar permissões, veja <a href="chmod.html">chmod</a> e <a href="chown.html">chown</a>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projeto: Quebre e Conserte | Guia Ubuntu</title>
+<meta name="description" content="Seis panes reais provocadas numa VM e consertadas passo a passo: CPU a 100%, disco cheio, serviço que não sobe, rede derrubada, usuário sem sudo e fstab que impede o boot.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Projeto <span class="hl">Quebre e Conserte</span></h1>
+
+<p class="intro">Administrador experiente é quem já viu o sistema quebrado e sabe por onde começar. Neste laboratório você vai causar seis panes de propósito, observar o sintoma, investigar a causa e consertar. É o treino mais próximo da vida real que existe.</p>
+
+<div class="warning">
+<strong>Só na VM. Nunca na sua máquina.</strong>
+<p>Os comandos desta página derrubam a rede, enchem o disco e impedem o sistema de ligar. Confira sempre se o prompt diz <code>ubuntu@lab</code> antes de apertar <kbd>Enter</kbd>.</p>
+</div>
+
+<div class="tip">
+<strong>Ao terminar você terá</strong>
+<ul>
+  <li>Um roteiro mental para qualquer pane: <strong>sintoma → hipótese → comando que confirma → conserto → como evitar</strong>.</li>
+  <li>Prática com <code>top</code>, <code>df</code>, <code>du</code>, <code>systemctl status</code>, <code>journalctl</code>, <code>nginx -t</code>, <code>netplan try</code>, <code>findmnt --verify</code> e o modo de recuperação.</li>
+</ul>
+</div>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Item</th><th>Detalhe</th></tr>
+<tr><td>Tempo estimado</td><td>2h (cerca de 20 min por desafio)</td></tr>
+<tr><td>Pré-requisitos</td><td><a href="projeto-servidor-web.html">Servidor Web do Zero</a>, <a href="processos.html">ps, pgrep, top</a>, <a href="discos.html">lsblk, df, du</a>, <a href="journalctl.html">Logs</a>, <a href="configurar-rede.html">Configurar a Rede</a>, <a href="montar.html">mount e fstab</a>, <a href="recuperacao.html">Recuperar um Sistema</a></td></tr>
+<tr><td>Onde roda</td><td>VM <code>lab</code> do Multipass</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Preparação: VM com ponto de restauração</h2>
+<p>Vamos criar a VM, instalar o nginx (usado no desafio 3) e tirar um snapshot chamado <code>pronto</code>. Sempre que um desafio sair do controle, você volta para ele.</p>
+
+<pre class="term">$ multipass launch 26.04 --name lab --disk 10G --memory 2G
+Launched: lab
+$ multipass exec lab -- sudo apt-get install -y nginx
+…
+$ multipass stop lab
+$ multipass snapshot lab --name pronto
+Snapshot taken: lab.pronto
+$ multipass start lab
+$ multipass shell lab</pre>
+
+<p>Para voltar ao estado inicial a qualquer momento, no notebook:</p>
+
+<pre class="term">$ multipass stop --force lab
+$ multipass restore --destructive lab.pronto
+Snapshot restored: lab.pronto
+$ multipass start lab</pre>
+
+<p>O <code>--force</code> desliga a VM mesmo que ela não responda, como tirar da tomada. Use só no laboratório.</p>
+
+<hr>
+
+<h2>Desafio 1: um processo come 100% da CPU</h2>
+
+<ol class="passo">
+<li>
+<h3>Quebre</h3>
+<p>O comando <code>yes</code> escreve "y" sem parar, o mais rápido que consegue. Mandando a saída para <code>/dev/null</code> (o "lixo" do sistema), ele vira um consumidor de CPU perfeito. O <code>&amp;</code> joga o processo para o segundo plano.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ yes &gt; /dev/null &amp;
+[1] 2745                                          « [1] = número do job; 2745 = PID</pre>
+</li>
+
+<li>
+<h3>Sintoma</h3>
+<p>A VM fica lenta, e a <em>carga</em> (<em>load average</em>) sobe. As VMs do Multipass têm 1 CPU por padrão: carga perto de 1,00 significa CPU totalmente ocupada.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ uptime
+ 11:20:05 up 25 min,  1 user,  load average: 0.98, 0.45, 0.18   « último 1, 5 e 15 minutos</pre>
+</li>
+
+<li>
+<h3>Diagnóstico</h3>
+<p>Quem está consumindo? O <code>top</code> responde. Com <code>-b -n 1</code> ele imprime uma vez só e sai, o que facilita ler:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ top -b -n 1 | head -9
+top - 11:20:31 up 25 min,  1 user,  load average: 0.99, 0.49, 0.20
+Tasks: 102 total,   2 running, 100 sleeping,   0 stopped,   0 zombie
+%Cpu(s): 99.0 us,  1.0 sy,  0.0 ni,  0.0 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st
+MiB Mem :   1967.5 total,   1302.2 free,    268.1 used,    397.2 buff/cache
+MiB Swap:      0.0 total,      0.0 free,      0.0 used.   1699.4 avail Mem
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+   2745 ubuntu    20   0    8384   1792   1792 R 100.0   0.1   0:31.42 yes      « o culpado
+      1 root      20   0   22456  13312   9216 S   0.0   0.7   0:01.88 systemd</pre>
+<p>Outra forma, sem o <code>top</code>:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ ps aux --sort=-%cpu | head -3
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+ubuntu      2745 99.6  0.0   8384  1792 pts/0    R    11:19   0:58 yes
+root           1  0.1  0.6  22456 13312 ?        Ss   10:55   0:01 /sbin/init</pre>
+</li>
+
+<li>
+<h3>Conserto</h3>
+<p>Três formas de encerrar, da mais precisa para a mais ampla:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ kill 2745
+« pelo PID
+[1]+  Terminated              yes &gt; /dev/null</pre>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Quando usar</th></tr>
+<tr><td><code>kill 2745</code></td><td>Você sabe o PID exato.</td></tr>
+<tr><td><code>kill %1</code></td><td>O processo é um job deste mesmo terminal.</td></tr>
+<tr><td><code>pkill yes</code></td><td>Encerra <strong>todos</strong> os processos chamados <code>yes</code>.</td></tr>
+<tr><td><code>kill -9 2745</code></td><td>Só se o processo ignorar o <code>kill</code> normal. Veja <a href="kill.html">kill e sinais</a>.</td></tr>
+</table>
+</div>
+<p><strong>Confira:</strong> <code>pgrep yes</code> não mostra nada, e o <code>uptime</code> volta a cair em um ou dois minutos.</p>
+</li>
+
+<li>
+<h3>Lição</h3>
+<p>CPU alta → <code>top</code> ou <code>ps aux --sort=-%cpu</code> → PID → <code>kill</code>. Antes de matar, pergunte: esse processo é importante? Um banco de dados em 100% talvez esteja só trabalhando muito.</p>
+</li>
+</ol>
+
+<hr>
+
+<h2>Desafio 2: disco cheio</h2>
+
+<ol class="passo">
+<li>
+<h3>Quebre</h3>
+<p>O <code>fallocate</code> reserva espaço para um arquivo instantaneamente, sem escrever nada. Vamos pedir exatamente o espaço livre que o <code>df</code> informa:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ df -h /
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1       9.6G  2.3G  7.3G  24% /
+$ sudo fallocate -l $(df --output=avail -B1 / | tail -1) /var/tmp/lixo.img</pre>
+<p>O <code>$( … )</code> roda o <code>df</code> primeiro e coloca o resultado (o espaço livre em bytes) no lugar. O nome do disco (<code>/dev/sda1</code>) pode ser outro na sua VM.</p>
+</li>
+
+<li>
+<h3>Sintoma</h3>
+<p>Programas começam a falhar de formas estranhas: arquivos não são salvos, o apt reclama, serviços não iniciam.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ echo "teste" &gt; ~/teste.txt
+-bash: echo: write error: No space left on device
+$ df -h /
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1       9.6G  9.6G     0 100% /                 « 100%: acabou o espaço</pre>
+<div class="note">
+<strong>Por que o root ainda consegue escrever um pouco?</strong>
+<p>O ext4 reserva cerca de 5% do disco para o root, justamente para o administrador conseguir consertar a situação quando o disco enche.</p>
+</div>
+</li>
+
+<li>
+<h3>Diagnóstico</h3>
+<p>Onde está o espaço? Comece pela raiz e vá descendo, sempre ordenando do menor para o maior:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo du -xh --max-depth=1 / 2&gt;/dev/null | sort -h | tail -4
+183M	/snap
+1.6G	/usr
+7.5G	/var                                          « suspeito
+9.6G	/
+$ sudo du -xh --max-depth=1 /var 2&gt;/dev/null | sort -h | tail -3
+211M	/var/lib
+7.3G	/var/tmp                                      « achou
+7.5G	/var
+$ ls -lh /var/tmp
+total 7.3G
+-rw-r--r-- 1 root root 7.3G Oct 15 11:25 lixo.img</pre>
+<dl class="anatomy">
+  <dt>du</dt><dd>Mede quanto as pastas ocupam (<em>disk usage</em>).</dd>
+  <dt>-x</dt><dd>Fica no mesmo disco; não entra em <code>/proc</code>, <code>/sys</code> nem outros discos.</dd>
+  <dt>-h</dt><dd>Tamanhos legíveis (M, G).</dd>
+  <dt>--max-depth=1</dt><dd>Mostra só um nível de subpastas.</dd>
+  <dt>2&gt;/dev/null</dt><dd>Esconde avisos de pastas que não dá para ler.</dd>
+  <dt>| sort -h | tail -4</dt><dd>Ordena por tamanho e mostra só os 4 maiores.</dd>
+</dl>
+<p>Atalho para achar arquivos gigantes direto: <code>sudo find / -xdev -type f -size +1G 2&gt;/dev/null</code>.</p>
+</li>
+
+<li>
+<h3>Conserto</h3>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo rm /var/tmp/lixo.img
+$ df -h /
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1       9.6G  2.3G  7.3G  24% /</pre>
+<p>Na vida real, os culpados mais comuns são logs (<code>sudo journalctl --vacuum-size=200M</code>), o cache do apt (<code>sudo apt clean</code>), versões antigas de snaps e backups esquecidos.</p>
+</li>
+
+<li>
+<h3>Lição</h3>
+<p>Erros estranhos em vários programas ao mesmo tempo? Rode <code>df -h</code> primeiro. Depois, desça com <code>du</code> até achar a pasta culpada.</p>
+</li>
+</ol>
+
+<hr>
+
+<h2>Desafio 3: um serviço que não sobe</h2>
+
+<ol class="passo">
+<li>
+<h3>Quebre</h3>
+<p>Vamos apagar um único <code>;</code> da configuração do nginx. O <code>sed -i</code> edita o arquivo no lugar:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo cp /etc/nginx/sites-available/default /root/default.bak
+« cópia de segurança
+$ sudo sed -i 's/listen 80 default_server;/listen 80 default_server/' /etc/nginx/sites-available/default
+$ sudo systemctl restart nginx
+Job for nginx.service failed because the control process exited with error code.
+See "systemctl status nginx.service" and "journalctl -xeu nginx.service" for details.</pre>
+</li>
+
+<li>
+<h3>Sintoma</h3>
+<pre class="term" data-user="ubuntu" data-host="lab">$ curl localhost
+curl: (7) Failed to connect to localhost port 80 after 0 ms: Couldn't connect to server</pre>
+<p>O site está fora do ar.</p>
+</li>
+
+<li>
+<h3>Diagnóstico</h3>
+<p>A própria mensagem de erro diz onde olhar. Siga em ordem:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ systemctl status nginx --no-pager | head -4
+× nginx.service - A high performance web server and a reverse proxy server
+     Loaded: loaded (/usr/lib/systemd/system/nginx.service; enabled; preset: enabled)
+     Active: failed (Result: exit-code) since Thu 2026-10-15 11:31:02 UTC; 20s ago   « falhou
+$ sudo nginx -t
+nginx: [emerg] invalid parameter "listen" in /etc/nginx/sites-enabled/default:23
+nginx: configuration file /etc/nginx/nginx.conf test failed</pre>
+<p>O <code>nginx -t</code> é o melhor amigo aqui: diz o arquivo e a linha. Sem o <code>;</code>, o nginx juntou duas linhas numa só e estranhou a palavra <code>listen</code> no meio. O erro costuma apontar para a linha <strong>seguinte</strong> à que tem o problema. O número exato da linha pode variar.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo sed -n '20,24p' /etc/nginx/sites-enabled/default
+server {
+	listen 80 default_server                         « falta o ;
+	listen [::]:80 default_server;</pre>
+<p>Os mesmos detalhes aparecem no journal: <code>sudo journalctl -u nginx -n 10 --no-pager</code>.</p>
+</li>
+
+<li>
+<h3>Conserto</h3>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo cp /root/default.bak /etc/nginx/sites-available/default
+$ sudo nginx -t
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+$ sudo systemctl restart nginx
+$ curl -sI localhost | head -1
+HTTP/1.1 200 OK</pre>
+</li>
+
+<li>
+<h3>Lição</h3>
+<p>Serviço que não sobe → <code>systemctl status</code> → <code>journalctl -u</code> → teste de configuração do próprio programa (<code>nginx -t</code>, <code>sshd -t</code>, <code>apachectl configtest</code>). E sempre teste <strong>antes</strong> de reiniciar: com <code>reload</code>, uma configuração errada é recusada e o site antigo continua no ar.</p>
+</li>
+</ol>
+
+<hr>
+
+<h2>Desafio 4: rede derrubada</h2>
+
+<ol class="passo">
+<li>
+<h3>Quebre (parte A: erro de digitação)</h3>
+<p>A rede do Ubuntu Server é configurada pelo <a href="configurar-rede.html">Netplan</a>, em arquivos YAML. Veja o arquivo da VM e faça uma cópia:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ ls /etc/netplan/
+50-cloud-init.yaml
+$ sudo cat /etc/netplan/50-cloud-init.yaml
+network:
+  version: 2
+  ethernets:
+    default:
+      match:
+        macaddress: "52:54:00:3a:9c:1f"
+      dhcp4: true                                 « pega IP automático (DHCP)
+$ sudo cp /etc/netplan/50-cloud-init.yaml /root/netplan.bak
+$ sudo sed -i 's/dhcp4: true/dhcp44: true/' /etc/netplan/50-cloud-init.yaml</pre>
+<p>O conteúdo exato do arquivo pode ser um pouco diferente na sua VM.</p>
+</li>
+
+<li>
+<h3>Sintoma e diagnóstico (parte A)</h3>
+<p>Antes de aplicar, o Netplan valida o arquivo. O erro mostra arquivo, linha e coluna:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo netplan generate
+/etc/netplan/50-cloud-init.yaml:8:7: Error in network definition: unknown key 'dhcp44'
+      dhcp44: true
+      ^</pre>
+<p>Nada foi aplicado: a rede continua funcionando. Conserte com a cópia: <code>sudo cp /root/netplan.bak /etc/netplan/50-cloud-init.yaml</code>.</p>
+</li>
+
+<li>
+<h3>Quebre (parte B: configuração válida, mas errada)</h3>
+<p>Agora um erro que o Netplan não tem como detectar: um IP fixo de outra rede. O arquivo é válido, mas a VM fica isolada. Para isso existe o <code>netplan try</code>: ele aplica a configuração e, se você não confirmar em 120 segundos, <strong>desfaz sozinho</strong>.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo sed -i 's/dhcp4: true/dhcp4: false\n      addresses: [192.168.99.50\/24]/' /etc/netplan/50-cloud-init.yaml
+$ sudo netplan try
+Do you want to keep these settings?
+
+
+Press ENTER before the timeout to accept the new configuration
+
+
+Changes will revert in 120 seconds                « o terminal congela: a VM perdeu a rede</pre>
+</li>
+
+<li>
+<h3>Sintoma e diagnóstico (parte B)</h3>
+<p>A sessão para de responder, porque o <code>multipass shell</code> é uma conexão de rede. <strong>Não aperte nada.</strong> Espere os 120 segundos, feche o terminal e abra outro:</p>
+<pre class="term">$ multipass shell lab</pre>
+<p>Ele volta a conectar porque o <code>netplan try</code> reverteu a configuração sozinho. Agora restaure o arquivo original:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo cp /root/netplan.bak /etc/netplan/50-cloud-init.yaml
+$ sudo netplan apply
+$ ip -br addr show
+lo               UNKNOWN        127.0.0.1/8 ::1/128
+ens3             UP             10.85.140.27/24 metric 100 fe80::5054:ff:fe3a:9c1f/64</pre>
+<p>Os nomes das interfaces e os endereços variam. O importante é a sua interface aparecer <code>UP</code> com o IP de antes.</p>
+</li>
+
+<li>
+<h3>Lição</h3>
+<p>Em servidor remoto, <strong>nunca</strong> use <code>netplan apply</code> direto numa mudança arriscada. Use <code>netplan try</code>: o pior que acontece são dois minutos sem acesso. Se você tivesse usado <code>apply</code> aqui, a saída seria o snapshot; num servidor de verdade, o console do provedor.</p>
+</li>
+</ol>
+
+<hr>
+
+<h2>Desafio 5: um administrador perdeu o sudo</h2>
+
+<ol class="passo">
+<li>
+<h3>Quebre</h3>
+<p>Vamos criar a usuária <code>aluna</code> como administradora e depois tirá-la do grupo <code>sudo</code>. Usamos outra conta porque o usuário <code>ubuntu</code> da VM tem uma regra extra em <code>/etc/sudoers.d/</code> e não perderia o acesso.</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo adduser --comment "" aluna
+…
+$ sudo usermod -aG sudo aluna
+$ sudo gpasswd -d aluna sudo
+Removing user aluna from group sudo</pre>
+</li>
+
+<li>
+<h3>Sintoma</h3>
+<pre class="term" data-user="ubuntu" data-host="lab">$ su - aluna
+Password:</pre>
+<pre class="term" data-user="aluna" data-host="lab">$ sudo apt update
+[sudo: authenticate] Password:
+sudo: I'm sorry aluna. I'm afraid I can't do that   « a senha está certa, mas falta a permissão</pre>
+</li>
+
+<li>
+<h3>Diagnóstico</h3>
+<pre class="term" data-user="aluna" data-host="lab">$ groups
+aluna users                                       « "sudo" sumiu da lista
+$ exit</pre>
+</li>
+
+<li>
+<h3>Conserto</h3>
+<p><strong>Se existe outro administrador</strong> (aqui, o <code>ubuntu</code>):</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo usermod -aG sudo aluna
+$ groups aluna
+aluna : aluna sudo users</pre>
+<p>A aluna precisa sair e entrar de novo para o grupo valer.</p>
+<p><strong>Se ela era a única administradora</strong>, ninguém mais tem <code>sudo</code>. Num PC ou VM com tela, a saída é o modo de recuperação, que dá um terminal de root sem senha:</p>
+<ol>
+  <li>Reinicie e segure <kbd>Shift</kbd> (BIOS) ou toque <kbd>Esc</kbd> (UEFI) para abrir o menu do GRUB.</li>
+  <li>Escolha <strong>Advanced options for Ubuntu</strong> → a linha que termina em <strong>(recovery mode)</strong>.</li>
+  <li>No menu, escolha <strong>root – Drop to root shell prompt</strong> e aperte <kbd>Enter</kbd>.</li>
+  <li>Rode os comandos abaixo e reinicie.</li>
+</ol>
+<pre class="term" data-host="lab">#> mount -o remount,rw /
+« o disco começa só para leitura
+#> usermod -aG sudo aluna
+#> reboot</pre>
+<p>A VM do Multipass não tem tela para o GRUB. Lá, a porta dos fundos é <code>multipass exec lab -- sudo usermod -aG sudo aluna</code>, que roda como <code>ubuntu</code>.</p>
+</li>
+
+<li>
+<h3>Lição</h3>
+<p>Mantenha sempre <strong>dois</strong> administradores, ou tenha acesso ao console. Para editar <code>/etc/sudoers</code>, use sempre <code>sudo visudo</code>, que recusa salvar um arquivo com erro de sintaxe. Veja <a href="sudo.html">sudo</a>.</p>
+</li>
+</ol>
+
+<hr>
+
+<h2>Desafio 6: o fstab impede o sistema de ligar</h2>
+
+<ol class="passo">
+<li>
+<h3>Quebre</h3>
+<p>O <code>/etc/fstab</code> lista os discos montados no boot. Vamos acrescentar um disco que não existe, identificado por um UUID inventado:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo cp /etc/fstab /root/fstab.bak
+$ sudo mkdir /dados
+$ echo 'UUID=12345678-dead-beef-0000-123456789abc /dados ext4 defaults 0 2' | sudo tee -a /etc/fstab
+UUID=12345678-dead-beef-0000-123456789abc /dados ext4 defaults 0 2</pre>
+</li>
+
+<li>
+<h3>Diagnóstico ANTES de reiniciar</h3>
+<p>Esse é o hábito que salva servidores: depois de mexer no fstab, <strong>teste antes de reiniciar</strong>. Dois comandos fazem isso:</p>
+<pre class="term" data-user="ubuntu" data-host="lab">$ sudo findmnt --verify
+/dados
+   [E] unreachable source: UUID=12345678-dead-beef-0000-123456789abc: No such file or directory
+   [W] cannot detect on-disk filesystem type
+
+0 parse errors, 1 error, 1 warning               « [E] = erro: isso vai dar problema no boot
+$ sudo mount -a
+mount: (hint) your fstab has been modified, but systemd still uses
+       the old version; use 'systemctl daemon-reload' to reload.
+mount: /dados: can't find UUID=12345678-dead-beef-0000-123456789abc.</pre>
+<p>O <code>mount -a</code> tenta montar tudo o que está no fstab, como o boot faria. Se ele falha aqui, o boot também vai falhar.</p>
+</li>
+
+<li>
+<h3>Sintoma (se você reiniciar mesmo assim)</h3>
+<p>Para ver a pane completa, reinicie: <code>sudo reboot</code>. O boot espera o disco por 90 segundos e, sem encontrá-lo, entra no <strong>modo de emergência</strong>. Numa tela, você veria algo assim:</p>
+<pre class="term" data-title="console da VM">A start job is running for /dev/disk/by-uuid/12345678-dead-beef-0000-123456789abc (1min 30s / 1min 30s)
+…
+You are in emergency mode. After logging in, type "journalctl -xb" to view
+system logs, "systemctl reboot" to reboot, or "exit" to continue bootup.
+Cannot open access to console, the root account is locked.
+See sulogin(8) man page for more details.
+
+Press Enter to continue.</pre>
+<p>O SSH não sobe, então <code>multipass shell lab</code> fica tentando e não conecta.</p>
+</li>
+
+<li>
+<h3>Conserto</h3>
+<p><strong>Na VM do Multipass</strong>, que não tem tela, volte ao snapshot:</p>
+<pre class="term">$ multipass stop --force lab
+$ multipass restore --destructive lab.pronto
+Snapshot restored: lab.pronto
+$ multipass start lab</pre>
+<p><strong>Num PC ou VM com tela</strong>, use o modo de recuperação, como no desafio 5: GRUB → <strong>Advanced options</strong> → <strong>(recovery mode)</strong> → <strong>root</strong>. Depois:</p>
+<pre class="term" data-host="lab">#> mount -o remount,rw /
+#> nano /etc/fstab
+« comente a linha com # ou apague
+#> findmnt --verify
+0 parse errors, 0 errors, 0 warnings
+#> reboot</pre>
+</li>
+
+<li>
+<h3>Lição</h3>
+<p>Três hábitos para o fstab:</p>
+<ul>
+  <li>Faça uma cópia antes de editar.</li>
+  <li>Rode <code>sudo findmnt --verify</code> e <code>sudo mount -a</code> antes de reiniciar.</li>
+  <li>Para discos que não são essenciais (HD externo, disco de backup), use a opção <code>nofail</code>: se o disco não estiver lá, o boot continua. Exemplo: <code>UUID=… /dados ext4 defaults,nofail 0 2</code>. Veja <a href="montar.html">mount e fstab</a>.</li>
+</ul>
+</li>
+</ol>
+
+<hr>
+
+<h2>O roteiro de qualquer pane</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Sintoma</th><th>Primeiro comando</th><th>Depois</th></tr>
+<tr><td>Tudo lento</td><td><code>uptime</code>, <code>top</code></td><td><code>ps aux --sort=-%cpu</code> ou <code>--sort=-%mem</code></td></tr>
+<tr><td>Erros estranhos ao salvar</td><td><code>df -h</code></td><td><code>du -xh --max-depth=1 / | sort -h</code></td></tr>
+<tr><td>Serviço fora do ar</td><td><code>systemctl status serviço</code></td><td><code>journalctl -u serviço</code>, teste de configuração</td></tr>
+<tr><td>Sem rede</td><td><code>ip -br addr</code></td><td><code>ip route</code>, <code>ping</code>, <code>netplan get</code></td></tr>
+<tr><td>"I'm sorry" no sudo</td><td><code>groups</code></td><td>Outro admin ou modo de recuperação</td></tr>
+<tr><td>Não liga / modo de emergência</td><td>Modo de recuperação</td><td><code>journalctl -xb</code>, <code>findmnt --verify</code></td></tr>
+</table>
+</div>
+
+<h2>O que você aprendeu</h2>
+<ul>
+  <li>Achar e encerrar um processo que trava a CPU.</li>
+  <li>Descobrir o que encheu o disco descendo pelas pastas com <code>du</code>.</li>
+  <li>Ler <code>systemctl status</code>, <code>journalctl</code> e o teste de configuração do nginx.</li>
+  <li>Mudar a rede com segurança usando <code>netplan try</code>.</li>
+  <li>Recuperar o sudo e consertar um fstab pelo modo de recuperação.</li>
+  <li>Usar snapshots como rede de segurança.</li>
+</ul>
+
+<h2>Desafios extras</h2>
+<ol>
+  <li>Encha a memória com <code>stress-ng --vm 1 --vm-bytes 90%</code> e observe o <code>systemd-oomd</code> agindo no journal.</li>
+  <li>Apague sem querer <code>/etc/nginx/nginx.conf</code> e recupere com <code>sudo apt install --reinstall -o Dpkg::Options::="--force-confmiss" nginx-common</code>.</li>
+  <li>Peça para alguém quebrar a VM sem contar o quê, e descubra sozinho.</li>
+</ol>
+
+<h2>Desfazer e limpar</h2>
+<pre class="term">$ multipass delete --purge lab</pre>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Testar o fstab</h3>
+<p>Complete o comando que confere o fstab sem montar nada:</p>
+<div class="ex-code">sudo findmnt <input data-answer="--verify" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Mudança de rede segura</h3>
+<p>Complete o comando que aplica a rede e desfaz sozinho se você não confirmar:</p>
+<div class="ex-code">sudo netplan <input data-answer="try" aria-label="subcomando"></div>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">3. Vários programas falham ao salvar arquivos ao mesmo tempo. Qual é o primeiro comando a rodar?</p>
+<label><input type="radio" name="q3"> <code>df -h</code></label>
+<label><input type="radio" name="q3"> <code>sudo reboot</code></label>
+<label><input type="radio" name="q3"> <code>kill -9 1</code></label>
+<label><input type="radio" name="q3"> <code>sudo apt upgrade</code></label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Para que serve a opção <code>nofail</code> no fstab?</p>
+<label><input type="radio" name="q4"> Impede que o disco seja desmontado.</label>
+<label><input type="radio" name="q4"> Corrige o UUID automaticamente.</label>
+<label><input type="radio" name="q4"> Deixa o boot continuar se aquele disco não estiver presente.</label>
+<label><input type="radio" name="q4"> Monta o disco só para leitura.</label>
+</div>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

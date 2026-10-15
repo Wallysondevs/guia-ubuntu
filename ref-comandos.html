@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Referência de Comandos — todos os comandos do guia | Guia Ubuntu</title>
+<meta name="description" content="Todos os comandos ensinados no Guia Ubuntu, de A a Z, com o que cada um faz, o nível e o link para a aula, mais uma tabela por tarefa.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Referência de Comandos</span></h1>
+
+<p class="intro">Esta página lista os 220 comandos ensinados no guia, de A a Z. Cada linha diz o que o comando faz em uma frase, em qual nível ele aparece e qual aula explica ele parte por parte. Se você sabe <strong>o que quer fazer</strong> mas não sabe o comando, pule para <a href="#por-tarefa">Por tarefa</a>.</p>
+
+<div class="note">
+<strong>Como usar esta página</strong>
+<ul>
+  <li>Use <kbd>Ctrl</kbd>+<kbd>F</kbd> no navegador para achar um comando rápido.</li>
+  <li>A coluna <strong>Nível</strong> indica a trilha: 1 = Iniciante, 2 = Intermediário, 3 = Avançado.</li>
+  <li>Uma frase não ensina um comando. Antes de usar algo novo, abra a aula: lá estão as opções, a saída explicada e os erros comuns.</li>
+</ul>
+</div>
+
+<h2>Antes de rodar um comando que você não conhece</h2>
+<p>Três perguntas rápidas evitam a maioria dos sustos: o comando existe? O que ele é? O que ele faz?</p>
+
+<dl class="anatomy">
+  <dt>type</dt><dd>Pergunta ao shell o que é aquele nome: programa, apelido ou comando interno.</dd>
+  <dt>rsync</dt><dd>O nome que você quer conhecer.</dd>
+</dl>
+
+<pre class="term">$ type rsync
+rsync é /usr/bin/rsync                              « existe e é um programa
+$ whatis rsync
+rsync (1)            - a fast, versatile, remote (and local) file-copying tool
+$ type ll
+ll está apelidada para `ls -alF'                    « é um apelido do ~/.bashrc
+$ type xyz
+bash: type: xyz: não encontrado                     « não existe neste sistema</pre>
+
+<p>Depois disso, <code>man rsync</code> abre o manual completo e <code>rsync --help</code> mostra o resumo das opções. A aula <a href="ajuda.html">Obtendo Ajuda</a> ensina a ler os dois.</p>
+
+<hr>
+
+<h2>Comandos de A a Z</h2>
+
+<p class="indice-letras"><a href="#letra-A">A</a> · <a href="#letra-B">B</a> · <a href="#letra-C">C</a> · <a href="#letra-D">D</a> · <a href="#letra-E">E</a> · <a href="#letra-F">F</a> · <a href="#letra-G">G</a> · <a href="#letra-H">H</a> · <a href="#letra-I">I</a> · <a href="#letra-J">J</a> · <a href="#letra-K">K</a> · <a href="#letra-L">L</a> · <a href="#letra-M">M</a> · <a href="#letra-N">N</a> · <a href="#letra-O">O</a> · <a href="#letra-P">P</a> · <a href="#letra-R">R</a> · <a href="#letra-S">S</a> · <a href="#letra-T">T</a> · <a href="#letra-U">U</a> · <a href="#letra-V">V</a> · <a href="#letra-W">W</a> · <a href="#letra-X">X</a> · <a href="#letra-Z">Z</a></p>
+<h2 id="letra-A">A</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>aa-status</code></td><td>Mostra quais programas estão protegidos pelo AppArmor.</td><td>3</td><td><a href="seguranca.html">Segurança do Servidor</a></td></tr>
+<tr><td><code>add-apt-repository</code></td><td>Adiciona um repositório extra ou um PPA.</td><td>2</td><td><a href="repositorios.html">Repositórios e PPAs</a></td></tr>
+<tr><td><code>adduser</code></td><td>Cria um usuário com pasta pessoal, fazendo perguntas.</td><td>2</td><td><a href="usuarios.html">Usuários e Grupos</a></td></tr>
+<tr><td><code>alias</code></td><td>Cria um apelido curto para um comando longo.</td><td>2</td><td><a href="bashrc.html">.bashrc, alias, PATH</a></td></tr>
+<tr><td><code>ansible</code></td><td>Roda um módulo em vários servidores de uma vez.</td><td>3</td><td><a href="ansible.html">Ansible</a></td></tr>
+<tr><td><code>ansible-playbook</code></td><td>Executa um playbook (receita) do Ansible.</td><td>3</td><td><a href="ansible.html">Ansible</a></td></tr>
+<tr><td><code>apropos</code></td><td>Procura comandos pela descrição do manual.</td><td>1</td><td><a href="ajuda.html">Obtendo Ajuda</a></td></tr>
+<tr><td><code>apt</code></td><td>Instala, remove, procura e atualiza programas.</td><td>1</td><td><a href="apt.html">apt</a></td></tr>
+<tr><td><code>apt-mark</code></td><td>Marca pacotes; com hold impede que um pacote seja atualizado.</td><td>1</td><td><a href="apt.html">apt</a></td></tr>
+<tr><td><code>awk</code></td><td>Processa texto em colunas: filtra, soma e formata.</td><td>2</td><td><a href="awk.html">awk</a></td></tr>
+</table>
+</div>
+<h2 id="letra-B">B</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>bash</code></td><td>O shell padrão; também roda scripts (bash script.sh).</td><td>2</td><td><a href="script-intro.html">Primeiro Script</a></td></tr>
+<tr><td><code>bg</code></td><td>Continua em segundo plano um trabalho pausado com Ctrl+Z.</td><td>2</td><td><a href="jobs.html">Jobs, nohup, tmux</a></td></tr>
+<tr><td><code>blkid</code></td><td>Mostra UUID e tipo de sistema de arquivos das partições.</td><td>2</td><td><a href="discos.html">lsblk, df, du</a></td></tr>
+</table>
+</div>
+<h2 id="letra-C">C</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>cal</code></td><td>Mostra um calendário (pacote ncal).</td><td>1</td><td><a href="primeiros-comandos.html">Primeiros Comandos</a></td></tr>
+<tr><td><code>case</code></td><td>Escolhe um caminho no script conforme um valor.</td><td>2</td><td><a href="script-condicionais.html">Condicionais</a></td></tr>
+<tr><td><code>cat</code></td><td>Mostra o conteúdo de arquivos de texto.</td><td>1</td><td><a href="ver-arquivos.html">cat, less, head, tail</a></td></tr>
+<tr><td><code>cd</code></td><td>Entra em uma pasta.</td><td>1</td><td><a href="navegar.html">pwd e cd</a></td></tr>
+<tr><td><code>certbot</code></td><td>Obtém e renova certificados HTTPS do Let's Encrypt.</td><td>3</td><td><a href="https.html">HTTPS (Let's Encrypt)</a></td></tr>
+<tr><td><code>chage</code></td><td>Mostra e altera a validade da senha de um usuário.</td><td>2</td><td><a href="usuarios.html">Usuários e Grupos</a></td></tr>
+<tr><td><code>chattr</code></td><td>Muda atributos especiais de arquivos (ex.: imutável).</td><td>Projeto</td><td><a href="projeto-backup.html">Backup Automático</a></td></tr>
+<tr><td><code>chgrp</code></td><td>Muda o grupo dono de arquivos.</td><td>2</td><td><a href="chown.html">chown, chgrp, umask</a></td></tr>
+<tr><td><code>chmod</code></td><td>Muda as permissões de leitura, escrita e execução.</td><td>2</td><td><a href="chmod.html">chmod</a></td></tr>
+<tr><td><code>chown</code></td><td>Muda o dono (e o grupo) de arquivos.</td><td>2</td><td><a href="chown.html">chown, chgrp, umask</a></td></tr>
+<tr><td><code>chroot</code></td><td>Abre um shell usando outra pasta como raiz; usado para resgatar sistemas.</td><td>3</td><td><a href="recuperacao.html">Recuperar um Sistema</a></td></tr>
+<tr><td><code>clear</code></td><td>Limpa a tela do terminal (igual a Ctrl+L).</td><td>1</td><td><a href="primeiros-comandos.html">Primeiros Comandos</a></td></tr>
+<tr><td><code>cloud-init</code></td><td>Configura uma máquina no primeiro boot; status e logs.</td><td>3</td><td><a href="cloud-init.html">cloud-init</a></td></tr>
+<tr><td><code>cp</code></td><td>Copia arquivos e pastas.</td><td>1</td><td><a href="copiar-mover.html">cp e mv</a></td></tr>
+<tr><td><code>crontab</code></td><td>Agenda tarefas repetidas (crontab -e, -l).</td><td>2</td><td><a href="cron.html">Agendar Tarefas (cron)</a></td></tr>
+<tr><td><code>curl</code></td><td>Faz requisições HTTP e baixa arquivos.</td><td>2</td><td><a href="curl-wget.html">curl, wget, dig</a></td></tr>
+<tr><td><code>cut</code></td><td>Recorta colunas ou caracteres de cada linha.</td><td>2</td><td><a href="texto.html">sort, uniq, cut, wc, tr</a></td></tr>
+</table>
+</div>
+<h2 id="letra-D">D</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>date</code></td><td>Mostra a data e a hora, em vários formatos.</td><td>1</td><td><a href="primeiros-comandos.html">Primeiros Comandos</a></td></tr>
+<tr><td><code>dd</code></td><td>Copia blocos brutos; usado para gravar ISO em pendrive.</td><td>1</td><td><a href="instalacao.html">Instalação</a></td></tr>
+<tr><td><code>deluser</code></td><td>Remove um usuário (e, se pedido, a pasta dele).</td><td>2</td><td><a href="usuarios.html">Usuários e Grupos</a></td></tr>
+<tr><td><code>df</code></td><td>Mostra o espaço livre em cada partição.</td><td>2</td><td><a href="discos.html">lsblk, df, du</a></td></tr>
+<tr><td><code>diff</code></td><td>Mostra as diferenças entre dois arquivos.</td><td>2</td><td><a href="texto.html">sort, uniq, cut, wc, tr</a></td></tr>
+<tr><td><code>dig</code></td><td>Consulta o DNS: qual IP responde por um nome.</td><td>2</td><td><a href="curl-wget.html">curl, wget, dig</a></td></tr>
+<tr><td><code>disown</code></td><td>Desliga um trabalho do terminal para ele não morrer ao fechar.</td><td>2</td><td><a href="jobs.html">Jobs, nohup, tmux</a></td></tr>
+<tr><td><code>dmesg</code></td><td>Mostra as mensagens do kernel (hardware, discos, USB).</td><td>2</td><td><a href="journalctl.html">Logs (journalctl)</a></td></tr>
+<tr><td><code>dmidecode</code></td><td>Mostra dados do hardware lidos da BIOS/UEFI.</td><td>3</td><td><a href="info-sistema.html">Informações do Sistema</a></td></tr>
+<tr><td><code>do-release-upgrade</code></td><td>Atualiza o Ubuntu para a próxima versão.</td><td>1</td><td><a href="atualizacoes.html">Atualizações</a></td></tr>
+<tr><td><code>docker</code></td><td>Cria, executa e gerencia containers.</td><td>3</td><td><a href="docker.html">Docker</a></td></tr>
+<tr><td><code>docker compose</code></td><td>Sobe vários containers descritos em um arquivo compose.yaml.</td><td>3</td><td><a href="docker-compose.html">Docker Compose</a></td></tr>
+<tr><td><code>dpkg</code></td><td>Instala .deb e consulta o que está instalado (-l, -L, -S).</td><td>2</td><td><a href="dpkg.html">dpkg e .deb</a></td></tr>
+<tr><td><code>dpkg-reconfigure</code></td><td>Refaz as perguntas de configuração de um pacote.</td><td>1</td><td><a href="atualizacoes.html">Atualizações</a></td></tr>
+<tr><td><code>du</code></td><td>Mostra quanto espaço cada pasta ocupa.</td><td>2</td><td><a href="discos.html">lsblk, df, du</a></td></tr>
+</table>
+</div>
+<h2 id="letra-E">E</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>e2label</code></td><td>Mostra ou muda o rótulo de uma partição ext4.</td><td>3</td><td><a href="particionar.html">Particionar e Formatar</a></td></tr>
+<tr><td><code>echo</code></td><td>Escreve um texto na tela (ou num arquivo, com &gt;).</td><td>1</td><td><a href="primeiros-comandos.html">Primeiros Comandos</a></td></tr>
+<tr><td><code>exit</code></td><td>Fecha o shell atual ou sai de uma sessão (root, SSH).</td><td>1</td><td><a href="terminal.html">O Terminal</a></td></tr>
+<tr><td><code>export</code></td><td>Torna uma variável visível para os programas que o shell abre.</td><td>2</td><td><a href="bashrc.html">.bashrc, alias, PATH</a></td></tr>
+<tr><td><code>exportfs</code></td><td>Publica as pastas compartilhadas por NFS.</td><td>Projeto</td><td><a href="projeto-servidor-arquivos.html">Servidor de Arquivos</a></td></tr>
+</table>
+</div>
+<h2 id="letra-F">F</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>fail2ban-client</code></td><td>Consulta e gerencia os bloqueios do fail2ban.</td><td>3</td><td><a href="seguranca.html">Segurança do Servidor</a></td></tr>
+<tr><td><code>fallocate</code></td><td>Cria rapidamente um arquivo de tamanho fixo (ex.: swap).</td><td>3</td><td><a href="particionar.html">Particionar e Formatar</a></td></tr>
+<tr><td><code>fastfetch</code></td><td>Mostra um resumo bonito do sistema e do hardware.</td><td>3</td><td><a href="info-sistema.html">Informações do Sistema</a></td></tr>
+<tr><td><code>fdisk</code></td><td>Cria e apaga partições num disco.</td><td>3</td><td><a href="particionar.html">Particionar e Formatar</a></td></tr>
+<tr><td><code>fg</code></td><td>Traz um trabalho de segundo plano para a frente.</td><td>2</td><td><a href="jobs.html">Jobs, nohup, tmux</a></td></tr>
+<tr><td><code>file</code></td><td>Diz o tipo de um arquivo olhando o conteúdo.</td><td>3</td><td><a href="particionar.html">Particionar e Formatar</a></td></tr>
+<tr><td><code>find</code></td><td>Procura arquivos por nome, tipo, tamanho ou data.</td><td>2</td><td><a href="find.html">find e locate</a></td></tr>
+<tr><td><code>findmnt</code></td><td>Mostra o que está montado; --verify confere o fstab.</td><td>2</td><td><a href="montar.html">mount e fstab</a></td></tr>
+<tr><td><code>flatpak</code></td><td>Instala e atualiza apps do Flathub.</td><td>2</td><td><a href="flatpak.html">Flatpak</a></td></tr>
+<tr><td><code>for</code></td><td>Repete comandos para cada item de uma lista.</td><td>2</td><td><a href="script-lacos.html">Laços</a></td></tr>
+<tr><td><code>free</code></td><td>Mostra a memória RAM e a swap em uso.</td><td>3</td><td><a href="desempenho.html">Desempenho e Monitoramento</a></td></tr>
+<tr><td><code>fsck</code></td><td>Verifica e conserta um sistema de arquivos desmontado.</td><td>3</td><td><a href="recuperacao.html">Recuperar um Sistema</a></td></tr>
+<tr><td><code>fstrim</code></td><td>Avisa ao SSD quais blocos estão livres (TRIM).</td><td>3</td><td><a href="manutencao.html">Manutenção</a></td></tr>
+<tr><td><code>fuser</code></td><td>Mostra quais processos estão usando um arquivo ou montagem.</td><td>2</td><td><a href="montar.html">mount e fstab</a></td></tr>
+</table>
+</div>
+<h2 id="letra-G">G</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>gio trash</code></td><td>Manda arquivos para a lixeira em vez de apagar.</td><td>1</td><td><a href="remover.html">rm e rmdir</a></td></tr>
+<tr><td><code>git</code></td><td>Controla versões de arquivos: commit, branch, push.</td><td>3</td><td><a href="git.html">Git</a></td></tr>
+<tr><td><code>gpasswd</code></td><td>Adiciona ou remove um usuário de um grupo.</td><td>2</td><td><a href="usuarios.html">Usuários e Grupos</a></td></tr>
+<tr><td><code>gpg</code></td><td>Gerencia chaves que assinam repositórios e arquivos.</td><td>2</td><td><a href="repositorios.html">Repositórios e PPAs</a></td></tr>
+<tr><td><code>grep</code></td><td>Procura linhas que contêm um texto ou padrão.</td><td>2</td><td><a href="grep.html">grep</a></td></tr>
+<tr><td><code>groupadd</code></td><td>Cria um grupo.</td><td>2</td><td><a href="usuarios.html">Usuários e Grupos</a></td></tr>
+<tr><td><code>groups</code></td><td>Mostra os grupos de um usuário.</td><td>2</td><td><a href="usuarios.html">Usuários e Grupos</a></td></tr>
+<tr><td><code>grub-install</code></td><td>Instala o carregador GRUB no disco.</td><td>3</td><td><a href="recuperacao.html">Recuperar um Sistema</a></td></tr>
+<tr><td><code>gzip / gunzip</code></td><td>Compacta e descompacta arquivos .gz.</td><td>2</td><td><a href="compactar.html">tar, zip, gzip</a></td></tr>
+</table>
+</div>
+<h2 id="letra-H">H</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>head</code></td><td>Mostra as primeiras linhas de um arquivo.</td><td>1</td><td><a href="ver-arquivos.html">cat, less, head, tail</a></td></tr>
+<tr><td><code>history</code></td><td>Lista os comandos já digitados.</td><td>1</td><td><a href="terminal.html">O Terminal</a></td></tr>
+<tr><td><code>hostname</code></td><td>Mostra o nome da máquina; -I mostra os IPs.</td><td>1</td><td><a href="primeiros-comandos.html">Primeiros Comandos</a></td></tr>
+<tr><td><code>hostnamectl</code></td><td>Mostra e altera o nome e os dados do sistema.</td><td>2</td><td><a href="configurar-rede.html">Configurar a Rede</a></td></tr>
+<tr><td><code>htop</code></td><td>Monitor interativo de processos, CPU e memória.</td><td>1</td><td><a href="processos.html">ps, pgrep, top</a></td></tr>
+</table>
+</div>
+<h2 id="letra-I">I</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>id</code></td><td>Mostra UID, GID e grupos de um usuário.</td><td>2</td><td><a href="usuarios.html">Usuários e Grupos</a></td></tr>
+<tr><td><code>if</code></td><td>Executa comandos só se uma condição for verdadeira.</td><td>2</td><td><a href="script-condicionais.html">Condicionais</a></td></tr>
+<tr><td><code>inxi</code></td><td>Resumo do hardware em texto (pacote inxi).</td><td>3</td><td><a href="info-sistema.html">Informações do Sistema</a></td></tr>
+<tr><td><code>iostat</code></td><td>Mostra a carga dos discos (pacote sysstat).</td><td>3</td><td><a href="desempenho.html">Desempenho e Monitoramento</a></td></tr>
+<tr><td><code>iotop</code></td><td>Mostra quem está lendo e escrevendo no disco.</td><td>3</td><td><a href="desempenho.html">Desempenho e Monitoramento</a></td></tr>
+<tr><td><code>ip</code></td><td>Mostra endereços, rotas e interfaces de rede.</td><td>2</td><td><a href="ip.html">ip, ping, ss</a></td></tr>
+<tr><td><code>iptables</code></td><td>Firewall antigo; no Ubuntu traduz para nftables.</td><td>3</td><td><a href="nftables.html">nftables</a></td></tr>
+</table>
+</div>
+<h2 id="letra-J">J</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>jobs</code></td><td>Lista os trabalhos do terminal atual.</td><td>2</td><td><a href="jobs.html">Jobs, nohup, tmux</a></td></tr>
+<tr><td><code>journalctl</code></td><td>Lê os logs do sistema e dos serviços.</td><td>2</td><td><a href="journalctl.html">Logs (journalctl)</a></td></tr>
+</table>
+</div>
+<h2 id="letra-K">K</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>kill</code></td><td>Envia um sinal (ex.: encerrar) a um processo pelo PID.</td><td>1</td><td><a href="kill.html">Encerrar Programas (kill)</a></td></tr>
+<tr><td><code>killall</code></td><td>Encerra todos os processos com um nome exato.</td><td>1</td><td><a href="kill.html">Encerrar Programas (kill)</a></td></tr>
+<tr><td><code>kvm-ok</code></td><td>Confere se o processador suporta virtualização KVM.</td><td>3</td><td><a href="kvm.html">KVM e virt-manager</a></td></tr>
+</table>
+</div>
+<h2 id="letra-L">L</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>less</code></td><td>Mostra arquivos longos página por página.</td><td>1</td><td><a href="ver-arquivos.html">cat, less, head, tail</a></td></tr>
+<tr><td><code>ln</code></td><td>Cria links (atalhos) para arquivos e pastas.</td><td>2</td><td><a href="links.html">Links (ln)</a></td></tr>
+<tr><td><code>locate / plocate</code></td><td>Procura arquivos por nome num índice (muito rápido).</td><td>2</td><td><a href="find.html">find e locate</a></td></tr>
+<tr><td><code>loginctl</code></td><td>Lista sessões e encerra a sessão de um usuário.</td><td>1</td><td><a href="travamentos.html">Quando o Sistema Trava</a></td></tr>
+<tr><td><code>logrotate</code></td><td>Gira e compacta logs antigos.</td><td>3</td><td><a href="manutencao.html">Manutenção</a></td></tr>
+<tr><td><code>losetup</code></td><td>Usa um arquivo como se fosse um disco (laboratório).</td><td>3</td><td><a href="lvm.html">LVM</a></td></tr>
+<tr><td><code>ls</code></td><td>Lista arquivos e pastas.</td><td>1</td><td><a href="ls.html">ls</a></td></tr>
+<tr><td><code>lsb_release</code></td><td>Mostra a versão do Ubuntu.</td><td>1</td><td><a href="primeiros-comandos.html">Primeiros Comandos</a></td></tr>
+<tr><td><code>lsblk</code></td><td>Lista discos e partições em forma de árvore.</td><td>2</td><td><a href="discos.html">lsblk, df, du</a></td></tr>
+<tr><td><code>lscpu</code></td><td>Mostra os detalhes do processador.</td><td>3</td><td><a href="info-sistema.html">Informações do Sistema</a></td></tr>
+<tr><td><code>lshw</code></td><td>Lista todo o hardware.</td><td>3</td><td><a href="info-sistema.html">Informações do Sistema</a></td></tr>
+<tr><td><code>lsof</code></td><td>Lista arquivos abertos e quem os abriu.</td><td>2</td><td><a href="montar.html">mount e fstab</a></td></tr>
+<tr><td><code>lspci</code></td><td>Lista placas e dispositivos PCI (vídeo, rede).</td><td>3</td><td><a href="info-sistema.html">Informações do Sistema</a></td></tr>
+<tr><td><code>lsusb</code></td><td>Lista dispositivos USB.</td><td>3</td><td><a href="info-sistema.html">Informações do Sistema</a></td></tr>
+<tr><td><code>lvcreate / lvextend / lvs</code></td><td>Cria, aumenta e lista volumes lógicos LVM.</td><td>3</td><td><a href="lvm.html">LVM</a></td></tr>
+<tr><td><code>lxc</code></td><td>Cria e controla containers e VMs do LXD.</td><td>3</td><td><a href="lxd.html">LXD</a></td></tr>
+<tr><td><code>lxd init</code></td><td>Configura o LXD pela primeira vez.</td><td>3</td><td><a href="lxd.html">LXD</a></td></tr>
+</table>
+</div>
+<h2 id="letra-M">M</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>man</code></td><td>Abre o manual de um comando.</td><td>1</td><td><a href="ajuda.html">Obtendo Ajuda</a></td></tr>
+<tr><td><code>mariadb / mariadb-dump</code></td><td>Cliente e backup do banco MariaDB.</td><td>3</td><td><a href="banco-dados.html">Bancos de Dados</a></td></tr>
+<tr><td><code>mdadm</code></td><td>Cria e gerencia RAID por software.</td><td>3</td><td><a href="raid.html">RAID (mdadm)</a></td></tr>
+<tr><td><code>mkdir</code></td><td>Cria pastas.</td><td>1</td><td><a href="criar.html">touch e mkdir</a></td></tr>
+<tr><td><code>mkfs.ext4</code></td><td>Formata uma partição com ext4.</td><td>3</td><td><a href="particionar.html">Particionar e Formatar</a></td></tr>
+<tr><td><code>mkswap / swapon</code></td><td>Prepara e ativa uma área de swap.</td><td>3</td><td><a href="particionar.html">Particionar e Formatar</a></td></tr>
+<tr><td><code>mount / umount</code></td><td>Monta e desmonta discos e partições.</td><td>2</td><td><a href="montar.html">mount e fstab</a></td></tr>
+<tr><td><code>mtr</code></td><td>Combina ping e traceroute em tempo real.</td><td>2</td><td><a href="curl-wget.html">curl, wget, dig</a></td></tr>
+<tr><td><code>multipass</code></td><td>Cria máquinas virtuais Ubuntu com um comando.</td><td>1</td><td><a href="instalacao.html">Instalação</a></td></tr>
+<tr><td><code>mv</code></td><td>Move ou renomeia arquivos e pastas.</td><td>1</td><td><a href="copiar-mover.html">cp e mv</a></td></tr>
+</table>
+</div>
+<h2 id="letra-N">N</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>nano</code></td><td>Editor de texto simples no terminal.</td><td>1</td><td><a href="editores.html">nano e vim</a></td></tr>
+<tr><td><code>nc</code></td><td>Testa se uma porta está aberta (nc -zv).</td><td>2</td><td><a href="ip.html">ip, ping, ss</a></td></tr>
+<tr><td><code>ncdu</code></td><td>Mostra o uso de disco de forma interativa.</td><td>2</td><td><a href="discos.html">lsblk, df, du</a></td></tr>
+<tr><td><code>netplan</code></td><td>Configura a rede em servidores (try, apply).</td><td>2</td><td><a href="configurar-rede.html">Configurar a Rede</a></td></tr>
+<tr><td><code>newgrp</code></td><td>Ativa um grupo novo sem precisar sair da sessão.</td><td>3</td><td><a href="docker.html">Docker</a></td></tr>
+<tr><td><code>nft</code></td><td>Lista e altera as regras do firewall nftables.</td><td>3</td><td><a href="nftables.html">nftables</a></td></tr>
+<tr><td><code>nginx</code></td><td>Servidor web; nginx -t testa a configuração.</td><td>3</td><td><a href="nginx.html">Servidor Web (nginx)</a></td></tr>
+<tr><td><code>nmcli</code></td><td>Controla a rede (Wi-Fi, IP fixo) pelo NetworkManager.</td><td>2</td><td><a href="configurar-rede.html">Configurar a Rede</a></td></tr>
+<tr><td><code>nohup</code></td><td>Roda um comando que continua depois que o terminal fecha.</td><td>2</td><td><a href="jobs.html">Jobs, nohup, tmux</a></td></tr>
+<tr><td><code>nproc</code></td><td>Mostra quantos núcleos de CPU existem.</td><td>3</td><td><a href="info-sistema.html">Informações do Sistema</a></td></tr>
+<tr><td><code>nslookup</code></td><td>Consulta o DNS (alternativa ao dig).</td><td>2</td><td><a href="curl-wget.html">curl, wget, dig</a></td></tr>
+</table>
+</div>
+<h2 id="letra-O">O</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>openssl</code></td><td>Gera certificados e testa conexões TLS.</td><td>3</td><td><a href="https.html">HTTPS (Let's Encrypt)</a></td></tr>
+</table>
+</div>
+<h2 id="letra-P">P</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>parted</code></td><td>Particiona discos, inclusive GPT.</td><td>3</td><td><a href="particionar.html">Particionar e Formatar</a></td></tr>
+<tr><td><code>passwd</code></td><td>Troca a senha de um usuário.</td><td>2</td><td><a href="usuarios.html">Usuários e Grupos</a></td></tr>
+<tr><td><code>paste</code></td><td>Junta linhas de arquivos lado a lado.</td><td>2</td><td><a href="texto.html">sort, uniq, cut, wc, tr</a></td></tr>
+<tr><td><code>pg_dump</code></td><td>Faz backup de um banco PostgreSQL.</td><td>3</td><td><a href="banco-dados.html">Bancos de Dados</a></td></tr>
+<tr><td><code>pgrep</code></td><td>Procura processos pelo nome e mostra o PID.</td><td>1</td><td><a href="processos.html">ps, pgrep, top</a></td></tr>
+<tr><td><code>pidof</code></td><td>Mostra o PID de um programa pelo nome exato.</td><td>1</td><td><a href="processos.html">ps, pgrep, top</a></td></tr>
+<tr><td><code>ping</code></td><td>Testa se outra máquina responde na rede.</td><td>2</td><td><a href="ip.html">ip, ping, ss</a></td></tr>
+<tr><td><code>pkill</code></td><td>Encerra processos pelo nome ou padrão.</td><td>1</td><td><a href="kill.html">Encerrar Programas (kill)</a></td></tr>
+<tr><td><code>pro</code></td><td>Gerencia o Ubuntu Pro (pro status, pro attach).</td><td>1</td><td><a href="atualizacoes.html">Atualizações</a></td></tr>
+<tr><td><code>ps</code></td><td>Lista processos em execução.</td><td>1</td><td><a href="processos.html">ps, pgrep, top</a></td></tr>
+<tr><td><code>psql</code></td><td>Cliente de linha de comando do PostgreSQL.</td><td>3</td><td><a href="banco-dados.html">Bancos de Dados</a></td></tr>
+<tr><td><code>pushd / popd</code></td><td>Entra numa pasta guardando a anterior numa pilha.</td><td>1</td><td><a href="navegar.html">pwd e cd</a></td></tr>
+<tr><td><code>pvcreate / vgcreate / vgs</code></td><td>Preparam discos e grupos de volumes do LVM.</td><td>3</td><td><a href="lvm.html">LVM</a></td></tr>
+<tr><td><code>pwd</code></td><td>Mostra em qual pasta você está.</td><td>1</td><td><a href="navegar.html">pwd e cd</a></td></tr>
+</table>
+</div>
+<h2 id="letra-R">R</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>read</code></td><td>Lê o que o usuário digita para uma variável.</td><td>2</td><td><a href="script-variaveis.html">Variáveis e Argumentos</a></td></tr>
+<tr><td><code>readlink</code></td><td>Mostra para onde um link aponta (-f: caminho final).</td><td>2</td><td><a href="links.html">Links (ln)</a></td></tr>
+<tr><td><code>realpath</code></td><td>Mostra o caminho absoluto de um arquivo.</td><td>1</td><td><a href="caminhos.html">Caminhos</a></td></tr>
+<tr><td><code>reboot</code></td><td>Reinicia a máquina.</td><td>1</td><td><a href="travamentos.html">Quando o Sistema Trava</a></td></tr>
+<tr><td><code>resize2fs</code></td><td>Aumenta ou diminui um sistema de arquivos ext4.</td><td>3</td><td><a href="lvm.html">LVM</a></td></tr>
+<tr><td><code>resolvectl</code></td><td>Mostra o DNS em uso e consulta nomes.</td><td>2</td><td><a href="curl-wget.html">curl, wget, dig</a></td></tr>
+<tr><td><code>restic</code></td><td>Backup incremental e criptografado.</td><td>2</td><td><a href="backup.html">Backup</a></td></tr>
+<tr><td><code>rm</code></td><td>Apaga arquivos (e pastas, com -r). Não usa lixeira.</td><td>1</td><td><a href="remover.html">rm e rmdir</a></td></tr>
+<tr><td><code>rmdir</code></td><td>Apaga pastas vazias.</td><td>1</td><td><a href="remover.html">rm e rmdir</a></td></tr>
+<tr><td><code>rsync</code></td><td>Copia e sincroniza pastas, local ou remoto.</td><td>2</td><td><a href="scp-rsync.html">scp e rsync</a></td></tr>
+</table>
+</div>
+<h2 id="letra-S">S</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>scp</code></td><td>Copia arquivos entre máquinas pelo SSH.</td><td>2</td><td><a href="scp-rsync.html">scp e rsync</a></td></tr>
+<tr><td><code>sed</code></td><td>Edita texto em fluxo: substitui, apaga linhas.</td><td>2</td><td><a href="sed.html">sed</a></td></tr>
+<tr><td><code>sensors</code></td><td>Mostra temperaturas (pacote lm-sensors).</td><td>3</td><td><a href="info-sistema.html">Informações do Sistema</a></td></tr>
+<tr><td><code>sha256sum</code></td><td>Calcula o hash para conferir se um arquivo está íntegro.</td><td>1</td><td><a href="instalacao.html">Instalação</a></td></tr>
+<tr><td><code>shellcheck</code></td><td>Aponta erros comuns em scripts bash.</td><td>2</td><td><a href="script-intro.html">Primeiro Script</a></td></tr>
+<tr><td><code>sleep</code></td><td>Espera alguns segundos.</td><td>2</td><td><a href="script-lacos.html">Laços</a></td></tr>
+<tr><td><code>smartctl</code></td><td>Lê a saúde (SMART) de um disco.</td><td>3</td><td><a href="raid.html">RAID (mdadm)</a></td></tr>
+<tr><td><code>smbpasswd</code></td><td>Cria a senha Samba de um usuário.</td><td>Projeto</td><td><a href="projeto-servidor-arquivos.html">Servidor de Arquivos</a></td></tr>
+<tr><td><code>snap</code></td><td>Instala e atualiza pacotes snap.</td><td>1</td><td><a href="snap.html">Snap</a></td></tr>
+<tr><td><code>sort</code></td><td>Ordena linhas.</td><td>2</td><td><a href="texto.html">sort, uniq, cut, wc, tr</a></td></tr>
+<tr><td><code>source</code></td><td>Carrega um arquivo no shell atual (ex.: ~/.bashrc).</td><td>2</td><td><a href="bashrc.html">.bashrc, alias, PATH</a></td></tr>
+<tr><td><code>ss</code></td><td>Mostra portas abertas e conexões (ss -tulpn).</td><td>2</td><td><a href="ip.html">ip, ping, ss</a></td></tr>
+<tr><td><code>ssh</code></td><td>Acessa outra máquina pelo terminal, com segurança.</td><td>2</td><td><a href="ssh.html">SSH</a></td></tr>
+<tr><td><code>ssh-copy-id</code></td><td>Instala sua chave pública num servidor.</td><td>2</td><td><a href="ssh.html">SSH</a></td></tr>
+<tr><td><code>ssh-keygen</code></td><td>Cria um par de chaves SSH.</td><td>2</td><td><a href="ssh.html">SSH</a></td></tr>
+<tr><td><code>stat</code></td><td>Mostra detalhes de um arquivo: permissões, datas, inode.</td><td>1</td><td><a href="permissoes.html">Entendendo Permissões</a></td></tr>
+<tr><td><code>su</code></td><td>Troca de usuário no terminal.</td><td>2</td><td><a href="usuarios.html">Usuários e Grupos</a></td></tr>
+<tr><td><code>sudo</code></td><td>Executa um comando como administrador.</td><td>1</td><td><a href="sudo.html">sudo</a></td></tr>
+<tr><td><code>sudoedit</code></td><td>Edita um arquivo do sistema com segurança.</td><td>1</td><td><a href="editores.html">nano e vim</a></td></tr>
+<tr><td><code>sysctl</code></td><td>Lê e altera parâmetros do kernel (ex.: kernel.sysrq).</td><td>1</td><td><a href="travamentos.html">Quando o Sistema Trava</a></td></tr>
+<tr><td><code>systemctl</code></td><td>Liga, desliga e consulta serviços.</td><td>2</td><td><a href="systemctl.html">systemctl</a></td></tr>
+<tr><td><code>systemd-analyze</code></td><td>Mostra quanto tempo o boot levou e o que atrasou.</td><td>3</td><td><a href="boot-grub.html">Boot, GRUB e Kernel</a></td></tr>
+</table>
+</div>
+<h2 id="letra-T">T</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>tail</code></td><td>Mostra as últimas linhas; -f acompanha em tempo real.</td><td>1</td><td><a href="ver-arquivos.html">cat, less, head, tail</a></td></tr>
+<tr><td><code>tar</code></td><td>Junta e compacta pastas em .tar.gz.</td><td>2</td><td><a href="compactar.html">tar, zip, gzip</a></td></tr>
+<tr><td><code>tee</code></td><td>Grava a saída num arquivo e mostra na tela ao mesmo tempo.</td><td>2</td><td><a href="pipes.html">Pipes e xargs</a></td></tr>
+<tr><td><code>test / [ ]</code></td><td>Testa condições (arquivo existe? número maior?).</td><td>2</td><td><a href="script-condicionais.html">Condicionais</a></td></tr>
+<tr><td><code>timedatectl</code></td><td>Mostra e ajusta relógio, fuso e sincronização.</td><td>3</td><td><a href="seguranca.html">Segurança do Servidor</a></td></tr>
+<tr><td><code>tldr</code></td><td>Exemplos rápidos de uso de um comando (pacote tealdeer).</td><td>1</td><td><a href="ajuda.html">Obtendo Ajuda</a></td></tr>
+<tr><td><code>tmux</code></td><td>Divide o terminal e mantém sessões abertas.</td><td>2</td><td><a href="jobs.html">Jobs, nohup, tmux</a></td></tr>
+<tr><td><code>top</code></td><td>Monitor de processos em tempo real.</td><td>1</td><td><a href="processos.html">ps, pgrep, top</a></td></tr>
+<tr><td><code>touch</code></td><td>Cria um arquivo vazio ou atualiza a data.</td><td>1</td><td><a href="criar.html">touch e mkdir</a></td></tr>
+<tr><td><code>tr</code></td><td>Troca ou apaga caracteres.</td><td>2</td><td><a href="texto.html">sort, uniq, cut, wc, tr</a></td></tr>
+<tr><td><code>tracepath</code></td><td>Mostra o caminho dos pacotes até um destino.</td><td>2</td><td><a href="curl-wget.html">curl, wget, dig</a></td></tr>
+<tr><td><code>trap</code></td><td>Executa uma limpeza quando o script termina.</td><td>2</td><td><a href="script-funcoes.html">Funções</a></td></tr>
+<tr><td><code>tree</code></td><td>Desenha a árvore de pastas.</td><td>1</td><td><a href="ls.html">ls</a></td></tr>
+<tr><td><code>truncate</code></td><td>Cria ou corta um arquivo para um tamanho exato.</td><td>3</td><td><a href="lvm.html">LVM</a></td></tr>
+<tr><td><code>type</code></td><td>Diz o que é um comando: programa, apelido ou interno.</td><td>1</td><td><a href="ajuda.html">Obtendo Ajuda</a></td></tr>
+</table>
+</div>
+<h2 id="letra-U">U</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>udisksctl</code></td><td>Monta discos USB sem sudo.</td><td>2</td><td><a href="montar.html">mount e fstab</a></td></tr>
+<tr><td><code>ufw</code></td><td>Firewall simples do Ubuntu.</td><td>3</td><td><a href="ufw.html">Firewall (ufw)</a></td></tr>
+<tr><td><code>umask</code></td><td>Define as permissões padrão de arquivos novos.</td><td>2</td><td><a href="chown.html">chown, chgrp, umask</a></td></tr>
+<tr><td><code>uname</code></td><td>Mostra o kernel e a arquitetura.</td><td>1</td><td><a href="primeiros-comandos.html">Primeiros Comandos</a></td></tr>
+<tr><td><code>uniq</code></td><td>Junta ou conta linhas repetidas seguidas.</td><td>2</td><td><a href="texto.html">sort, uniq, cut, wc, tr</a></td></tr>
+<tr><td><code>unzip / zip</code></td><td>Extrai e cria arquivos .zip.</td><td>2</td><td><a href="compactar.html">tar, zip, gzip</a></td></tr>
+<tr><td><code>update-alternatives</code></td><td>Escolhe o programa padrão (ex.: editor).</td><td>1</td><td><a href="editores.html">nano e vim</a></td></tr>
+<tr><td><code>update-grub</code></td><td>Regera o menu do GRUB após mudar a configuração.</td><td>3</td><td><a href="boot-grub.html">Boot, GRUB e Kernel</a></td></tr>
+<tr><td><code>update-initramfs</code></td><td>Regera o initramfs usado no boot.</td><td>3</td><td><a href="boot-grub.html">Boot, GRUB e Kernel</a></td></tr>
+<tr><td><code>updatedb</code></td><td>Atualiza o índice do locate.</td><td>2</td><td><a href="find.html">find e locate</a></td></tr>
+<tr><td><code>uptime</code></td><td>Mostra há quanto tempo a máquina está ligada e a carga.</td><td>3</td><td><a href="desempenho.html">Desempenho e Monitoramento</a></td></tr>
+<tr><td><code>useradd</code></td><td>Cria usuário sem perguntas (uso em scripts).</td><td>2</td><td><a href="usuarios.html">Usuários e Grupos</a></td></tr>
+<tr><td><code>usermod</code></td><td>Altera um usuário; -aG adiciona a grupos.</td><td>2</td><td><a href="usuarios.html">Usuários e Grupos</a></td></tr>
+</table>
+</div>
+<h2 id="letra-V">V</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>vim</code></td><td>Editor poderoso no terminal (modos).</td><td>1</td><td><a href="editores.html">nano e vim</a></td></tr>
+<tr><td><code>virsh</code></td><td>Controla máquinas virtuais KVM/libvirt.</td><td>3</td><td><a href="kvm.html">KVM e virt-manager</a></td></tr>
+<tr><td><code>virt-install</code></td><td>Cria uma máquina virtual KVM pelo terminal.</td><td>3</td><td><a href="kvm.html">KVM e virt-manager</a></td></tr>
+<tr><td><code>vmstat</code></td><td>Mostra CPU, memória e I/O a cada segundo.</td><td>3</td><td><a href="desempenho.html">Desempenho e Monitoramento</a></td></tr>
+</table>
+</div>
+<h2 id="letra-W">W</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>w</code></td><td>Mostra quem está logado e fazendo o quê.</td><td>2</td><td><a href="usuarios.html">Usuários e Grupos</a></td></tr>
+<tr><td><code>wc</code></td><td>Conta linhas, palavras e bytes.</td><td>2</td><td><a href="texto.html">sort, uniq, cut, wc, tr</a></td></tr>
+<tr><td><code>wg / wg-quick</code></td><td>Configura e liga a VPN WireGuard.</td><td>3</td><td><a href="wireguard.html">VPN (WireGuard)</a></td></tr>
+<tr><td><code>wget</code></td><td>Baixa arquivos da internet.</td><td>2</td><td><a href="curl-wget.html">curl, wget, dig</a></td></tr>
+<tr><td><code>whatis</code></td><td>Mostra uma linha de descrição de um comando.</td><td>1</td><td><a href="ajuda.html">Obtendo Ajuda</a></td></tr>
+<tr><td><code>which</code></td><td>Mostra onde fica o programa de um comando.</td><td>1</td><td><a href="ajuda.html">Obtendo Ajuda</a></td></tr>
+<tr><td><code>while / until</code></td><td>Repete comandos enquanto (ou até que) algo seja verdade.</td><td>2</td><td><a href="script-lacos.html">Laços</a></td></tr>
+<tr><td><code>whoami</code></td><td>Mostra o seu usuário.</td><td>1</td><td><a href="primeiros-comandos.html">Primeiros Comandos</a></td></tr>
+<tr><td><code>wipefs</code></td><td>Apaga assinaturas de sistemas de arquivos de um disco.</td><td>3</td><td><a href="particionar.html">Particionar e Formatar</a></td></tr>
+</table>
+</div>
+<h2 id="letra-X">X</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>xargs</code></td><td>Transforma linhas da entrada em argumentos de outro comando.</td><td>2</td><td><a href="pipes.html">Pipes e xargs</a></td></tr>
+<tr><td><code>xdg-open</code></td><td>Abre um arquivo ou link no app padrão.</td><td>1</td><td><a href="desktop.html">O Desktop</a></td></tr>
+</table>
+</div>
+<h2 id="letra-Z">Z</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th><th>Nível</th><th>Aula</th></tr>
+<tr><td><code>zfs / zpool</code></td><td>Cria e gerencia pools, datasets e snapshots ZFS.</td><td>3</td><td><a href="zfs.html">ZFS</a></td></tr>
+<tr><td><code>zgrep</code></td><td>Procura texto dentro de arquivos .gz.</td><td>2</td><td><a href="compactar.html">tar, zip, gzip</a></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2 id="por-tarefa">Por tarefa</h2>
+<p>Você sabe o que quer, mas não lembra o comando? Procure aqui. A coluna <strong>Comando</strong> mostra a forma mais comum; a aula mostra as variações e o que fazer quando não funciona.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Eu quero…</th><th>Comando</th><th>Aula</th></tr>
+<tr><td>Achar um arquivo pelo nome</td><td><code>find ~ -name "*.pdf"</code></td><td><a href="find.html">find e locate</a></td></tr>
+<tr><td>Achar um texto dentro de arquivos</td><td><code>grep -rn "senha" ~/Documentos</code></td><td><a href="grep.html">grep</a></td></tr>
+<tr><td>Ver em que pasta estou</td><td><code>pwd</code></td><td><a href="navegar.html">pwd e cd</a></td></tr>
+<tr><td>Liberar espaço em disco</td><td><code>du -h -d 1 ~ | sort -h</code></td><td><a href="discos.html">lsblk, df, du</a></td></tr>
+<tr><td>Ver o espaço livre</td><td><code>df -h</code></td><td><a href="discos.html">lsblk, df, du</a></td></tr>
+<tr><td>Um programa travou</td><td><code>pkill -f nome  (ou kill PID)</code></td><td><a href="kill.html">Encerrar Programas (kill)</a></td></tr>
+<tr><td>A interface toda travou</td><td><code>Ctrl+Alt+F3 e depois top / kill</code></td><td><a href="travamentos.html">Quando o Sistema Trava</a></td></tr>
+<tr><td>Descobrir o nome real de um processo</td><td><code>pgrep -af parte-do-nome</code></td><td><a href="processos.html">ps, pgrep, top</a></td></tr>
+<tr><td>Ver o que está usando CPU e memória</td><td><code>top  (ou htop)</code></td><td><a href="processos.html">ps, pgrep, top</a></td></tr>
+<tr><td>Ver meu IP</td><td><code>ip -br a</code></td><td><a href="ip.html">ip, ping, ss</a></td></tr>
+<tr><td>Testar a internet</td><td><code>ping -c 3 8.8.8.8</code></td><td><a href="ip.html">ip, ping, ss</a></td></tr>
+<tr><td>Ver portas abertas</td><td><code>sudo ss -tulpn</code></td><td><a href="ip.html">ip, ping, ss</a></td></tr>
+<tr><td>Instalar um programa</td><td><code>sudo apt install nome</code></td><td><a href="apt.html">apt</a></td></tr>
+<tr><td>Atualizar tudo</td><td><code>sudo apt update &amp;&amp; sudo apt upgrade</code></td><td><a href="apt.html">apt</a></td></tr>
+<tr><td>Descobrir qual pacote fornece um arquivo</td><td><code>dpkg -S /caminho/arquivo</code></td><td><a href="dpkg.html">dpkg e .deb</a></td></tr>
+<tr><td>Ver por que um serviço não sobe</td><td><code>systemctl status nome e journalctl -u nome</code></td><td><a href="journalctl.html">Logs (journalctl)</a></td></tr>
+<tr><td>Ver os erros do último boot</td><td><code>journalctl -b -1 -p err</code></td><td><a href="journalctl.html">Logs (journalctl)</a></td></tr>
+<tr><td>Dar permissão de execução a um script</td><td><code>chmod +x script.sh</code></td><td><a href="chmod.html">chmod</a></td></tr>
+<tr><td>Adicionar um usuário a um grupo</td><td><code>sudo usermod -aG grupo usuario</code></td><td><a href="usuarios.html">Usuários e Grupos</a></td></tr>
+<tr><td>Acessar outro computador</td><td><code>ssh usuario@ip</code></td><td><a href="ssh.html">SSH</a></td></tr>
+<tr><td>Copiar para outro computador</td><td><code>rsync -avP pasta/ usuario@ip:destino/</code></td><td><a href="scp-rsync.html">scp e rsync</a></td></tr>
+<tr><td>Compactar uma pasta</td><td><code>tar -czvf pasta.tar.gz pasta/</code></td><td><a href="compactar.html">tar, zip, gzip</a></td></tr>
+<tr><td>Agendar uma tarefa</td><td><code>crontab -e</code></td><td><a href="cron.html">Agendar Tarefas (cron)</a></td></tr>
+<tr><td>Ver a versão do Ubuntu</td><td><code>lsb_release -a</code></td><td><a href="primeiros-comandos.html">Primeiros Comandos</a></td></tr>
+<tr><td>Ver as informações do hardware</td><td><code>lscpu, lsblk, free -h</code></td><td><a href="info-sistema.html">Informações do Sistema</a></td></tr>
+<tr><td>Descobrir o que deixa a máquina lenta</td><td><code>uptime, top, free -h, iostat</code></td><td><a href="desempenho.html">Desempenho e Monitoramento</a></td></tr>
+<tr><td>Liberar uma porta no firewall</td><td><code>sudo ufw allow 80/tcp</code></td><td><a href="ufw.html">Firewall (ufw)</a></td></tr>
+<tr><td>Subir um container</td><td><code>docker run -d -p 8080:80 nginx</code></td><td><a href="docker.html">Docker</a></td></tr>
+<tr><td>Guardar uma versão do projeto</td><td><code>git add . &amp;&amp; git commit -m "msg"</code></td><td><a href="git.html">Git</a></td></tr>
+<tr><td>Montar um disco USB</td><td><code>udisksctl mount -b /dev/sdb1</code></td><td><a href="montar.html">mount e fstab</a></td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Não achou?</strong>
+<p>Veja a <a href="problemas.html">Solução de Problemas</a>, organizada por sintoma, ou use a busca do menu lateral, que procura em todos os níveis.</p>
+</div>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

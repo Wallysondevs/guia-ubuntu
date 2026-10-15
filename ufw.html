@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu ufw — firewall no servidor, passo a passo | Guia Ubuntu</title>
+<meta name="description" content="Configure o firewall do Ubuntu com ufw sem se trancar para fora do servidor: políticas padrão, liberar SSH, portas, IPs, limit, apagar regras, logs e erros comuns.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">ufw</span></h1>
+
+<p class="intro">Um <strong>firewall</strong> é o porteiro do servidor: decide quais conexões entram e quais são barradas. O Ubuntu traz o <code>ufw</code>, de <em>Uncomplicated Firewall</em>, "firewall descomplicado". Por baixo, ele escreve as regras do kernel por você (o netfilter, que você verá em <a href="nftables.html">nftables</a>).</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que são políticas padrão, portas e regras de entrada e saída.</li>
+  <li>A ordem segura para ligar o firewall num servidor remoto <strong>sem perder o acesso SSH</strong>.</li>
+  <li>Como liberar portas, serviços e IPs específicos, e como limitar tentativas de login.</li>
+  <li>Como listar, numerar e apagar regras, e como ler o log de bloqueios.</li>
+</ul>
+</div>
+
+<p>Antes, leia <a href="redes.html">Conceitos de Rede</a> e <a href="ssh.html">SSH</a>. Nesta aula, a Ana administra uma máquina chamada <strong>servidor</strong>, acessada por SSH.</p>
+
+<hr>
+
+<h2>A ideia: tudo fechado, exceto o necessário</h2>
+<p>Cada serviço de rede escuta numa <strong>porta</strong>: SSH na 22, sites na 80 (HTTP) e 443 (HTTPS). O jeito seguro de configurar um firewall é:</p>
+<ol>
+  <li><strong>Bloquear tudo que entra</strong> (política padrão de entrada: <code>deny</code>, "negar").</li>
+  <li><strong>Liberar tudo que sai</strong> (política padrão de saída: <code>allow</code>, "permitir"), para o servidor conseguir baixar atualizações.</li>
+  <li><strong>Abrir só as portas</strong> dos serviços que você oferece.</li>
+</ol>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Termo</th><th>Significado</th></tr>
+<tr><td>Entrada (<em>incoming</em>)</td><td>Conexões que chegam ao servidor vindas de fora. Exemplo: alguém acessando o seu site.</td></tr>
+<tr><td>Saída (<em>outgoing</em>)</td><td>Conexões que o servidor abre. Exemplo: <code>apt update</code> baixando pacotes.</td></tr>
+<tr><td>Roteado (<em>routed</em>)</td><td>Tráfego que só passa pelo servidor, quando ele é um roteador. Raramente usado.</td></tr>
+<tr><td>Política padrão</td><td>O que acontece com uma conexão que não bate em nenhuma regra.</td></tr>
+<tr><td><code>allow</code> / <code>deny</code> / <code>reject</code> / <code>limit</code></td><td>Permitir / descartar em silêncio / recusar avisando / permitir com limite de tentativas.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Ver o estado</h2>
+<p>O <code>ufw</code> sempre precisa de <code>sudo</code>. Num servidor Ubuntu novo, ele vem instalado, mas desligado:</p>
+
+<pre class="term" data-host="servidor">$ ufw status
+ERROR: You need to be root to run this script
+$ sudo ufw status
+[sudo: authenticate] Senha:
+Estado: inativo</pre>
+
+<p>Repare na mistura de idiomas: algumas mensagens do ufw estão traduzidas e outras não. É assim mesmo no Ubuntu 26.04.</p>
+
+<hr>
+
+<h2>Ligar o firewall com segurança: passo a passo</h2>
+
+<div class="warning">
+<strong>Libere o SSH antes de ligar o firewall</strong>
+<p>Se você ligar o firewall num servidor remoto sem liberar a porta do SSH, sua conexão cai e você fica <strong>trancado para fora</strong>. A única saída passa a ser o console do provedor de nuvem ou ir até a máquina. Siga a ordem abaixo.</p>
+</div>
+
+<ol class="passo">
+<li>
+<p><strong>Defina as políticas padrão.</strong> Nada muda ainda, porque o firewall está desligado.</p>
+<dl class="anatomy">
+  <dt>sudo ufw</dt><dd>O firewall, como administrador.</dd>
+  <dt>default</dt><dd>Mexer na política padrão.</dd>
+  <dt>deny</dt><dd>A decisão: negar.</dd>
+  <dt>incoming</dt><dd>Para qual direção: entrada.</dd>
+</dl>
+<pre class="term" data-host="servidor">$ sudo ufw default deny incoming
+A política padrão incoming mudou para 'deny'
+(assegure-se de ter atualizado suas regras apropriadamente)
+$ sudo ufw default allow outgoing
+A política padrão outgoing mudou para 'allow'
+(assegure-se de ter atualizado suas regras apropriadamente)</pre>
+</li>
+<li>
+<p><strong>Libere o SSH.</strong> O <code>openssh-server</code> registra um "perfil de aplicativo" chamado <code>OpenSSH</code>:</p>
+<pre class="term" data-host="servidor">$ sudo ufw app list
+Aplicativos disponíveis:
+  OpenSSH
+$ sudo ufw allow OpenSSH
+Regras atualizadas
+Regras atualizadas (v6)                             « uma regra para IPv4 e outra para IPv6</pre>
+<p>Se o seu SSH usa outra porta (por exemplo, 2222), libere ela: <code>sudo ufw allow 2222/tcp</code>.</p>
+</li>
+<li>
+<p><strong>Ligue o firewall.</strong> Ele avisa que conexões SSH podem cair e pede confirmação:</p>
+<pre class="term" data-host="servidor">$ sudo ufw enable
+Command may disrupt existing ssh connections. Proceed with operation (y|n)? y
+Firewall está ativo e habilitado na inicialização do sistema</pre>
+<p>"Habilitado na inicialização" quer dizer que o firewall volta sozinho depois de um reboot.</p>
+</li>
+<li>
+<p><strong>Confira, sem fechar a conexão atual.</strong> Abra um <strong>segundo terminal</strong> e conecte de novo por SSH. Só feche o primeiro depois que o segundo entrar.</p>
+<pre class="term" data-host="servidor">$ sudo ufw status verbose
+Estado: ativo
+Logando: on (low)
+Predefinido: deny (entrada), allow (saída), disabled (roteado)
+Novos perfis: skip
+
+Para                       Ação        De
+----                       ----        --
+22/tcp (OpenSSH)           ALLOW IN    Anywhere
+22/tcp (OpenSSH (v6))      ALLOW IN    Anywhere (v6)</pre>
+</li>
+</ol>
+
+<p>Como ler a tabela do status:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Exemplo</th><th>Significado</th></tr>
+<tr><td>Para</td><td><code>22/tcp (OpenSSH)</code></td><td>A porta e o protocolo no servidor (e o perfil que criou a regra).</td></tr>
+<tr><td>Ação</td><td><code>ALLOW IN</code></td><td>Permitir conexões de entrada.</td></tr>
+<tr><td>De</td><td><code>Anywhere</code></td><td>De qualquer endereço. "(v6)" indica a regra para IPv6.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Abrir portas e serviços: formas diferentes</h2>
+<p>Há várias formas de escrever a mesma liberação. Escolha a mais clara para quem vai ler depois.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td>Perfil de aplicativo</td><td><code>sudo ufw allow "Nginx Full"</code></td><td>O programa instalou um perfil (veja <code>ufw app list</code>).</td></tr>
+<tr><td>Nome do serviço</td><td><code>sudo ufw allow ssh</code></td><td>É um serviço conhecido (os nomes vêm de <code>/etc/services</code>).</td></tr>
+<tr><td>Porta e protocolo</td><td><code>sudo ufw allow 443/tcp</code></td><td>Você sabe a porta. É a forma mais explícita.</td></tr>
+<tr><td>Várias portas</td><td><code>sudo ufw allow 80,443/tcp</code></td><td>Liberar um grupo de uma vez (exige o protocolo).</td></tr>
+<tr><td>Faixa de portas</td><td><code>sudo ufw allow 6000:6010/tcp</code></td><td>Um programa usa uma faixa de portas.</td></tr>
+</table>
+</div>
+
+<pre class="term" data-host="servidor">$ sudo ufw allow 80,443/tcp
+Regras atualizadas
+Regras atualizadas (v6)
+$ sudo ufw allow 80,443/tcp
+Ignorando adição de regra que já existe
+Skipping adding existing rule (v6)                  « regra repetida não é duplicada</pre>
+
+<div class="tip">
+<strong>Sempre diga o protocolo</strong>
+<p><code>sudo ufw allow 80</code> abre a porta 80 em TCP <strong>e</strong> UDP. Sites só precisam de TCP. Ser explícito (<code>80/tcp</code>) abre menos coisas.</p>
+</div>
+
+<h3>Liberar só para um IP ou uma rede</h3>
+<p>Um banco de dados não deve ficar aberto para a internet inteira. Libere só para quem precisa:</p>
+
+<dl class="anatomy">
+  <dt>sudo ufw allow</dt><dd>Criar uma regra de permissão.</dd>
+  <dt>from 192.168.0.0/24</dt><dd>Só para conexões vindas da rede local 192.168.0.x (veja CIDR em <a href="redes.html">Conceitos de Rede</a>).</dd>
+  <dt>to any</dt><dd>Para qualquer endereço deste servidor.</dd>
+  <dt>port 5432</dt><dd>Na porta 5432 (PostgreSQL).</dd>
+  <dt>proto tcp</dt><dd>Só TCP.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo ufw allow from 192.168.0.0/24 to any port 5432 proto tcp
+Regra adicionada</pre>
+
+<p>Só uma regra foi criada, sem "(v6)": como a origem é um endereço IPv4, não há versão IPv6.</p>
+
+<h3>Limitar tentativas: <code>limit</code></h3>
+<p><code>limit</code> permite a conexão, mas bloqueia um IP que tentar conectar 6 vezes ou mais em 30 segundos. É uma proteção simples contra robôs que tentam adivinhar senhas do SSH:</p>
+<pre class="term" data-host="servidor">$ sudo ufw limit OpenSSH
+Regra atualizada
+Rule updated (v6)                                   « a regra allow virou limit</pre>
+<p>Para uma proteção mais completa, use o <code>fail2ban</code> (veja <a href="seguranca.html">Segurança do Servidor</a>).</p>
+
+<h3>Bloquear um endereço</h3>
+<pre class="term" data-host="servidor">$ sudo ufw insert 1 deny from 203.0.113.45
+Regra inserida</pre>
+<p>O <code>insert 1</code> coloca a regra no <strong>topo</strong>. Isso importa porque o ufw lê as regras de cima para baixo e para na primeira que bate. Uma regra <code>deny</code> no fim da lista nunca seria usada se um <code>allow</code> acima já tivesse liberado.</p>
+
+<hr>
+
+<h2>Listar e apagar regras</h2>
+<p>A forma mais segura de apagar é pelo número. Primeiro, liste com números:</p>
+
+<pre class="term" data-host="servidor">$ sudo ufw status numbered
+Estado: ativo
+
+     Para                       Ação        De
+     ----                       ----        --
+[ 1] Anywhere                   DENY IN     203.0.113.45
+[ 2] OpenSSH                    LIMIT IN    Anywhere
+[ 3] 80,443/tcp                 ALLOW IN    Anywhere
+[ 4] 5432/tcp                   ALLOW IN    192.168.0.0/24
+[ 5] OpenSSH (v6)               LIMIT IN    Anywhere (v6)
+[ 6] 80,443/tcp (v6)            ALLOW IN    Anywhere (v6)</pre>
+
+<pre class="term" data-host="servidor">$ sudo ufw delete 4
+Deleting:
+ allow from 192.168.0.0/24 to any port 5432 proto tcp
+Proceed with operation (y|n)? y
+Regra apagada</pre>
+
+<div class="warning">
+<strong>Os números mudam depois de cada exclusão</strong>
+<p>Ao apagar a regra 4, a antiga 5 vira a 4. Para apagar várias, rode <code>status numbered</code> de novo antes de cada <code>delete</code>, ou apague de baixo para cima.</p>
+</div>
+
+<p>Outra forma é repetir a regra com <code>delete</code> na frente. Ela apaga as versões IPv4 e IPv6 de uma vez:</p>
+<pre class="term" data-host="servidor">$ sudo ufw delete allow 80,443/tcp
+Regra apagada
+Rule deleted (v6)</pre>
+
+<hr>
+
+<h2>Logs: ver o que foi bloqueado</h2>
+<p>Com o registro ligado (o padrão é <code>low</code>), cada bloqueio vira uma linha no log do kernel, marcada com <code>[UFW BLOCK]</code>:</p>
+
+<pre class="term" data-host="servidor">$ sudo tail -n 1 /var/log/ufw.log
+2026-10-15T10:42:07.118342-03:00 servidor kernel: [UFW BLOCK] IN=eth0 OUT= MAC=52:54:00:12:34:56:52:54:00:ab:cd:ef:08:00 SRC=203.0.113.45 DST=192.168.0.20 LEN=60 TOS=0x00 PREC=0x00 TTL=52 ID=0 DF PROTO=TCP SPT=51234 DPT=3306 WINDOW=64240 RES=0x00 SYN URGP=0</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Campo</th><th>Significado</th></tr>
+<tr><td><code>IN=eth0</code></td><td>Placa de rede por onde chegou</td></tr>
+<tr><td><code>SRC=203.0.113.45</code></td><td>Quem tentou conectar (origem)</td></tr>
+<tr><td><code>DST=192.168.0.20</code></td><td>Para onde (o seu servidor)</td></tr>
+<tr><td><code>PROTO=TCP</code></td><td>Protocolo</td></tr>
+<tr><td><code>DPT=3306</code></td><td>Porta de destino. 3306 é o MySQL: alguém procurando banco de dados aberto.</td></tr>
+</table>
+</div>
+
+<p>Comandos úteis: <code>sudo ufw logging on</code> / <code>off</code>, <code>sudo journalctl -k | grep "UFW BLOCK"</code> e <code>sudo grep "DPT=22 " /var/log/ufw.log | wc -l</code>, que conta tentativas na porta do SSH.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>Liguei o firewall e o SSH caiu</strong>
+<p><strong>O que aconteceu:</strong> a porta do SSH não estava liberada, ou o SSH usa uma porta diferente da 22.</p>
+<p><strong>Como resolver:</strong> entre pelo console web do provedor de nuvem (ou pelo teclado e monitor da máquina) e rode <code>sudo ufw allow OpenSSH</code>, ou a porta certa. Em último caso, <code>sudo ufw disable</code> desliga tudo. Para descobrir em que porta o SSH escuta: <code>sudo ss -tlnp | grep ssh</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"ERROR: Could not find a profile matching 'nginx'"</strong>
+<pre class="term" data-host="servidor">$ sudo ufw allow nginx
+ERROR: Não foi possível encontrar um perfil correspondente 'nginx'</pre>
+<p><strong>O que aconteceu:</strong> os nomes de perfil diferenciam maiúsculas e têm espaço. Também pode ser que o programa não esteja instalado.</p>
+<p><strong>Como resolver:</strong> confira os nomes exatos com <code>sudo ufw app list</code> e use aspas: <code>sudo ufw allow "Nginx Full"</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Liberei a porta, mas o serviço continua inacessível</strong>
+<p><strong>O que aconteceu:</strong> o firewall é só uma das barreiras. Confira na ordem:</p>
+<ol>
+  <li>O serviço está rodando e escutando? <code>sudo ss -tlnp</code> deve mostrar a porta.</li>
+  <li>Ele escuta em todos os endereços (<code>0.0.0.0</code>) ou só em <code>127.0.0.1</code>? Este último só aceita conexões do próprio servidor.</li>
+  <li>Na nuvem, o provedor tem um firewall próprio ("security group") que também precisa liberar a porta.</li>
+</ol>
+</div>
+
+<div class="cenario">
+<strong>Uma porta do Docker está aberta mesmo sem regra no ufw</strong>
+<p><strong>O que aconteceu:</strong> o Docker escreve as próprias regras no netfilter quando você publica uma porta (<code>-p 8080:80</code>), e elas são avaliadas antes das regras do ufw.</p>
+<p><strong>Como resolver:</strong> publique só no endereço local, <code>-p 127.0.0.1:8080:80</code>, e exponha o serviço por um proxy como o nginx (veja <a href="docker.html">Docker</a>).</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>sudo ufw status</code></td><td>Mostra se está ativo e as regras</td></tr>
+<tr><td><code>sudo ufw status verbose</code></td><td>Inclui políticas padrão e log</td></tr>
+<tr><td><code>sudo ufw status numbered</code></td><td>Regras numeradas, para apagar</td></tr>
+<tr><td><code>sudo ufw enable</code> / <code>disable</code></td><td>Liga / desliga (e no boot)</td></tr>
+<tr><td><code>sudo ufw default deny incoming</code></td><td>Política padrão de entrada</td></tr>
+<tr><td><code>sudo ufw allow 443/tcp</code></td><td>Libera uma porta</td></tr>
+<tr><td><code>sudo ufw allow from IP to any port N</code></td><td>Libera só para um endereço</td></tr>
+<tr><td><code>sudo ufw deny from IP</code></td><td>Bloqueia um endereço</td></tr>
+<tr><td><code>sudo ufw limit ssh</code></td><td>Permite com limite de tentativas</td></tr>
+<tr><td><code>sudo ufw insert 1 REGRA</code></td><td>Coloca a regra no topo</td></tr>
+<tr><td><code>sudo ufw delete N</code></td><td>Apaga a regra de número N</td></tr>
+<tr><td><code>sudo ufw app list</code> / <code>app info NOME</code></td><td>Perfis de aplicativo e suas portas</td></tr>
+<tr><td><code>sudo ufw logging on</code></td><td>Liga o registro de bloqueios</td></tr>
+<tr><td><code>sudo ufw reset</code></td><td>Apaga todas as regras e desliga (pede confirmação)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Política de entrada</h3>
+<p>Complete para bloquear, por padrão, tudo que chega:</p>
+<div class="ex-code">sudo ufw default <input data-answer="deny" aria-label="decisão"> incoming</div>
+</div>
+
+<div class="exercise">
+<h3>2. Liberar HTTPS</h3>
+<p>Complete para liberar só TCP na porta 443:</p>
+<div class="ex-code">sudo ufw allow <input data-answer="443/tcp|https" aria-label="porta"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Só a rede local</h3>
+<p>Complete para liberar a porta 22 apenas para a rede 192.168.0.0/24:</p>
+<div class="ex-code">sudo ufw allow <input data-answer="from" aria-label="palavra"> 192.168.0.0/24 to any port 22 proto tcp</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Num servidor acessado por SSH, qual é a ordem segura?</p>
+<label><input type="radio" name="q4"> <code>ufw enable</code>, depois <code>ufw allow OpenSSH</code>.</label>
+<label><input type="radio" name="q4"> <code>ufw allow OpenSSH</code>, depois <code>ufw enable</code>, e testar num segundo terminal.</label>
+<label><input type="radio" name="q4"> <code>ufw default deny outgoing</code>, depois <code>ufw enable</code>.</label>
+<label><input type="radio" name="q4"> <code>ufw reset</code>, depois <code>ufw enable</code>.</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Você apagou a regra 2 com <code>ufw delete 2</code>. O que acontece com a antiga regra 3?</p>
+<label><input type="radio" name="q5"> Também é apagada.</label>
+<label><input type="radio" name="q5"> Continua sendo a regra 3.</label>
+<label><input type="radio" name="q5"> Passa a ser a regra 2.</label>
+<label><input type="radio" name="q5"> Fica desativada.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Política segura: <code>deny incoming</code>, <code>allow outgoing</code> e só as portas necessárias.</li>
+  <li><strong>Sempre</strong> libere o SSH antes do <code>ufw enable</code> e teste num segundo terminal.</li>
+  <li>Prefira regras explícitas (<code>443/tcp</code>) e restrinja por origem (<code>from 192.168.0.0/24</code>) quando puder.</li>
+  <li>Apague por número com <code>status numbered</code> + <code>delete N</code>; os números mudam após cada exclusão.</li>
+  <li>Bloqueios aparecem como <code>[UFW BLOCK]</code> em <code>/var/log/ufw.log</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

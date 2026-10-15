@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu jobs, nohup e tmux — programas em segundo plano | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a rodar comandos em segundo plano no Ubuntu: &amp;, Ctrl+Z, jobs, bg, fg, nohup, disown e tmux, e como manter um programa rodando depois de fechar o terminal ou cair o SSH.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Jobs, nohup e tmux</span></h1>
+
+<p class="intro">Um comando demorado, como uma cópia grande ou um download, "prende" o terminal até terminar. Nesta aula você vai aprender a mandar comandos para o <strong>segundo plano</strong>, trazê-los de volta e, principalmente, mantê-los rodando depois de fechar o terminal ou perder a conexão SSH.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A diferença entre primeiro plano e segundo plano.</li>
+  <li>Usar <code>&amp;</code>, <kbd>Ctrl</kbd>+<kbd>Z</kbd>, <code>jobs</code>, <code>bg</code> e <code>fg</code>.</li>
+  <li>Por que fechar o terminal mata os programas que ele abriu, e como evitar isso com <code>nohup</code> e <code>disown</code>.</li>
+  <li>Usar o <code>tmux</code> para deixar uma sessão inteira rodando num servidor.</li>
+  <li>Qual ferramenta escolher em cada situação.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes do comando: primeiro e segundo plano</h2>
+<p>Quando você digita um comando, ele roda em <strong>primeiro plano</strong> (<em>foreground</em>): o terminal fica ocupado, mostra a saída e só devolve o prompt quando o comando termina. Você pode interromper com <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
+<p>Um comando em <strong>segundo plano</strong> (<em>background</em>) roda "por trás". O prompt volta na hora e você pode continuar digitando.</p>
+<p>Cada comando que o terminal controla assim é um <strong>job</strong> ("trabalho"). Os jobs pertencem àquela janela de terminal: outra janela não os enxerga.</p>
+
+<p>Para os exemplos, vamos usar o <code>sleep</code>, que só espera: <code>sleep 300</code> fica 300 segundos parado. É perfeito para treinar, porque não faz nada.</p>
+
+<hr>
+
+<h2>Rodar em segundo plano: <code>&amp;</code></h2>
+
+<dl class="anatomy">
+  <dt>sleep 300</dt><dd>O comando que vai rodar.</dd>
+  <dt>&amp;</dt><dd>No fim da linha: "rode em segundo plano e me devolva o prompt".</dd>
+</dl>
+
+<pre class="term">$ sleep 300 &amp;
+[1] 4210                    « [1] = número do job; 4210 = PID do processo
+$ echo "o terminal está livre"
+o terminal está livre</pre>
+
+<p>O shell responde com dois números: o <strong>número do job</strong> entre colchetes, usado nos comandos desta página, e o <strong>PID</strong>, o número do processo no sistema inteiro, usado por <code>kill</code> e <code>ps</code> (veja <a href="processos.html">ps, pgrep, top</a>).</p>
+
+<h3>Ver os jobs: <code>jobs</code></h3>
+<pre class="term">$ sleep 200 &amp;
+[2] 4215
+$ jobs
+[1]-  Executando                 sleep 300 &amp;
+[2]+  Executando                 sleep 200 &amp;      « + é o job "atual"
+$ jobs -l
+[1]- 4210 Executando                 sleep 300 &amp;   « -l mostra o PID também
+[2]+ 4215 Executando                 sleep 200 &amp;</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Sinal</th><th>Significado</th></tr>
+<tr><td><code>+</code></td><td>Job atual: o que <code>fg</code> e <code>bg</code> usam se você não disser qual</td></tr>
+<tr><td><code>-</code></td><td>O anterior</td></tr>
+<tr><td><code>Executando</code></td><td>Rodando em segundo plano</td></tr>
+<tr><td><code>Parado</code></td><td>Pausado (com <kbd>Ctrl</kbd>+<kbd>Z</kbd>)</td></tr>
+<tr><td><code>Concluído</code> / <code>Terminado</code></td><td>Acabou sozinho / foi encerrado</td></tr>
+</table>
+</div>
+
+<p>Quando um job de segundo plano termina, o shell avisa na próxima vez que mostrar o prompt:</p>
+<pre class="term">$ sleep 2 &amp;
+[3] 4230
+$ ls
+Documentos  Downloads
+[3]   Concluído                  sleep 2</pre>
+
+<div class="warning">
+<strong>Atenção à saída</strong>
+<p>Um comando em segundo plano continua escrevendo no seu terminal, misturando com o que você digita. Para comandos que falam muito, mande a saída para um arquivo: <code>comando &gt; saida.log 2&gt;&amp;1 &amp;</code>.</p>
+</div>
+
+<hr>
+
+<h2>Pausar e retomar: <kbd>Ctrl</kbd>+<kbd>Z</kbd>, <code>bg</code> e <code>fg</code></h2>
+<p>Esqueceu o <code>&amp;</code>? Não precisa cancelar. Pause com <kbd>Ctrl</kbd>+<kbd>Z</kbd> e escolha:</p>
+
+<pre class="term">$ cp -r Videos/ /media/ana/HD/
+^Z                                              « você apertou Ctrl+Z
+[1]+  Parado                     cp -r Videos/ /media/ana/HD/
+$ bg                                            « continue, mas em segundo plano
+[1]+ cp -r Videos/ /media/ana/HD/ &amp;
+$ jobs
+[1]+  Executando                 cp -r Videos/ /media/ana/HD/ &amp;
+$ fg                                            « traga de volta para o primeiro plano
+cp -r Videos/ /media/ana/HD/</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Origem</th><th>O que faz</th></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>—</td><td>Pausa o job em primeiro plano (ele fica <code>Parado</code>)</td></tr>
+<tr><td><code>bg</code></td><td><em>background</em></td><td>Continua o job pausado em segundo plano</td></tr>
+<tr><td><code>fg</code></td><td><em>foreground</em></td><td>Traz o job para o primeiro plano</td></tr>
+<tr><td><code>fg %2</code></td><td>—</td><td>Traz o job número 2 (o <code>%</code> indica número de job)</td></tr>
+<tr><td><code>kill %1</code></td><td>—</td><td>Encerra o job 1 (sem precisar do PID)</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong><kbd>Ctrl</kbd>+<kbd>Z</kbd> não é <kbd>Ctrl</kbd>+<kbd>C</kbd></strong>
+<p><kbd>Ctrl</kbd>+<kbd>C</kbd> <strong>cancela</strong> o comando. <kbd>Ctrl</kbd>+<kbd>Z</kbd> só <strong>pausa</strong>: o programa continua na memória, parado. Se você sair do terminal com jobs parados, o bash avisa: <code>Há trabalhos parados.</code></p>
+</div>
+
+<h3>O que o comando devolve</h3>
+<pre class="term">$ fg %5
+bash: fg: %5: trabalho não existe
+$ echo $?
+1</pre>
+
+<hr>
+
+<h2>Fechar o terminal mata os jobs</h2>
+<p>Ao fechar a janela do terminal ou perder a conexão SSH, o sistema manda o sinal <strong>SIGHUP</strong> (<em>hang up</em>, "desligar o telefone") para os programas daquele terminal. A maioria encerra ao recebê-lo. Por isso, um download em segundo plano <strong>morre</strong> quando você fecha a janela.</p>
+
+<p>Há três formas de evitar isso:</p>
+
+<h3>Forma 1: <code>nohup</code> (antes de começar)</h3>
+
+<dl class="anatomy">
+  <dt>nohup</dt><dd>De <em>no hang up</em>: roda o comando ignorando o SIGHUP.</dd>
+  <dt>./backup.sh</dt><dd>O comando que deve sobreviver.</dd>
+  <dt>&amp;</dt><dd>Em segundo plano, para liberar o terminal.</dd>
+</dl>
+
+<pre class="term">$ nohup ./backup.sh &amp;
+[1] 4302
+nohup: ignoring input and appending output to 'nohup.out'   « a saída vai para um arquivo
+$ tail -f nohup.out                                          « acompanhe quando quiser</pre>
+
+<p>A mensagem do <code>nohup</code> vem em inglês no Ubuntu 26.04. Ela diz: "ignorando a entrada e acrescentando a saída em <code>nohup.out</code>". Para escolher o arquivo, redirecione: <code>nohup ./backup.sh &gt; backup.log 2&gt;&amp;1 &amp;</code>.</p>
+
+<h3>Forma 2: <code>disown</code> (já começou)</h3>
+<p>O job já está rodando e você precisa fechar o terminal? O <code>disown</code> tira o job da lista do shell, e ele deixa de receber o SIGHUP:</p>
+
+<pre class="term">$ ./backup.sh &amp;
+[1] 4310
+$ disown %1
+$ jobs                          « não aparece mais aqui, mas continua rodando
+$ pgrep -a backup
+4310 /bin/bash ./backup.sh</pre>
+
+<p>Se o job estava pausado, rode <code>bg</code> antes do <code>disown</code>. Um job pausado continua pausado para sempre.</p>
+
+<h3>Forma 3: <code>tmux</code> (o mais completo)</h3>
+<p>O <code>nohup</code> e o <code>disown</code> salvam o processo, mas você perde a "tela" dele: não dá mais para interagir. O <code>tmux</code> (de <em>terminal multiplexer</em>) cria um terminal que continua existindo no servidor mesmo quando você se desconecta. Depois, você volta e encontra tudo exatamente como deixou.</p>
+
+<hr>
+
+<h2>tmux passo a passo</h2>
+<p>O <code>tmux</code> não vem instalado no Ubuntu Desktop. No Ubuntu Server, normalmente sim.</p>
+
+<ol class="passo">
+  <li><strong>Instalar.</strong>
+    <pre class="term">$ sudo apt install tmux</pre></li>
+  <li><strong>Criar uma sessão com nome.</strong>
+    <dl class="anatomy">
+      <dt>tmux</dt><dd>O programa.</dd>
+      <dt>new</dt><dd>Criar uma sessão nova.</dd>
+      <dt>-s backup</dt><dd>De <em>session name</em>: o nome da sessão.</dd>
+    </dl>
+    <pre class="term" data-host="servidor">$ tmux new -s backup</pre>
+    <p>A tela limpa e aparece uma barra verde embaixo. Você está dentro do tmux. Rode o que quiser, por exemplo <code>./backup.sh</code>.</p></li>
+  <li><strong>Desanexar (sair sem encerrar).</strong> Aperte <kbd>Ctrl</kbd>+<kbd>B</kbd>, solte, e aperte <kbd>D</kbd>. Você volta ao terminal normal; a sessão continua rodando.
+    <pre class="term" data-host="servidor">$ tmux new -s backup
+[detached (from session backup)]           « depois de Ctrl+B e D</pre></li>
+  <li><strong>Pode fechar o terminal ou desconectar o SSH.</strong> O backup continua.</li>
+  <li><strong>Listar e voltar.</strong>
+    <pre class="term" data-host="servidor">$ tmux ls
+backup: 1 windows (created Thu Oct 15 10:30:00 2026)
+$ tmux attach -t backup                    « volta para dentro da sessão</pre></li>
+  <li><strong>Encerrar de vez.</strong> Dentro da sessão, digite <code>exit</code>. De fora: <code>tmux kill-session -t backup</code>.</li>
+</ol>
+
+<h3>Atalhos do tmux</h3>
+<p>Todos começam com o <strong>prefixo</strong> <kbd>Ctrl</kbd>+<kbd>B</kbd>: aperte, solte, e depois a tecla da tabela.</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>O que faz</th></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>D</kbd></td><td>Desanexa (sai e deixa rodando)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>C</kbd></td><td>Cria uma nova janela</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>N</kbd> / <kbd>P</kbd></td><td>Próxima / janela anterior</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>0</kbd>…<kbd>9</kbd></td><td>Vai para a janela de número tal</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>%</kbd></td><td>Divide a tela lado a lado</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>"</kbd></td><td>Divide a tela em cima e embaixo</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> setas</td><td>Muda de painel</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>[</kbd></td><td>Modo de rolagem (setas/PgUp; <kbd>Q</kbd> sai)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>?</kbd></td><td>Lista todos os atalhos</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>E o <code>screen</code>?</strong>
+<p>O <code>screen</code> é um programa mais antigo que faz o mesmo. Se você o encontrar num servidor: <code>screen -S nome</code> cria, <kbd>Ctrl</kbd>+<kbd>A</kbd> <kbd>D</kbd> desanexa, <code>screen -ls</code> lista e <code>screen -r nome</code> volta.</p>
+</div>
+
+<hr>
+
+<h2>Qual usar?</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Situação</th><th>Use</th></tr>
+<tr><td>Liberar o terminal por alguns minutos</td><td><code>comando &amp;</code></td></tr>
+<tr><td>Esqueci o <code>&amp;</code></td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> e <code>bg</code></td></tr>
+<tr><td>Vou fechar o terminal; o comando nem começou</td><td><code>nohup comando &gt; log 2&gt;&amp;1 &amp;</code></td></tr>
+<tr><td>Vou fechar o terminal; o comando já está rodando</td><td><code>bg</code> + <code>disown</code></td></tr>
+<tr><td>Tarefa longa num servidor por SSH, que eu quero acompanhar</td><td><code>tmux</code></td></tr>
+<tr><td>Programa que deve rodar sempre, inclusive depois de reiniciar</td><td>Um serviço do systemd (veja <a href="criar-servico.html">Criar um Serviço</a>)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"trabalho não existe"</strong>
+<pre class="term">$ fg %3
+bash: fg: %3: trabalho não existe</pre>
+<p><strong>O que aconteceu:</strong> não há job 3 <strong>nesta janela</strong>. Jobs só existem no terminal que os criou; ou o job já terminou.</p>
+<p><strong>Como resolver:</strong> rode <code>jobs</code> para ver os números. Se o processo foi aberto em outra janela, procure pelo PID com <code>pgrep -a nome</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O download parou quando fechei o terminal</strong>
+<p><strong>O que aconteceu:</strong> o job recebeu SIGHUP e encerrou. O <code>&amp;</code> sozinho não protege contra isso.</p>
+<p><strong>Como resolver:</strong> da próxima vez, use <code>nohup</code>, <code>disown</code> ou <code>tmux</code>. Muitos programas continuam de onde pararam: <code>wget -c URL</code> retoma downloads, e o <code>rsync</code> só copia o que falta.</p>
+</div>
+
+<div class="cenario">
+<strong>"sessions should be nested with care"</strong>
+<pre class="term" data-host="servidor">$ tmux new -s outra
+sessions should be nested with care, unset $TMUX to force</pre>
+<p><strong>O que aconteceu:</strong> você já está dentro de uma sessão tmux e tentou abrir outra dentro dela.</p>
+<p><strong>Como resolver:</strong> desanexe (<kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>D</kbd>) antes, ou crie uma janela nova com <kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>C</kbd>.</p>
+</div>
+
+<div class="cenario">
+<strong>"no sessions" / "can't find session"</strong>
+<pre class="term" data-host="servidor">$ tmux attach -t backup
+can't find session: backup</pre>
+<p><strong>O que aconteceu:</strong> a sessão foi encerrada (alguém digitou <code>exit</code>, ou o servidor reiniciou: o tmux não sobrevive a um reboot).</p>
+<p><strong>Como resolver:</strong> rode <code>tmux ls</code> para ver o que existe. Para algo que precise voltar sozinho depois de reiniciar, crie um serviço.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>comando &amp;</code></td><td>Roda em segundo plano</td></tr>
+<tr><td><code>jobs</code> / <code>jobs -l</code></td><td>Lista os jobs (com PID)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Pausa o job em primeiro plano</td></tr>
+<tr><td><code>bg [%n]</code></td><td>Continua em segundo plano</td></tr>
+<tr><td><code>fg [%n]</code></td><td>Traz para o primeiro plano</td></tr>
+<tr><td><code>kill %n</code></td><td>Encerra o job n</td></tr>
+<tr><td><code>nohup comando &amp;</code></td><td>Roda ignorando o SIGHUP (saída em <code>nohup.out</code>)</td></tr>
+<tr><td><code>disown [%n]</code></td><td>Desliga o job do terminal</td></tr>
+<tr><td><code>tmux new -s nome</code></td><td>Cria sessão tmux</td></tr>
+<tr><td><code>tmux ls</code></td><td>Lista sessões</td></tr>
+<tr><td><code>tmux attach -t nome</code></td><td>Volta para uma sessão</td></tr>
+<tr><td><code>tmux kill-session -t nome</code></td><td>Encerra uma sessão</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Segundo plano</h3>
+<p>Complete para rodar <code>sleep 600</code> em segundo plano:</p>
+<div class="ex-code">sleep 600 <input data-answer="&amp;" aria-label="símbolo"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Trazer de volta</h3>
+<p>Complete para trazer o job número 2 para o primeiro plano:</p>
+<div class="ex-code"><input data-answer="fg %2|fg 2" aria-label="comando"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Voltar à sessão do tmux</h3>
+<p>Complete para voltar à sessão tmux chamada <code>deploy</code>:</p>
+<div class="ex-code">tmux <input data-answer="attach -t deploy|a -t deploy|attach-session -t deploy" aria-label="subcomando e opção"></div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Você apertou <kbd>Ctrl</kbd>+<kbd>Z</kbd> num comando. O que aconteceu com ele?</p>
+<label><input type="radio" name="q4"> Foi cancelado.</label>
+<label><input type="radio" name="q4"> Continuou rodando em segundo plano.</label>
+<label><input type="radio" name="q4"> Foi pausado; continua na memória, parado.</label>
+<label><input type="radio" name="q4"> Foi salvo num arquivo.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. Você vai rodar um backup de 3 horas num servidor por SSH e quer poder acompanhar o andamento depois. Qual a melhor escolha?</p>
+<label><input type="radio" name="q5"> <code>tmux</code></label>
+<label><input type="radio" name="q5"> <code>comando &amp;</code></label>
+<label><input type="radio" name="q5"> <kbd>Ctrl</kbd>+<kbd>Z</kbd></label>
+<label><input type="radio" name="q5"> <code>fg</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>&amp;</code> manda para o segundo plano; <code>jobs</code> lista; <code>fg</code>/<code>bg</code> alternam; <kbd>Ctrl</kbd>+<kbd>Z</kbd> pausa.</li>
+  <li>Jobs pertencem à janela de terminal que os criou.</li>
+  <li>Fechar o terminal envia SIGHUP e mata os jobs. Proteja com <code>nohup</code> (antes) ou <code>disown</code> (depois).</li>
+  <li><code>tmux</code> mantém uma sessão inteira viva no servidor: <kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>D</kbd> para sair, <code>tmux attach -t nome</code> para voltar.</li>
+  <li>O que precisa sobreviver a um reboot vira serviço do systemd.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

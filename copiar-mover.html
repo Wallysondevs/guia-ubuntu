@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu cp e mv — copiar, mover e renomear | Guia Ubuntu</title>
+<meta name="description" content="Aprenda cp e mv no Ubuntu parte por parte: copiar arquivos e pastas, mover, renomear, não sobrescrever por acidente, fazer backup antes de editar e resolver erros comuns, com terminal simulado.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">cp e mv</span></h1>
+
+<p class="intro"><code>cp</code> copia e <code>mv</code> move. O <code>mv</code> também serve para <strong>renomear</strong>, porque, para o Linux, renomear é "mover para um nome novo". Os dois funcionam do mesmo jeito: primeiro <strong>de onde</strong>, depois <strong>para onde</strong>.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>A regra "origem → destino" e como o destino muda o resultado.</li>
+  <li>Copiar um arquivo, vários arquivos e pastas inteiras.</li>
+  <li>Renomear e mover com <code>mv</code>.</li>
+  <li>Evitar sobrescrever arquivos por acidente (<code>-i</code>, <code>-n</code>, backups).</li>
+  <li>O que fazer com "-r não especificado", "Não é um diretório" e outros erros.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>A ideia: origem primeiro, destino por último</h2>
+<p>Os dois comandos seguem a mesma ordem. Leia como uma frase: "copie <em>isto</em> para <em>lá</em>".</p>
+
+<pre class="syntax">cp  ORIGEM...  DESTINO
+mv  ORIGEM...  DESTINO</pre>
+
+<p>O <strong>último</strong> argumento é sempre o destino. O que acontece depende do que é o destino:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>O destino é…</th><th>Resultado</th><th>Exemplo</th></tr>
+<tr><td>Uma pasta que existe</td><td>O arquivo vai para dentro dela, com o mesmo nome</td><td><code>cp notas.txt Downloads/</code></td></tr>
+<tr><td>Um nome que não existe</td><td>Cria um arquivo novo com esse nome</td><td><code>cp notas.txt notas-copia.txt</code></td></tr>
+<tr><td>Um arquivo que existe</td><td><strong>Substitui</strong> o conteúdo, sem perguntar</td><td><code>cp novo.txt velho.txt</code></td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Termine pastas com <code>/</code></strong>
+<p>Escreva <code>cp notas.txt Downloads/</code> em vez de <code>Downloads</code>. Se a pasta não existir, a barra faz o comando dar erro em vez de criar um arquivo chamado "Downloads".</p>
+</div>
+
+<hr>
+
+<h2>cp: copiar um arquivo</h2>
+<p><code>cp</code> vem de <em>copy</em>, "copiar". O original continua onde estava.</p>
+
+<dl class="anatomy">
+  <dt>cp</dt><dd>O programa que copia.</dd>
+  <dt>notas.txt</dt><dd>A origem: o que copiar.</dd>
+  <dt>notas-copia.txt</dt><dd>O destino: como a cópia vai se chamar.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/Documentos">$ cp notas.txt notas-copia.txt
+$ ls
+acesso.log  notas-copia.txt  notas.txt  projetos  relatorio.odt</pre>
+
+<p>Como sempre no Linux, o <code>cp</code> não falou nada: deu certo. Para ele contar o que fez, use <code>-v</code> (<em>verbose</em>, "detalhado"):</p>
+
+<pre class="term" data-cwd="~/Documentos">$ cp -v notas.txt ~/Downloads/
+'notas.txt' -&gt; '/home/ana/Downloads/notas.txt'      « origem -&gt; destino</pre>
+
+<h3>Copiar vários arquivos de uma vez</h3>
+<p>Com mais de uma origem, o destino <strong>precisa</strong> ser uma pasta:</p>
+
+<dl class="anatomy">
+  <dt>cp</dt><dd>O programa.</dd>
+  <dt>-v</dt><dd>Mostra cada cópia.</dd>
+  <dt>notas.txt relatorio.odt</dt><dd>Duas origens.</dd>
+  <dt>~/Downloads/</dt><dd>O destino, uma pasta. É sempre o último argumento.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/Documentos">$ cp -v notas.txt relatorio.odt ~/Downloads/
+'notas.txt' -&gt; '/home/ana/Downloads/notas.txt'
+'relatorio.odt' -&gt; '/home/ana/Downloads/relatorio.odt'</pre>
+
+<div class="try" data-setup="cd Documentos" data-goal="file:~/Downloads/notas.txt,file:~/Documentos/notas.txt,file:~/Documentos/notas-bkp.txt">
+<p class="try-task"><strong>Missão:</strong> você está em <code>Documentos</code>. Faça uma cópia de <code>notas.txt</code> chamada <code>notas-bkp.txt</code> aqui mesmo, e outra cópia dentro de <code>~/Downloads</code>. Confira com <code>ls</code>.</p>
+</div>
+
+<hr>
+
+<h2>Copiar pastas: <code>-r</code></h2>
+<p>Tente copiar uma pasta do jeito normal:</p>
+
+<pre class="term" data-cwd="~/Documentos">$ cp projetos projetos-bkp
+cp: -r não especificado; omitindo o diretório 'projetos'</pre>
+
+<p>O <code>cp</code> se recusa: copiar uma pasta significa copiar tudo o que está dentro dela, e ele quer que você peça isso explicitamente. A opção é <code>-r</code> (de <em>recursive</em>, "recursivo"):</p>
+
+<pre class="term" data-cwd="~/Documentos">$ cp -rv projetos projetos-bkp
+'projetos' -&gt; 'projetos-bkp'
+'projetos/backup.sh' -&gt; 'projetos-bkp/backup.sh'
+'projetos/site' -&gt; 'projetos-bkp/site'
+'projetos/site/index.html' -&gt; 'projetos-bkp/site/index.html'
+'projetos/site/style.css' -&gt; 'projetos-bkp/site/style.css'</pre>
+
+<h3>Cuidado: o destino existir muda o resultado</h3>
+<p>Se <code>projetos-bkp</code> <strong>não existe</strong>, ele vira a cópia. Se <strong>já existe</strong>, a cópia vai para <strong>dentro</strong> dele, como <code>projetos-bkp/projetos</code>. Rodar o mesmo comando duas vezes dá resultados diferentes:</p>
+
+<pre class="term" data-cwd="~/Documentos">$ cp -r projetos projetos-bkp
+$ cp -r projetos projetos-bkp
+$ ls projetos-bkp
+backup.sh  projetos  site                 « na 2ª vez, foi parar dentro</pre>
+
+<h3>Preservar dono, permissões e datas: <code>-a</code></h3>
+<p>A cópia normal ganha a data de agora e passa a ser sua. Para uma cópia idêntica (útil em backups), use <code>-a</code> (de <em>archive</em>, "arquivar"), que já inclui o <code>-r</code>:</p>
+
+<pre class="term">$ cp -a Documentos /media/ana/BACKUP/</pre>
+
+<hr>
+
+<h2>mv: mover e renomear</h2>
+<p><code>mv</code> vem de <em>move</em>, "mover". Diferente do <code>cp</code>, o original deixa de existir no lugar antigo. E ele move pastas sem precisar de <code>-r</code>.</p>
+
+<h3>Renomear</h3>
+<p>Renomear é mover para um nome novo, na mesma pasta:</p>
+
+<dl class="anatomy">
+  <dt>mv</dt><dd>O programa.</dd>
+  <dt>notas-copia.txt</dt><dd>O nome atual.</dd>
+  <dt>rascunho.txt</dt><dd>O nome novo.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/Documentos">$ mv -v notas-copia.txt rascunho.txt
+renomeado 'notas-copia.txt' -&gt; 'rascunho.txt'</pre>
+
+<h3>Mover para outra pasta</h3>
+<pre class="term" data-cwd="~/Documentos">$ mv -v rascunho.txt ~/Downloads/
+renomeado 'rascunho.txt' -&gt; '/home/ana/Downloads/rascunho.txt'</pre>
+
+<p>A mensagem do <code>-v</code> diz "renomeado" nos dois casos, porque para o sistema é a mesma operação.</p>
+
+<h3>Mover e renomear de uma vez</h3>
+<pre class="term" data-cwd="~/Downloads">$ mv -v manual.pdf ~/Documentos/manual-impressora.pdf
+renomeado 'manual.pdf' -&gt; '/home/ana/Documentos/manual-impressora.pdf'</pre>
+
+<div class="try" data-setup="cd Downloads" data-goal="file:~/Imagens/foto-perfil.jpg,absent:~/Downloads/foto.jpg">
+<p class="try-task"><strong>Missão:</strong> você está em <code>Downloads</code>. Mova <code>foto.jpg</code> para a pasta <code>Imagens</code>, já com o nome <code>foto-perfil.jpg</code>, num único comando.</p>
+</div>
+
+<hr>
+
+<h2>Não sobrescrever por acidente</h2>
+<p>Por padrão, <code>cp</code> e <code>mv</code> substituem o destino <strong>sem perguntar</strong>. O conteúdo antigo é perdido, sem lixeira. Há três formas de se proteger:</p>
+
+<h3>1. Perguntar antes: <code>-i</code></h3>
+<p><code>-i</code> (de <em>interactive</em>, "interativo") pergunta antes de substituir. Responda <code>s</code> para sim ou <code>n</code> para não.</p>
+
+<pre class="term" data-cwd="~/Documentos">$ cp -i ~/Downloads/notas.txt notas.txt
+cp: sobrescrever 'notas.txt'? n                    « nada foi alterado</pre>
+
+<h3>2. Nunca substituir: <code>--update=none</code></h3>
+<p>Para pular, sem perguntar, os arquivos que já existem no destino, use <code>--update=none</code>. A forma antiga, <code>-n</code>, ainda funciona, mas no Ubuntu 26.04 o <code>cp</code> avisa que ela pode mudar:</p>
+
+<pre class="term" data-cwd="~/Documentos">$ cp -n notas.txt ~/Downloads/
+cp: warning: behavior of -n is non-portable and may change in future; use --update=none instead
+$ cp --update=none notas.txt ~/Downloads/</pre>
+
+<h3>3. Guardar o antigo: <code>-b</code> e cópia manual</h3>
+<p>Com <code>-b</code> (<em>backup</em>), o <code>cp</code> renomeia o arquivo antigo antes de substituir. Mas o hábito mais seguro é fazer a cópia você mesmo antes de editar qualquer arquivo importante:</p>
+
+<pre class="term">#&gt; cp -v /etc/hosts /etc/hosts.bak
+'/etc/hosts' -&gt; '/etc/hosts.bak'</pre>
+
+<p>Se a edição der errado, basta <code>cp /etc/hosts.bak /etc/hosts</code>. Você vai usar muito esse truque com arquivos de <code>/etc</code>.</p>
+
+<h3>Copiar só o que mudou: <code>-u</code></h3>
+<p><code>-u</code> (de <em>update</em>) só copia quando a origem é mais nova que o destino. É um "sincronizar" simples. Para sincronizar pastas grandes, o <code>rsync</code> é melhor (veja <a href="scp-rsync.html">scp e rsync</a>).</p>
+
+<hr>
+
+<h2>Formas diferentes de copiar vários arquivos</h2>
+<p>A Ana quer copiar todos os <code>.txt</code> de <code>Documentos</code> para um pendrive. Algumas formas:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Comando</th><th>Quando usar</th></tr>
+<tr><td>Listar os nomes</td><td><code>cp a.txt b.txt c.txt destino/</code></td><td>Poucos arquivos, nomes diferentes.</td></tr>
+<tr><td>Curinga</td><td><code>cp *.txt destino/</code></td><td>Todos seguem um padrão (veja <a href="curingas.html">Curingas</a>).</td></tr>
+<tr><td>Chaves</td><td><code>cp relatorio-{jan,fev}.pdf destino/</code></td><td>Nomes com uma parte em comum.</td></tr>
+<tr><td>Pasta inteira</td><td><code>cp -r Documentos destino/</code></td><td>Quer tudo, com subpastas.</td></tr>
+<tr><td>Busca + cópia</td><td><code>find . -name "*.txt" -exec cp {} destino/ \;</code></td><td>Os arquivos estão espalhados em subpastas (veja <a href="find.html">find</a>).</td></tr>
+<tr><td>Sincronizar</td><td><code>rsync -av Documentos/ destino/</code></td><td>Cópias repetidas; só copia o que mudou.</td></tr>
+<tr><td>App Arquivos</td><td><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>Poucos arquivos e você prefere o mouse.</td></tr>
+</table>
+</div>
+
+<pre class="term" data-cwd="~/Documentos">$ cp -v *.txt ~/Imagens/
+'notas.txt' -&gt; '/home/ana/Imagens/notas.txt'</pre>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"-r não especificado; omitindo o diretório"</strong>
+<pre class="term" data-cwd="~/Documentos">$ cp projetos /tmp/
+cp: -r não especificado; omitindo o diretório 'projetos'</pre>
+<p><strong>O que aconteceu:</strong> você tentou copiar uma pasta sem <code>-r</code>. Nada foi copiado.</p>
+<p><strong>Como resolver:</strong> <code>cp -r projetos /tmp/</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"não foi possível obter estado de…"</strong>
+<pre class="term" data-cwd="~/Documentos">$ cp Notas.txt /tmp/
+cp: não foi possível obter estado de 'Notas.txt': Arquivo ou diretório inexistente</pre>
+<p><strong>O que aconteceu:</strong> a origem não existe. "Obter estado" é o jeito técnico de dizer "olhar o arquivo". Aqui, o N maiúsculo está errado.</p>
+<p><strong>Como resolver:</strong> confira com <code>ls</code> e use o <kbd>Tab</kbd>.</p>
+</div>
+
+<div class="cenario">
+<strong>"alvo: Não é um diretório" ou "Arquivo ou diretório inexistente"</strong>
+<pre class="term" data-cwd="~/Documentos">$ cp notas.txt acesso.log relatorio.odt
+cp: alvo 'relatorio.odt': Não é um diretório
+$ mv notas.txt acesso.log backup
+mv: alvo 'backup': Arquivo ou diretório inexistente</pre>
+<p><strong>O que aconteceu:</strong> com várias origens, o último argumento precisa ser uma pasta que existe. No primeiro caso é um arquivo; no segundo, a pasta <code>backup</code> não existe.</p>
+<p><strong>Como resolver:</strong> crie a pasta antes (<code>mkdir backup</code>) e confira se o destino é mesmo o último argumento.</p>
+</div>
+
+<div class="cenario">
+<strong>"Permissão negada"</strong>
+<pre class="term" data-cwd="~/Documentos">$ cp notas.txt /etc/
+cp: não foi possível criar arquivo comum '/etc/notas.txt': Permissão negada</pre>
+<p><strong>O que aconteceu:</strong> você não pode escrever em <code>/etc</code>.</p>
+<p><strong>Como resolver:</strong> se realmente for necessário, <code>sudo cp notas.txt /etc/</code>. Veja <a href="sudo.html">sudo</a>.</p>
+</div>
+
+<div class="cenario">
+<strong>Substituí um arquivo sem querer</strong>
+<p><strong>O que aconteceu:</strong> o destino já existia, e <code>cp</code>/<code>mv</code> substituíram sem perguntar.</p>
+<p><strong>Como resolver:</strong> o conteúdo antigo não vai para a lixeira. Só um backup pode trazê-lo de volta. Para não acontecer de novo, use <code>-i</code> ou crie o atalho <code>alias cp='cp -i'</code> e <code>alias mv='mv -i'</code> no <code>~/.bashrc</code> (veja <a href="bashrc.html">.bashrc, alias, PATH</a>).</p>
+</div>
+
+<hr>
+
+<h2>Referência de opções</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>cp</th><th>mv</th><th>Descrição</th></tr>
+<tr><td><code>-v</code></td><td>✓</td><td>✓</td><td>Mostra cada arquivo copiado/movido</td></tr>
+<tr><td><code>-i</code></td><td>✓</td><td>✓</td><td>Pergunta antes de substituir</td></tr>
+<tr><td><code>--update=none</code></td><td>✓</td><td>✓</td><td>Nunca substitui (substitui o antigo <code>-n</code>)</td></tr>
+<tr><td><code>-u</code></td><td>✓</td><td>✓</td><td>Só se a origem for mais nova</td></tr>
+<tr><td><code>-b</code></td><td>✓</td><td>✓</td><td>Guarda o destino antigo como <code>arquivo~</code></td></tr>
+<tr><td><code>-r</code></td><td>✓</td><td>—</td><td>Copia pastas e todo o conteúdo</td></tr>
+<tr><td><code>-a</code></td><td>✓</td><td>—</td><td>Cópia idêntica: recursiva, com dono, permissões e datas</td></tr>
+<tr><td><code>-p</code></td><td>✓</td><td>—</td><td>Preserva permissões e datas</td></tr>
+<tr><td><code>-t PASTA</code></td><td>✓</td><td>✓</td><td>Indica o destino primeiro: <code>cp -t destino/ a b c</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Renomear</h3>
+<p>Complete para renomear <code>foto.jpg</code> para <code>praia.jpg</code>:</p>
+<div class="ex-code"><input data-answer="mv" aria-label="comando"> foto.jpg praia.jpg</div>
+</div>
+
+<div class="exercise">
+<h3>2. Copiar uma pasta</h3>
+<p>Complete para copiar a pasta <code>site</code> inteira para <code>site-backup</code>:</p>
+<div class="ex-code">cp <input data-answer="-r|-R|-a|-rv|-vr|-av" aria-label="opção"> site site-backup</div>
+</div>
+
+<div class="exercise">
+<h3>3. Perguntar antes</h3>
+<p>Complete para que o <code>cp</code> pergunte antes de substituir:</p>
+<div class="ex-code">cp <input data-answer="-i" aria-label="opção"> novo.txt notas.txt</div>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">4. A pasta <code>backup</code> já existe. Onde a cópia vai parar com <code>cp -r fotos backup</code>?</p>
+<label><input type="radio" name="q4"> Substitui a pasta <code>backup</code>.</label>
+<label><input type="radio" name="q4"> Dá erro porque <code>backup</code> existe.</label>
+<label><input type="radio" name="q4"> Os arquivos de <code>fotos</code> ficam soltos dentro de <code>backup</code>.</label>
+<label><input type="radio" name="q4"> Em <code>backup/fotos</code>.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. Qual a diferença principal entre <code>cp</code> e <code>mv</code>?</p>
+<label><input type="radio" name="q5"> <code>cp</code> mantém o original; <code>mv</code> tira o original do lugar.</label>
+<label><input type="radio" name="q5"> <code>mv</code> só funciona com pastas.</label>
+<label><input type="radio" name="q5"> <code>cp</code> pergunta antes de substituir; <code>mv</code> não.</label>
+<label><input type="radio" name="q5"> Nenhuma; são sinônimos.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>cp origem destino</code> copia; <code>mv origem destino</code> move ou renomeia. O destino é sempre o último.</li>
+  <li>Para copiar pastas, use <code>-r</code> (ou <code>-a</code> para uma cópia idêntica). O <code>mv</code> move pastas sem opção.</li>
+  <li>Os dois substituem o destino sem perguntar. Use <code>-i</code>, <code>--update=none</code> ou faça um <code>.bak</code> antes.</li>
+  <li><code>-v</code> mostra o que foi feito. Sem ele, silêncio significa sucesso.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

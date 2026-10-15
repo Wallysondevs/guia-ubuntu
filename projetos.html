@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Projetos — como usar os laboratórios | Guia Ubuntu</title>
+<meta name="description" content="Como usar os projetos práticos do Guia Ubuntu: criar uma máquina virtual de laboratório com Multipass, salvar pontos de restauração, ordem sugerida e regras de segurança.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Projetos</span></h1>
+
+<p class="intro">Ler sobre comandos ensina a sintaxe. Montar algo de verdade ensina a <strong>usar</strong> os comandos juntos, a errar e a consertar. Cada projeto é um laboratório passo a passo: você monta um servidor, um backup ou uma aplicação numa máquina virtual que pode destruir e recriar quantas vezes quiser.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que é uma máquina virtual de laboratório e por que nunca treinar na sua máquina principal.</li>
+  <li>Como criar, acessar, salvar e destruir uma VM com o Multipass.</li>
+  <li>Como ler um projeto: etapas, conferências e o que fazer quando algo dá errado.</li>
+  <li>Em que ordem fazer os cinco projetos.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Por que um laboratório?</h2>
+<p>Os projetos mexem em partes sensíveis do sistema: firewall, rede, discos, o arquivo <code>/etc/fstab</code> e permissões de administrador. Um erro nessas partes pode deixar um computador sem rede ou até sem ligar. Por isso, tudo acontece dentro de uma <strong>máquina virtual</strong> (VM, de <em>virtual machine</em>): um computador inteiro simulado dentro do seu.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Na sua máquina principal</th><th>Na VM de laboratório</th></tr>
+<tr><td>Um <code>fstab</code> errado impede o computador de ligar</td><td>Você restaura o ponto salvo em 30 segundos</td></tr>
+<tr><td>Uma regra de firewall errada derruba a sua internet</td><td>Só a VM fica sem rede</td></tr>
+<tr><td>Encher o disco trava seus programas</td><td>O disco da VM tem 10 GB e é descartável</td></tr>
+<tr><td>Desfazer exige saber exatamente o que mudou</td><td><code>multipass delete --purge lab</code> e recomeça do zero</td></tr>
+</table>
+</div>
+
+<div class="warning">
+<strong>Regras de segurança dos projetos</strong>
+<ul>
+  <li><strong>Nunca</strong> rode os desafios de <a href="projeto-quebre-conserte.html">Quebre e Conserte</a> na sua máquina principal.</li>
+  <li>Antes de cada projeto, crie um ponto de restauração (snapshot) da VM.</li>
+  <li>Leia o comando inteiro antes de apertar <kbd>Enter</kbd>, principalmente os que começam com <code>sudo</code>.</li>
+  <li>Repare no prompt: <code>ana@notebook</code> é o seu computador, <code>ubuntu@lab</code> é a VM. Um comando no lugar errado faz estrago no lugar errado.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Instalar o Multipass</h2>
+<p>O <strong>Multipass</strong> é uma ferramenta da Canonical, a empresa que faz o Ubuntu, que cria VMs de Ubuntu com um comando. Ele vem como snap. Este comando roda no seu computador, o "notebook":</p>
+
+<pre class="term">$ sudo snap install multipass
+[sudo: authenticate] Senha:
+multipass 1.16.1 from Canonical✓ installed           « o número da versão varia</pre>
+
+<p>Confira se ele está funcionando:</p>
+
+<pre class="term">$ multipass version
+multipass   1.16.1
+multipassd  1.16.1</pre>
+
+<div class="note">
+<strong>Outras opções</strong>
+<p>Se preferir uma VM com tela gráfica, use o VirtualBox ou o <a href="kvm.html">virt-manager</a> e instale o Ubuntu Server a partir da ISO. Os projetos funcionam igual; só a criação e os snapshots mudam.</p>
+</div>
+
+<hr>
+
+<h2>Criar a VM de laboratório</h2>
+<p>Primeiro, veja quais versões do Ubuntu o Multipass oferece. A coluna <code>Aliases</code> mostra os apelidos que você pode usar no lugar do número:</p>
+
+<pre class="term">$ multipass find
+Image                       Aliases           Version          Description
+22.04                       jammy             20260930         Ubuntu 22.04 LTS
+24.04                       noble             20260930         Ubuntu 24.04 LTS
+26.04                       resolute,lts      20260930         Ubuntu 26.04 LTS     « use este
+…</pre>
+
+<p>A saída acima é ilustrativa: datas e versões mudam com o tempo. Use o nome que aparecer para o 26.04.</p>
+
+<dl class="anatomy">
+  <dt>multipass launch</dt><dd>Cria e liga uma VM nova.</dd>
+  <dt>26.04</dt><dd>A imagem: qual versão do Ubuntu instalar.</dd>
+  <dt>--name lab</dt><dd>O nome da VM. Também vira o nome da máquina no prompt.</dd>
+  <dt>--disk 10G</dt><dd>Tamanho do disco virtual: 10 GB.</dd>
+  <dt>--memory 2G</dt><dd>Memória RAM da VM: 2 GB.</dd>
+</dl>
+
+<pre class="term">$ multipass launch 26.04 --name lab --disk 10G --memory 2G
+Launched: lab                                         « leva de 1 a 3 minutos na primeira vez
+$ multipass list
+Name                    State             IPv4             Image
+lab                     Running           10.85.140.27     Ubuntu 26.04 LTS    « anote o IP</pre>
+
+<p>O IP da sua VM será outro. Ele é o endereço que você vai usar para acessar o servidor a partir do notebook.</p>
+
+<h3>Entrar na VM</h3>
+<pre class="term">$ multipass shell lab
+Welcome to Ubuntu 26.04 LTS (GNU/Linux 7.0.0-14-generic x86_64)
+…
+ubuntu@lab:~$                                           « agora você está DENTRO da VM</pre>
+
+<p>Dentro da VM, o usuário padrão se chama <code>ubuntu</code> e tem <code>sudo</code> sem senha. Para voltar ao notebook, digite <code>exit</code>:</p>
+
+<pre class="term" data-user="ubuntu" data-host="lab">$ whoami
+ubuntu
+$ exit
+logout</pre>
+
+<div class="note">
+<strong>Por que as mensagens da VM aparecem em inglês?</strong>
+<p>As imagens do Multipass vêm configuradas com o idioma <code>C.UTF-8</code>, que é inglês. Por isso, dentro da VM você verá <code>Permission denied</code> no lugar de <code>Permissão negada</code>. Os projetos mostram as mensagens como elas aparecem lá.</p>
+</div>
+
+<hr>
+
+<h2>Pontos de restauração (snapshots)</h2>
+<p>Um <strong>snapshot</strong> é uma "foto" da VM inteira. Se algo der errado, você volta para a foto e tudo fica como era. Tire um snapshot antes de cada projeto. A VM precisa estar desligada:</p>
+
+<pre class="term">$ multipass stop lab
+$ multipass snapshot lab --name limpo
+Snapshot taken: lab.limpo
+$ multipass start lab</pre>
+
+<p>Para voltar ao snapshot:</p>
+
+<pre class="term">$ multipass stop lab
+$ multipass restore --destructive lab.limpo
+Snapshot restored: lab.limpo
+$ multipass start lab</pre>
+
+<p>O <code>--destructive</code> diz ao Multipass para descartar o estado atual sem perguntar se você quer salvá-lo antes.</p>
+
+<hr>
+
+<h2>Comandos do Multipass</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>multipass find</code></td><td>Lista as imagens disponíveis</td></tr>
+<tr><td><code>multipass launch 26.04 --name lab</code></td><td>Cria e liga uma VM</td></tr>
+<tr><td><code>multipass list</code></td><td>Mostra as VMs, o estado e o IP de cada uma</td></tr>
+<tr><td><code>multipass shell lab</code></td><td>Abre um terminal dentro da VM</td></tr>
+<tr><td><code>multipass exec lab -- comando</code></td><td>Roda um comando na VM sem entrar nela</td></tr>
+<tr><td><code>multipass transfer arq lab:/tmp/</code></td><td>Copia um arquivo do notebook para a VM</td></tr>
+<tr><td><code>multipass info lab</code></td><td>Detalhes: CPU, memória, disco, IP</td></tr>
+<tr><td><code>multipass stop lab</code> / <code>start lab</code></td><td>Desliga / liga</td></tr>
+<tr><td><code>multipass snapshot lab --name x</code></td><td>Cria um ponto de restauração (VM desligada)</td></tr>
+<tr><td><code>multipass restore lab.x</code></td><td>Volta para o ponto de restauração</td></tr>
+<tr><td><code>multipass delete --purge lab</code></td><td>Apaga a VM de vez</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Ordem sugerida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Projeto</th><th>O que você vai montar</th><th>Antes, estude</th><th>Tempo</th></tr>
+<tr><td><a href="projeto-servidor-web.html">1. Servidor Web do Zero</a></td><td>Servidor com usuário próprio, SSH por chave, firewall, nginx e HTTPS</td><td><a href="ssh.html">SSH</a>, <a href="ufw.html">ufw</a>, <a href="nginx.html">nginx</a></td><td>1h30</td></tr>
+<tr><td><a href="projeto-backup.html">2. Backup Automático</a></td><td>Backup diário com rotação, aviso de falha e restauração testada</td><td><a href="script-intro.html">Scripts</a>, <a href="scp-rsync.html">rsync</a>, <a href="criar-servico.html">timers</a></td><td>1h</td></tr>
+<tr><td><a href="projeto-quebre-conserte.html">3. Quebre e Conserte</a></td><td>Seis panes reais, provocadas e consertadas</td><td>Os projetos 1 e 2</td><td>2h</td></tr>
+<tr><td><a href="projeto-servidor-arquivos.html">4. Servidor de Arquivos</a></td><td>Pasta compartilhada na rede com Samba</td><td><a href="usuarios.html">Usuários</a>, <a href="permissoes.html">Permissões</a></td><td>45 min</td></tr>
+<tr><td><a href="projeto-docker.html">5. App com Docker</a></td><td>Aplicação com Docker Compose, volume e backup</td><td><a href="docker.html">Docker</a>, <a href="docker-compose.html">Compose</a></td><td>1h</td></tr>
+</table>
+</div>
+
+<h3>Como ler um projeto</h3>
+<p>Todo projeto tem o mesmo formato:</p>
+<ol class="passo">
+  <li><strong>O que vamos fazer e por quê</strong>: a ideia da etapa antes dos comandos.</li>
+  <li><strong>Comandos</strong>: numa janela de terminal. Repare no prompt para saber onde rodar.</li>
+  <li><strong>Saída esperada</strong>: o que deve aparecer, com as partes importantes explicadas.</li>
+  <li><strong>Confira se deu certo</strong>: um comando que prova que a etapa funcionou. Não pule.</li>
+  <li><strong>Se deu errado</strong>: os erros mais comuns daquela etapa e como resolver.</li>
+</ol>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"multipass: comando não encontrado"</strong>
+<pre class="term">$ multipass list
+multipass: comando não encontrado</pre>
+<p><strong>O que aconteceu:</strong> o Multipass não está instalado, ou o terminal foi aberto antes da instalação.</p>
+<p><strong>Como resolver:</strong> rode <code>sudo snap install multipass</code>. Se já instalou, feche e abra o terminal de novo.</p>
+</div>
+
+<div class="cenario">
+<strong>A imagem 26.04 não é encontrada</strong>
+<p><strong>O que aconteceu:</strong> o nome da imagem foi digitado errado (por exemplo, <code>26.4</code>), ou sua versão do Multipass é antiga e ainda não conhece essa imagem.</p>
+<p><strong>Como resolver:</strong> rode <code>multipass find</code> e use exatamente o nome ou apelido mostrado. Atualize o Multipass com <code>sudo snap refresh multipass</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>A VM não tem IP ou o launch demora demais</strong>
+<p><strong>O que aconteceu:</strong> a VM pode não ter terminado de iniciar, ou o firewall do notebook está bloqueando a rede virtual do Multipass.</p>
+<p><strong>Como confirmar:</strong> <code>multipass info lab</code> mostra o estado. Se estiver <code>Running</code> sem IP, espere um minuto e repita.</p>
+<p><strong>Como resolver:</strong> se o notebook usa ufw, veja se ele não está bloqueando a interface <code>mpqemubr0</code>. Em último caso, apague e recrie a VM.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Apagar a VM de vez</h3>
+<p>Complete para apagar a VM <code>lab</code> e liberar o espaço em disco na hora:</p>
+<div class="ex-code">multipass delete <input data-answer="--purge" aria-label="opção"> lab</div>
+</div>
+
+<div class="exercise">
+<h3>2. Entrar na VM</h3>
+<p>Complete para abrir um terminal dentro da VM <code>lab</code>:</p>
+<div class="ex-code">multipass <input data-answer="shell" aria-label="subcomando"> lab</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">3. O prompt mostra <code>ubuntu@lab:~$</code>. Onde o próximo comando vai rodar?</p>
+<label><input type="radio" name="q3"> No seu computador principal.</label>
+<label><input type="radio" name="q3"> Dentro da VM chamada lab.</label>
+<label><input type="radio" name="q3"> Num servidor da Canonical.</label>
+<label><input type="radio" name="q3"> Em todas as VMs ao mesmo tempo.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">4. Qual é o melhor momento para tirar um snapshot?</p>
+<label><input type="radio" name="q4"> Depois de quebrar o sistema.</label>
+<label><input type="radio" name="q4"> Nunca; snapshots ocupam espaço.</label>
+<label><input type="radio" name="q4"> Só quando a VM estiver ligada.</label>
+<label><input type="radio" name="q4"> Antes de começar cada projeto, com a VM desligada.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Projetos são feitos numa VM descartável, nunca na máquina principal.</li>
+  <li><code>multipass launch 26.04 --name lab --disk 10G --memory 2G</code> cria a VM; <code>multipass shell lab</code> entra nela.</li>
+  <li>O prompt diz onde você está: <code>ana@notebook</code> (seu PC) ou <code>ubuntu@lab</code> (VM).</li>
+  <li>Snapshots são pontos de restauração: tire um antes de cada projeto.</li>
+  <li><code>multipass delete --purge lab</code> apaga tudo para recomeçar.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

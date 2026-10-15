@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu cron — agendar tarefas com crontab | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a agendar tarefas no Ubuntu com cron e crontab: os 5 campos explicados, tabela de exemplos, logs, ambiente do cron e o passo a passo para quando o cron não roda.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">cron</span></h1>
+
+<p class="intro">O <strong>cron</strong> executa comandos sozinho, em horários marcados: "todo dia às 2h, faça backup", "a cada 5 minutos, confira o disco". O nome vem do grego <em>chronos</em>, "tempo". Você escreve a agenda num arquivo chamado <strong>crontab</strong> (<em>cron table</em>, "tabela do cron").</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Como ler e escrever uma linha do crontab, campo por campo.</li>
+  <li>Os comandos <code>crontab -e</code>, <code>-l</code> e <code>-r</code> (e por que o <code>-r</code> é perigoso).</li>
+  <li>Onde ver se a tarefa rodou e como guardar a saída dela num log.</li>
+  <li>Por que um script que funciona no terminal pode falhar no cron, e como resolver.</li>
+</ul>
+</div>
+
+<p>Antes, leia <a href="script-intro.html">Primeiro Script</a>. Os exemplos rodam na máquina fictícia <strong>notebook</strong>, com a usuária <strong>ana</strong>.</p>
+
+<hr>
+
+<h2>Como o cron funciona</h2>
+<p>O cron é um <strong>serviço</strong>: um programa que fica rodando em segundo plano desde que o computador liga. A cada minuto, ele acorda, olha as agendas de todos os usuários e executa o que estiver marcado para aquele minuto. No Ubuntu ele já vem instalado e ligado:</p>
+
+<pre class="term">$ systemctl is-active cron
+active</pre>
+
+<p>Cada usuário tem a sua agenda. As tarefas da ana rodam <strong>como a ana</strong>, com as permissões dela. Tarefas do sistema ficam em arquivos separados, que você verá mais abaixo.</p>
+
+<hr>
+
+<h2>Ver e editar a sua agenda</h2>
+
+<h3>crontab -l: listar</h3>
+<p>O <code>-l</code> (de <em>list</em>) mostra a sua agenda. Na primeira vez, ela não existe:</p>
+<pre class="term">$ crontab -l
+no crontab for ana</pre>
+
+<h3>crontab -e: editar</h3>
+<p>O <code>-e</code> (de <em>edit</em>) abre a agenda num editor de texto. Na primeira vez, o Ubuntu pergunta qual editor usar:</p>
+
+<pre class="term">$ crontab -e
+no crontab for ana - using an empty one
+Select an editor.  To change later, run select-editor again.
+  1. /bin/nano        &lt;---- easiest
+  2. /usr/bin/vim.tiny
+  3. /bin/ed
+
+Choose 1-3 [1]: 1                                   « Enter ou 1 escolhe o nano</pre>
+
+<p>Escolha o <strong>nano</strong>, o mais fácil (veja <a href="editores.html">nano e vim</a>). O arquivo abre com um texto explicativo, todo em linhas que começam com <code>#</code> (comentários). Vá até o fim, escreva sua tarefa, salve com <kbd>Ctrl</kbd>+<kbd>O</kbd>, <kbd>Enter</kbd> e saia com <kbd>Ctrl</kbd>+<kbd>X</kbd>. Se estiver tudo certo, o cron confirma:</p>
+
+<pre class="term">$ crontab -e
+crontab: installing new crontab                     « a agenda foi gravada
+$ crontab -l
+# m h  dom mon dow   command
+30 2 * * * /home/ana/bin/backup.sh</pre>
+
+<div class="warning">
+<strong>Não edite o arquivo da agenda diretamente</strong>
+<p>As agendas ficam em <code>/var/spool/cron/crontabs/</code>, mas não mexa lá: use sempre <code>crontab -e</code>. Ele confere se as linhas estão certas antes de gravar.</p>
+</div>
+
+<hr>
+
+<h2>Anatomia de uma linha do crontab</h2>
+<p>Cada linha é uma tarefa: <strong>cinco campos de tempo</strong>, separados por espaço, e depois o comando. Este desenho é o mesmo que aparece nos comentários do <code>/etc/crontab</code>:</p>
+
+<pre class="syntax">.---------------- minuto        (0 - 59)
+|  .------------- hora          (0 - 23)
+|  |  .---------- dia do mês    (1 - 31)
+|  |  |  .------- mês           (1 - 12 ou jan, feb, mar…)
+|  |  |  |  .---- dia da semana (0 - 7: 0 e 7 = domingo, 1 = segunda… ou sun, mon…)
+|  |  |  |  |
+*  *  *  *  *  comando a executar</pre>
+
+<dl class="anatomy">
+  <dt>30</dt><dd>Minuto: aos 30 minutos.</dd>
+  <dt>2</dt><dd>Hora: das 2h. Junto com o minuto: <strong>2h30</strong>.</dd>
+  <dt>*</dt><dd>Dia do mês: qualquer um. O asterisco significa "todos".</dd>
+  <dt>*</dt><dd>Mês: qualquer um.</dd>
+  <dt>1-5</dt><dd>Dia da semana: de segunda (1) a sexta (5).</dd>
+  <dt>/home/ana/bin/backup.sh</dt><dd>O comando, com caminho completo.</dd>
+</dl>
+
+<p>Lendo tudo junto: "às 2h30, de segunda a sexta, rode o backup".</p>
+
+<h3>Os símbolos dos campos</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Símbolo</th><th>Significa</th><th>Exemplo</th><th>Lê-se</th></tr>
+<tr><td><code>*</code></td><td>Todos os valores</td><td><code>* * * * *</code></td><td>todo minuto</td></tr>
+<tr><td><code>,</code></td><td>Lista</td><td><code>0 8,12,18 * * *</code></td><td>às 8h, 12h e 18h</td></tr>
+<tr><td><code>-</code></td><td>Intervalo</td><td><code>0 9-17 * * *</code></td><td>de hora em hora, das 9h às 17h</td></tr>
+<tr><td><code>/</code></td><td>"A cada"</td><td><code>*/15 * * * *</code></td><td>a cada 15 minutos</td></tr>
+</table>
+</div>
+
+<h3>Exemplos prontos</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Linha</th><th>Quando roda</th></tr>
+<tr><td><code>*/5 * * * *</code></td><td>A cada 5 minutos</td></tr>
+<tr><td><code>0 * * * *</code></td><td>Toda hora cheia (8h00, 9h00…)</td></tr>
+<tr><td><code>0 2 * * *</code></td><td>Todo dia às 2h</td></tr>
+<tr><td><code>30 7 * * 1-5</code></td><td>Dias úteis às 7h30</td></tr>
+<tr><td><code>0 8 * * 1</code></td><td>Toda segunda às 8h</td></tr>
+<tr><td><code>0 0 1 * *</code></td><td>Dia 1 de cada mês, à meia-noite</td></tr>
+<tr><td><code>0 3 * * 0</code></td><td>Todo domingo às 3h</td></tr>
+<tr><td><code>15 14 1 1 *</code></td><td>1º de janeiro às 14h15</td></tr>
+<tr><td><code>0 9-18/3 * * *</code></td><td>Às 9h, 12h, 15h e 18h</td></tr>
+</table>
+</div>
+
+<h3>Atalhos com @</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>Equivale a</th><th>Quando roda</th></tr>
+<tr><td><code>@reboot</code></td><td>(não tem)</td><td>Uma vez, quando o computador liga</td></tr>
+<tr><td><code>@hourly</code></td><td><code>0 * * * *</code></td><td>Toda hora</td></tr>
+<tr><td><code>@daily</code></td><td><code>0 0 * * *</code></td><td>Todo dia à meia-noite</td></tr>
+<tr><td><code>@weekly</code></td><td><code>0 0 * * 0</code></td><td>Todo domingo à meia-noite</td></tr>
+<tr><td><code>@monthly</code></td><td><code>0 0 1 * *</code></td><td>Todo dia 1 à meia-noite</td></tr>
+<tr><td><code>@yearly</code></td><td><code>0 0 1 1 *</code></td><td>1º de janeiro à meia-noite</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Dia do mês e dia da semana juntos: é "OU"</strong>
+<p><code>0 9 13 * 5</code> não é "sexta-feira 13". Quando os dois campos de dia têm valores, o cron roda se <strong>qualquer um</strong> bater: todo dia 13 <em>e também</em> toda sexta.</p>
+</div>
+
+<div class="tip">
+<strong>Confira antes de gravar</strong>
+<p>O site <a href="https://crontab.guru" rel="noopener">crontab.guru</a> traduz uma linha do cron para inglês ("At 02:30 on every day-of-week from Monday through Friday"). É ótimo para conferir.</p>
+</div>
+
+<hr>
+
+<h2>Exemplo completo: backup todo dia às 2h</h2>
+<ol class="passo">
+<li>
+<p><strong>Tenha um script que funciona.</strong> Teste no terminal primeiro:</p>
+<pre class="file" data-file="/home/ana/bin/backup.sh">#!/usr/bin/env bash
+destino="/home/ana/backups/docs-$(date +%F).tar.gz"
+mkdir -p /home/ana/backups
+tar -czf "$destino" -C /home/ana Documentos
+echo "$(date '+%F %T') backup criado: $destino"</pre>
+<pre class="term">$ chmod +x ~/bin/backup.sh
+$ ~/bin/backup.sh
+2026-10-15 10:30:00 backup criado: /home/ana/backups/docs-2026-10-15.tar.gz</pre>
+</li>
+<li>
+<p><strong>Abra a agenda</strong> com <code>crontab -e</code> e acrescente no fim:</p>
+<pre class="file" data-file="crontab da ana">0 2 * * * /home/ana/bin/backup.sh &gt;&gt; /home/ana/backup.log 2&gt;&amp;1</pre>
+<dl class="anatomy">
+  <dt>0 2 * * *</dt><dd>Todo dia às 2h00.</dd>
+  <dt>/home/ana/bin/backup.sh</dt><dd>O script, com caminho completo (nada de <code>~</code> ou caminho relativo).</dd>
+  <dt>&gt;&gt; /home/ana/backup.log</dt><dd>Acrescenta o que o script escreve num arquivo de log.</dd>
+  <dt>2&gt;&amp;1</dt><dd>Manda também as mensagens de erro para o mesmo log.</dd>
+</dl>
+</li>
+<li>
+<p><strong>No dia seguinte, confira</strong> o log e o registro do sistema:</p>
+<pre class="term">$ cat ~/backup.log
+2026-10-16 02:00:01 backup criado: /home/ana/backups/docs-2026-10-16.tar.gz
+$ grep CRON /var/log/syslog | tail -1
+2026-10-16T02:00:01.512694-03:00 notebook CRON[32051]: (ana) CMD (/home/ana/bin/backup.sh &gt;&gt; /home/ana/backup.log 2&gt;&amp;1)</pre>
+<p>A linha do <code>syslog</code> prova que o cron <strong>tentou</strong> rodar o comando. Se o comando falhou, o motivo estará no seu <code>backup.log</code>. Por isso o redirecionamento é tão importante.</p>
+</li>
+</ol>
+
+<div class="tip">
+<strong>Teste com "a cada minuto"</strong>
+<p>Para não esperar até as 2h, comece com <code>* * * * *</code>, confira o log após um ou dois minutos e só então troque pelo horário real.</p>
+</div>
+
+<hr>
+
+<h2>O ambiente do cron é diferente do seu terminal</h2>
+<p>Esta é a causa número 1 de "funciona no terminal, mas não no cron". O cron roda seus comandos num ambiente mínimo:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Item</th><th>No seu terminal</th><th>No cron</th></tr>
+<tr><td>Shell</td><td><code>bash</code></td><td><code>/bin/sh</code> (mais simples)</td></tr>
+<tr><td><code>PATH</code></td><td>Várias pastas, incluindo <code>~/.local/bin</code> e <code>/snap/bin</code></td><td>Só <code>/usr/bin:/bin</code></td></tr>
+<tr><td>Pasta atual</td><td>Onde você estiver</td><td>A sua pasta pessoal</td></tr>
+<tr><td><code>~/.bashrc</code>, aliases</td><td>Carregados</td><td>Não são carregados</td></tr>
+<tr><td>Saída do comando</td><td>Aparece na tela</td><td>Some, a não ser que você redirecione</td></tr>
+</table>
+</div>
+
+<p>Você pode definir variáveis no topo do crontab, e elas valem para as linhas de baixo:</p>
+<pre class="file" data-file="crontab da ana">PATH=/usr/local/bin:/usr/bin:/bin:/snap/bin
+SHELL=/bin/bash
+
+0 2 * * * /home/ana/bin/backup.sh &gt;&gt; /home/ana/backup.log 2&gt;&amp;1</pre>
+
+<div class="warning">
+<strong>O sinal % é especial no crontab</strong>
+<p>Na linha do comando, o cron troca <code>%</code> por uma quebra de linha. <code>date +%F</code> direto no crontab quebra o comando. Escreva <code>\%</code> (<code>date +\%F</code>) ou, melhor, coloque o comando dentro de um script.</p>
+</div>
+
+<hr>
+
+<h2>Formas diferentes de agendar</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Onde</th><th>Melhor quando…</th></tr>
+<tr><td>crontab do usuário</td><td><code>crontab -e</code></td><td>Tarefas suas, que rodam como você. É o mais comum.</td></tr>
+<tr><td>Arquivo em <code>/etc/cron.d/</code></td><td><code>sudo nano /etc/cron.d/meu-app</code></td><td>Tarefas do sistema ou de um programa. Tem uma coluna a mais: o usuário.</td></tr>
+<tr><td>Pastas <code>/etc/cron.daily</code>, <code>weekly</code>, <code>monthly</code></td><td>Copie um script executável para lá</td><td>Não importa o horário exato, só "uma vez por dia". No desktop, o <code>anacron</code> roda depois o que foi perdido com o computador desligado.</td></tr>
+<tr><td>Timer do systemd</td><td>Arquivos <code>.timer</code></td><td>Precisa de logs no <code>journalctl</code>, dependências ou executar o que foi perdido (veja <a href="criar-servico.html">Criar um Serviço</a>).</td></tr>
+<tr><td><code>at</code></td><td><code>echo "comando" | at 22:00</code></td><td>Uma vez só, num horário. Não vem instalado: <code>sudo apt install at</code>.</td></tr>
+</table>
+</div>
+
+<p>Nos arquivos de sistema, a linha tem o usuário entre o horário e o comando. Este é um trecho real do <code>/etc/crontab</code> do Ubuntu:</p>
+<pre class="term">$ grep cron.daily /etc/crontab
+25 6	* * *	root	test -x /usr/sbin/anacron || { cd / &amp;&amp; run-parts --report /etc/cron.daily; }</pre>
+
+<hr>
+
+<h2>Apagar a agenda: cuidado com o -r</h2>
+
+<div class="warning">
+<strong><code>crontab -r</code> apaga tudo, sem perguntar</strong>
+<p>O <code>r</code> fica ao lado do <code>e</code> no teclado. Um erro de digitação e todas as suas tarefas somem. Antes de mexer, faça uma cópia:</p>
+<pre class="term">$ crontab -l &gt; ~/crontab-backup.txt
+$ crontab -r
+$ crontab -l
+no crontab for ana                                  « a agenda inteira sumiu
+$ crontab ~/crontab-backup.txt
+$ crontab -l
+# m h  dom mon dow   command
+0 2 * * * /home/ana/bin/backup.sh &gt;&gt; /home/ana/backup.log 2&gt;&amp;1</pre>
+<p>Na sessão acima: a primeira linha guarda uma cópia, o <code>-r</code> apaga tudo e <code>crontab ~/crontab-backup.txt</code> restaura a cópia. Para apagar com confirmação, use <code>crontab -ri</code>. Para remover só uma tarefa, use <code>crontab -e</code> e apague a linha.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona: "meu cron não roda"</h2>
+<p>Siga estes passos na ordem. Quase sempre o problema aparece até o passo 4.</p>
+
+<ol class="passo">
+<li>
+<p><strong>O cron está ligado?</strong></p>
+<pre class="term">$ systemctl is-active cron
+active</pre>
+</li>
+<li>
+<p><strong>A linha está na agenda certa?</strong> Uma tarefa que precisa de root não roda na agenda da ana, e vice-versa.</p>
+<pre class="term">$ crontab -l
+# m h  dom mon dow   command
+0 2 * * * /home/ana/bin/backup.sh &gt;&gt; /home/ana/backup.log 2&gt;&amp;1
+$ sudo crontab -l
+no crontab for root                                 « a agenda do root é outra</pre>
+</li>
+<li>
+<p><strong>O cron tentou executar?</strong> Procure a linha no registro:</p>
+<pre class="term">$ grep CRON /var/log/syslog | grep ana | tail -3
+$ journalctl -u cron --since today</pre>
+<p>Se não houver nenhuma linha <code>(ana) CMD</code>, o horário está errado ou a linha tem erro.</p>
+</li>
+<li>
+<p><strong>O comando falhou?</strong> Sem redirecionamento, a mensagem de erro se perde. Acrescente <code>&gt;&gt; /home/ana/cron.log 2&gt;&amp;1</code> e espere a próxima execução. Os erros mais comuns que aparecem no log:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Mensagem no log</th><th>Causa</th><th>Solução</th></tr>
+<tr><td><code>/bin/sh: 1: node: not found</code></td><td>O programa está fora do <code>PATH</code> do cron</td><td>Use o caminho completo (<code>which node</code> mostra) ou defina <code>PATH=</code> no topo</td></tr>
+<tr><td><code>/bin/sh: 1: /home/ana/bin/backup.sh: Permission denied</code></td><td>Script sem permissão de execução</td><td><code>chmod +x ~/bin/backup.sh</code></td></tr>
+<tr><td><code>/bin/sh: 1: ~/bin/backup.sh: not found</code></td><td>Caminho com <code>~</code> ou relativo</td><td>Escreva <code>/home/ana/bin/backup.sh</code></td></tr>
+<tr><td><code>tar: Documentos: Cannot stat: No such file or directory</code></td><td>O script supõe estar em outra pasta</td><td>Use caminhos absolutos dentro do script</td></tr>
+</table>
+</div>
+</li>
+<li>
+<p><strong>Teste no mesmo ambiente do cron.</strong> Este comando roda o script com o ambiente mínimo do cron, e mostra o erro na hora:</p>
+<pre class="term">$ env -i HOME=/home/ana PATH=/usr/bin:/bin /bin/sh -c '/home/ana/bin/backup.sh'</pre>
+</li>
+</ol>
+
+<div class="cenario">
+<strong>"bad minute" ao salvar</strong>
+<pre class="term">$ crontab -e
+"/tmp/crontab.Hk2v1Q/crontab":23: bad minute
+errors in crontab file, can't install.
+Do you want to retry the same edit? (y/n)</pre>
+<p><strong>O que aconteceu:</strong> o minuto está fora do intervalo 0–59 (por exemplo, <code>60</code>) ou com um símbolo inválido. O número depois dos dois pontos é a linha com problema.</p>
+<p><strong>Como resolver:</strong> responda <kbd>y</kbd> para voltar ao editor e corrigir. Variações: <code>bad hour</code>, <code>bad day-of-month</code>, <code>bad month</code>, <code>bad day-of-week</code> (por exemplo, quando falta um dos cinco campos).</p>
+</div>
+
+<div class="cenario">
+<strong>A tarefa roda, mas na hora errada</strong>
+<p><strong>O que aconteceu:</strong> o cron usa o fuso horário do sistema. Em servidores na nuvem, ele costuma ser UTC, 3 horas à frente de Brasília.</p>
+<p><strong>Como resolver:</strong> confira com <code>timedatectl</code>. Para mudar: <code>sudo timedatectl set-timezone America/Sao_Paulo</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência rápida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>crontab -e</code></td><td>Edita a sua agenda</td></tr>
+<tr><td><code>crontab -l</code></td><td>Mostra a sua agenda</td></tr>
+<tr><td><code>crontab -r</code></td><td>Apaga a agenda inteira, sem perguntar</td></tr>
+<tr><td><code>crontab -ri</code></td><td>Apaga, pedindo confirmação</td></tr>
+<tr><td><code>crontab arquivo</code></td><td>Substitui a agenda pelo conteúdo do arquivo</td></tr>
+<tr><td><code>sudo crontab -u joao -l</code></td><td>Mostra a agenda de outro usuário</td></tr>
+<tr><td><code>sudo crontab -e</code></td><td>Edita a agenda do root</td></tr>
+<tr><td><code>select-editor</code></td><td>Troca o editor usado pelo <code>crontab -e</code></td></tr>
+<tr><td><code>grep CRON /var/log/syslog</code></td><td>Mostra o que o cron executou</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Todo dia às 23h</h3>
+<p>Complete os cinco campos para rodar todo dia às 23h00:</p>
+<div class="ex-code"><input data-answer="0 23 * * *" aria-label="campos de tempo"> /home/ana/bin/limpar.sh</div>
+</div>
+
+<div class="exercise">
+<h3>2. A cada 10 minutos</h3>
+<p>Complete o campo do minuto:</p>
+<div class="ex-code"><input data-answer="*/10|0,10,20,30,40,50" aria-label="minuto"> * * * * /home/ana/bin/verificar.sh</div>
+</div>
+
+<div class="exercise">
+<h3>3. Guardar a saída</h3>
+<p>Complete para acrescentar a saída e os erros no arquivo de log:</p>
+<div class="ex-code">0 2 * * * /home/ana/bin/backup.sh <input data-answer="&gt;&gt;" aria-label="redirecionamento"> /home/ana/backup.log 2&gt;&amp;1</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Quando roda a linha <code>30 7 * * 1-5</code>?</p>
+<label><input type="radio" name="q4"> Às 7h30, nos dias 1 a 5 de cada mês.</label>
+<label><input type="radio" name="q4"> Às 7h30, de segunda a sexta.</label>
+<label><input type="radio" name="q4"> Às 30h07, todo dia.</label>
+<label><input type="radio" name="q4"> A cada 30 minutos, entre 1h e 5h.</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Um script roda no terminal, mas no cron aparece <code>node: not found</code>. Qual a causa mais provável?</p>
+<label><input type="radio" name="q5"> O cron está desligado.</label>
+<label><input type="radio" name="q5"> O horário está errado.</label>
+<label><input type="radio" name="q5"> O <code>PATH</code> do cron é só <code>/usr/bin:/bin</code> e o node está em outra pasta.</label>
+<label><input type="radio" name="q5"> O script precisa de <code>sudo</code>.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Cada linha do crontab tem 5 campos de tempo (minuto, hora, dia, mês, dia da semana) e um comando.</li>
+  <li><code>crontab -e</code> edita, <code>-l</code> lista e <code>-r</code> apaga tudo sem perguntar: faça cópia antes.</li>
+  <li>Use caminhos absolutos e redirecione a saída: <code>&gt;&gt; /home/ana/log 2&gt;&amp;1</code>.</li>
+  <li>O cron tem <code>PATH=/usr/bin:/bin</code>, usa <code>/bin/sh</code> e não lê o <code>.bashrc</code>.</li>
+  <li><code>grep CRON /var/log/syslog</code> mostra se a tarefa rodou; o seu log mostra se deu certo.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

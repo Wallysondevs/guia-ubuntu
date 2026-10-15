@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Condicionais — if, test, [ ], [[ ]] e case no Bash | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a fazer scripts Bash tomarem decisões: if, elif, else, test, [ ], [[ ]], (( )), &amp;&amp;, || e case, com cada parte explicada, erros reais e exercícios.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Condicionais</span></h1>
+
+<p class="intro">Até agora seus scripts faziam sempre a mesma coisa, linha após linha. Com <strong>condicionais</strong>, o script passa a tomar decisões: "se o arquivo existe, faça backup; senão, avise o usuário". Esta aula mostra o <code>if</code> e seus parceiros, parte por parte.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Por que o <code>if</code> do Bash testa <strong>comandos</strong>, e não "verdadeiro ou falso".</li>
+  <li>Como usar <code>[ ]</code>, <code>[[ ]]</code> e <code>(( ))</code> para testar arquivos, textos e números.</li>
+  <li>Quando trocar o <code>if</code> por <code>&amp;&amp;</code>, <code>||</code> ou <code>case</code>.</li>
+  <li>Como ler os erros mais comuns: "faltando `]'", "esperava operador unário" e "esperava número inteiro".</li>
+</ul>
+</div>
+
+<p>Antes, leia <a href="script-intro.html">Primeiro Script</a> e <a href="script-variaveis.html">Variáveis e Argumentos</a>. Os exemplos rodam na máquina fictícia <strong>notebook</strong>, com a usuária <strong>ana</strong>.</p>
+
+<hr>
+
+<h2>A ideia: todo comando diz se deu certo</h2>
+<p>Você já viu que todo comando devolve um <strong>código de saída</strong>: <code>0</code> quando deu certo e outro número quando deu errado. O <code>if</code> do Bash usa exatamente isso. Ele roda um comando e olha o código:</p>
+<ul>
+  <li>Código <code>0</code> → o <code>if</code> considera <strong>verdadeiro</strong> e executa o bloco do <code>then</code>.</li>
+  <li>Qualquer outro código → <strong>falso</strong>: pula para o <code>else</code>, se existir.</li>
+</ul>
+
+<pre class="term">$ ls Documentos
+acesso.log  notas.txt  projetos  relatorio.odt
+$ echo $?
+0                                                   « deu certo = verdadeiro
+$ ls Fotos
+ls: não é possível acessar 'Fotos': Arquivo ou diretório inexistente
+$ echo $?
+2                                                   « deu errado = falso</pre>
+
+<div class="tip">
+<strong>Ao contrário de outras linguagens</strong>
+<p>Em Python ou JavaScript, 0 significa "falso". No shell é o oposto: <strong>0 significa sucesso</strong>. Pense em "zero problemas".</p>
+</div>
+
+<hr>
+
+<h2>A estrutura do if</h2>
+
+<pre class="syntax">if COMANDO; then
+  comandos se COMANDO deu certo
+fi</pre>
+
+<dl class="anatomy">
+  <dt>if</dt><dd>"Se". Começa a decisão.</dd>
+  <dt>grep -q "^ana:" /etc/passwd</dt><dd>O comando testado. Aqui: procura a linha da usuária ana. O <code>-q</code> (<em>quiet</em>, "quieto") faz o grep não mostrar nada, só devolver o código.</dd>
+  <dt>; then</dt><dd>"Então". O <code>;</code> separa o comando do <code>then</code> quando estão na mesma linha.</dd>
+  <dt>echo "a ana existe"</dt><dd>O que fazer quando o comando deu certo.</dd>
+  <dt>; fi</dt><dd>Fim do if. <code>fi</code> é <code>if</code> ao contrário.</dd>
+</dl>
+
+<pre class="term">$ if grep -q "^ana:" /etc/passwd; then echo "a ana existe"; fi
+a ana existe
+$ if grep -q "^joao:" /etc/passwd; then echo "o joao existe"; fi
+$ echo $?
+0</pre>
+
+<p>Na segunda vez, nada apareceu: o <code>grep</code> não achou o joao, devolveu 1, e o <code>if</code> pulou o <code>echo</code>. Repare que o <code>echo $?</code> mostra <code>0</code>: um <code>if</code> sem <code>else</code> que não executou nada termina com sucesso.</p>
+
+<p>Em scripts, escrevemos em várias linhas, com o bloco indentado (recuado com espaços). Assim fica mais fácil de ler:</p>
+
+<pre class="file" data-file="usuario.sh">#!/usr/bin/env bash
+if grep -q "^ana:" /etc/passwd; then
+  echo "A usuária ana existe."
+fi</pre>
+
+<hr>
+
+<h2>Testar condições: o comando <code>[ ]</code></h2>
+<p>E quando você quer perguntar "este arquivo existe?" ou "este número é maior que 5?". Para isso existe o comando <code>test</code>, que tem um apelido: <code>[</code>. Isso mesmo: o colchete é um <strong>comando</strong>.</p>
+
+<pre class="term">$ type [
+[ é um comando interno do shell
+$ test -f frutas.txt
+$ echo $?
+0                                                   « frutas.txt existe e é um arquivo
+$ [ -f compras.txt ]
+$ echo $?
+1                                                   « compras.txt não existe</pre>
+
+<dl class="anatomy">
+  <dt>[</dt><dd>O comando de teste (o mesmo que <code>test</code>).</dd>
+  <dt>-f</dt><dd>O tipo de teste: "existe e é um arquivo comum".</dd>
+  <dt>"$arquivo"</dt><dd>O que está sendo testado. Sempre entre aspas.</dd>
+  <dt>]</dt><dd>Fecha o teste. É obrigatório e precisa de espaço antes.</dd>
+</dl>
+
+<div class="warning">
+<strong>Espaços são obrigatórios</strong>
+<p>Como <code>[</code> é um comando, ele precisa de espaço depois, e o <code>]</code> é o último argumento, com espaço antes. <code>[-f arq]</code> e <code>[ -f arq]</code> dão erro. O certo é <code>[ -f arq ]</code>.</p>
+</div>
+
+<h3>Seu primeiro if com teste</h3>
+
+<pre class="file" data-file="verifica.sh">#!/usr/bin/env bash
+arquivo="$1"
+
+if [ -f "$arquivo" ]; then
+  echo "O arquivo $arquivo existe."
+else
+  echo "Não encontrei $arquivo."
+fi</pre>
+
+<p>O <code>else</code> ("senão") é opcional: ele roda quando o teste dá falso.</p>
+
+<pre class="term">$ chmod +x verifica.sh
+$ ./verifica.sh frutas.txt
+O arquivo frutas.txt existe.
+$ ./verifica.sh compras.txt
+Não encontrei compras.txt.</pre>
+
+<hr>
+
+<h2>Os testes mais usados</h2>
+
+<h3>Arquivos e pastas</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Teste</th><th>Verdadeiro quando…</th><th>Exemplo</th></tr>
+<tr><td><code>-e</code></td><td>O caminho existe (arquivo, pasta, qualquer coisa)</td><td><code>[ -e ~/.bashrc ]</code></td></tr>
+<tr><td><code>-f</code></td><td>Existe e é um arquivo comum</td><td><code>[ -f notas.txt ]</code></td></tr>
+<tr><td><code>-d</code></td><td>Existe e é uma pasta</td><td><code>[ -d Documentos ]</code></td></tr>
+<tr><td><code>-s</code></td><td>Existe e não está vazio (tamanho maior que 0)</td><td><code>[ -s log.txt ]</code></td></tr>
+<tr><td><code>-r</code> <code>-w</code> <code>-x</code></td><td>Você pode ler / escrever / executar</td><td><code>[ -x backup.sh ]</code></td></tr>
+<tr><td><code>-L</code></td><td>É um link simbólico</td><td><code>[ -L /usr/bin/python3 ]</code></td></tr>
+</table>
+</div>
+
+<h3>Textos (strings)</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Teste</th><th>Verdadeiro quando…</th><th>Exemplo</th></tr>
+<tr><td><code>"$a" = "$b"</code></td><td>Os textos são iguais</td><td><code>[ "$USER" = "ana" ]</code></td></tr>
+<tr><td><code>"$a" != "$b"</code></td><td>Os textos são diferentes</td><td><code>[ "$resp" != "s" ]</code></td></tr>
+<tr><td><code>-z "$a"</code></td><td>O texto está vazio (<em>zero</em>)</td><td><code>[ -z "$nome" ]</code></td></tr>
+<tr><td><code>-n "$a"</code></td><td>O texto não está vazio (<em>non-zero</em>)</td><td><code>[ -n "$1" ]</code></td></tr>
+</table>
+</div>
+
+<h3>Números inteiros</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Teste</th><th>Significa</th><th>Vem do inglês</th></tr>
+<tr><td><code>-eq</code></td><td>igual</td><td><em>equal</em></td></tr>
+<tr><td><code>-ne</code></td><td>diferente</td><td><em>not equal</em></td></tr>
+<tr><td><code>-lt</code></td><td>menor que</td><td><em>less than</em></td></tr>
+<tr><td><code>-le</code></td><td>menor ou igual</td><td><em>less or equal</em></td></tr>
+<tr><td><code>-gt</code></td><td>maior que</td><td><em>greater than</em></td></tr>
+<tr><td><code>-ge</code></td><td>maior ou igual</td><td><em>greater or equal</em></td></tr>
+</table>
+</div>
+
+<div class="warning">
+<strong>Para números, <code>-gt</code>; nunca <code>&gt;</code> dentro de <code>[ ]</code></strong>
+<p>Dentro de <code>[ ]</code>, o <code>&gt;</code> é um <a href="redirecionamento.html">redirecionamento</a>. Veja o estrago:</p>
+<pre class="term">$ if [ 3 &gt; 5 ]; then echo "3 é maior que 5?!"; fi
+3 é maior que 5?!                                   « resposta errada…
+$ ls 5
+5                                                   « …e ainda criou um arquivo chamado "5"</pre>
+<p>O <code>&gt; 5</code> mandou a saída do teste para um arquivo "5", e o teste que sobrou (<code>[ 3 ]</code>) é sempre verdadeiro. Use <code>[ 3 -gt 5 ]</code> ou <code>(( 3 &gt; 5 ))</code>.</p>
+</div>
+
+<h3>Negar e combinar</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Significa</th><th>Exemplo</th></tr>
+<tr><td><code>!</code></td><td>"não": inverte o resultado</td><td><code>[ ! -d "$pasta" ]</code></td></tr>
+<tr><td><code>&amp;&amp;</code> entre testes</td><td>"e": os dois precisam ser verdade</td><td><code>[ -f a ] &amp;&amp; [ -r a ]</code></td></tr>
+<tr><td><code>||</code> entre testes</td><td>"ou": basta um ser verdade</td><td><code>[ "$r" = s ] || [ "$r" = S ]</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Várias saídas: <code>elif</code> e <code>else</code></h2>
+<p><code>elif</code> é a junção de <em>else if</em>, "senão, se". O Bash testa de cima para baixo e executa <strong>só o primeiro</strong> bloco verdadeiro.</p>
+
+<pre class="file" data-file="nota.sh">#!/usr/bin/env bash
+nota="$1"
+
+if [ "$nota" -ge 7 ]; then
+  echo "Aprovado"
+elif [ "$nota" -ge 5 ]; then
+  echo "Recuperação"
+else
+  echo "Reprovado"
+fi</pre>
+
+<pre class="term">$ ./nota.sh 8
+Aprovado
+$ ./nota.sh 5
+Recuperação                                         « 5 não é ≥ 7, mas é ≥ 5
+$ ./nota.sh 3
+Reprovado</pre>
+
+<hr>
+
+<h2>Formas diferentes de testar</h2>
+<p>O Bash tem quatro jeitos de escrever um teste. Todos funcionam; cada um tem seu ponto forte.</p>
+
+<h3><code>[[ ]]</code>: o teste moderno do Bash</h3>
+<p>O colchete duplo é uma <strong>palavra-chave</strong> do Bash (não um comando). Ele aceita variáveis sem aspas, <code>&amp;&amp;</code> e <code>||</code> por dentro e comparação com curingas:</p>
+
+<pre class="term">$ arquivo="relatorio.pdf"
+$ if [[ $arquivo == *.pdf ]]; then echo "é PDF"; fi
+é PDF
+$ if [[ -f frutas.txt &amp;&amp; -r frutas.txt ]]; then echo "posso ler"; fi
+posso ler</pre>
+
+<h3><code>(( ))</code>: contas e comparações de números</h3>
+<p>Dentro de <code>(( ))</code>, os sinais <code>&gt;</code> <code>&lt;</code> <code>==</code> funcionam como na matemática, sem <code>$</code> nas variáveis:</p>
+
+<pre class="term">$ x=10
+$ if (( x &gt; 5 )); then echo "maior que 5"; fi
+maior que 5</pre>
+
+<h3><code>&amp;&amp;</code> e <code>||</code>: o if de uma linha</h3>
+<p>Para decisões curtas, você nem precisa do <code>if</code>:</p>
+
+<dl class="anatomy">
+  <dt>mkdir backup</dt><dd>Primeiro comando.</dd>
+  <dt>&amp;&amp; echo "criada"</dt><dd>"E então": só roda se o anterior deu certo.</dd>
+  <dt>|| echo "falhou"</dt><dd>"Ou então": só roda se o anterior deu errado.</dd>
+</dl>
+
+<pre class="term">$ mkdir backup &amp;&amp; echo "pasta criada" || echo "falhou"
+pasta criada
+$ mkdir backup &amp;&amp; echo "pasta criada" || echo "falhou"
+mkdir: backup: Arquivo existe
+falhou</pre>
+
+<h3>Qual usar?</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Melhor quando…</th></tr>
+<tr><td><code>if comando</code></td><td><code>if grep -q x arq; then</code></td><td>A pergunta é "esse comando deu certo?"</td></tr>
+<tr><td><code>[ ]</code> / <code>test</code></td><td><code>[ -f "$a" ]</code></td><td>Scripts que precisam rodar em qualquer shell (<code>sh</code>)</td></tr>
+<tr><td><code>[[ ]]</code></td><td><code>[[ $a == *.pdf ]]</code></td><td>Scripts Bash: é o mais seguro e flexível</td></tr>
+<tr><td><code>(( ))</code></td><td><code>(( idade &gt;= 18 ))</code></td><td>Comparações e contas com números</td></tr>
+<tr><td><code>&amp;&amp;</code> / <code>||</code></td><td><code>[ -d x ] || mkdir x</code></td><td>Decisões de uma linha, sem else complexo</td></tr>
+</table>
+</div>
+
+<div class="try" data-goal="dir:~/relatorios,ran:&&,ran:\|\|">
+<p class="try-task"><strong>Missão:</strong> este simulador não tem <code>if</code>, mas tem <code>&amp;&amp;</code>, <code>||</code> e <code>$?</code>. Use <code>ls relatorios || mkdir relatorios</code> para criar a pasta só se ela não existir. Depois rode <code>mkdir relatorios &amp;&amp; echo ok || echo "já existe"</code> e veja qual mensagem aparece. Confira o código com <code>echo $?</code>.</p>
+</div>
+
+<hr>
+
+<h2>Escolher entre muitas opções: <code>case</code></h2>
+<p>Quando uma variável pode ter vários valores, uma fila de <code>elif</code> fica longa. O <code>case</code> ("caso") compara o valor com uma lista de padrões:</p>
+
+<pre class="file" data-file="servico.sh">#!/usr/bin/env bash
+case "$1" in
+  iniciar|start)
+    echo "Iniciando o serviço..."
+    ;;
+  parar|stop)
+    echo "Parando o serviço..."
+    ;;
+  status)
+    echo "O serviço está rodando."
+    ;;
+  *)
+    echo "Uso: $0 {iniciar|parar|status}"
+    exit 1
+    ;;
+esac</pre>
+
+<dl class="anatomy">
+  <dt>case "$1" in</dt><dd>"No caso do valor de $1…"</dd>
+  <dt>iniciar|start)</dt><dd>Um padrão. A barra <code>|</code> aqui significa "ou". O <code>)</code> fecha o padrão.</dd>
+  <dt>;;</dt><dd>Fim deste caso. O case para aqui.</dd>
+  <dt>*)</dt><dd>Qualquer outra coisa (o "senão" do case).</dd>
+  <dt>esac</dt><dd>Fim do case (<code>case</code> ao contrário).</dd>
+</dl>
+
+<pre class="term">$ ./servico.sh iniciar
+Iniciando o serviço...
+$ ./servico.sh reiniciar
+Uso: ./servico.sh {iniciar|parar|status}
+$ echo $?
+1                                                   « o script avisou que algo deu errado</pre>
+
+<p>Os padrões aceitam curingas: <code>*.jpg|*.png)</code> pega imagens, <code>[sS]|[sS]im)</code> pega "s", "S", "sim" e "Sim".</p>
+
+<hr>
+
+<h2>Exemplo completo: um backup que confere tudo antes</h2>
+<p>Este script junta o que você aprendeu. Ele confere se recebeu um argumento, se esse argumento é uma pasta, e só então compacta. Cada erro devolve um código diferente.</p>
+
+<pre class="file" data-file="backup.sh">#!/usr/bin/env bash
+# Uso: ./backup.sh PASTA
+
+if [ $# -ne 1 ]; then
+  echo "Uso: $0 PASTA" &gt;&amp;2
+  exit 1
+fi
+
+origem="$1"
+
+if [ ! -d "$origem" ]; then
+  echo "Erro: '$origem' não é uma pasta." &gt;&amp;2
+  exit 2
+fi
+
+destino="backup-$(date +%F).tar.gz"
+
+if tar -czf "$destino" "$origem"; then
+  echo "Backup criado: $destino"
+else
+  echo "Erro: o tar falhou." &gt;&amp;2
+  exit 3
+fi</pre>
+
+<ul>
+  <li><code>$#</code> é a quantidade de argumentos; <code>-ne 1</code> pergunta "é diferente de 1?".</li>
+  <li><code>&gt;&amp;2</code> manda a mensagem para a saída de erros, como fazem os comandos de verdade.</li>
+  <li><code>exit 1</code>, <code>exit 2</code>… encerram o script com um código que quem chamou pode testar.</li>
+  <li>O último <code>if</code> testa o próprio <code>tar</code>: se ele falhar, o script avisa.</li>
+</ul>
+
+<pre class="term">$ ./backup.sh
+Uso: ./backup.sh PASTA
+$ echo $?
+1
+$ ./backup.sh frutas.txt
+Erro: 'frutas.txt' não é uma pasta.
+$ echo $?
+2
+$ ./backup.sh Documentos
+Backup criado: backup-2026-10-15.tar.gz</pre>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"faltando `]'"</strong>
+<pre class="term">$ if [ -f frutas.txt]; then echo ok; fi
+bash: [: faltando `]'</pre>
+<p><strong>O que aconteceu:</strong> faltou o espaço antes do <code>]</code>. O <code>[</code> recebeu <code>frutas.txt]</code> como uma palavra só e não achou o <code>]</code> de fechamento.</p>
+<p><strong>Como resolver:</strong> espaço dos dois lados: <code>[ -f frutas.txt ]</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"[a: comando não encontrado"</strong>
+<pre class="term">$ if ["a" = "a"]; then echo ok; fi
+[a: comando não encontrado</pre>
+<p><strong>O que aconteceu:</strong> sem espaço depois do <code>[</code>, o Bash procurou um comando chamado <code>[a</code>.</p>
+<p><strong>Como resolver:</strong> <code>[ "a" = "a" ]</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"esperava operador unário"</strong>
+<pre class="term">$ nome=""
+$ if [ $nome = "ana" ]; then echo oi; fi
+bash: [: =: esperava operador unário</pre>
+<p><strong>O que aconteceu:</strong> a variável estava vazia e sem aspas. O teste virou <code>[ = "ana" ]</code>, que não faz sentido.</p>
+<p><strong>Como resolver:</strong> sempre coloque variáveis entre aspas dentro de <code>[ ]</code>: <code>[ "$nome" = "ana" ]</code>. Ou use <code>[[ ]]</code>, que não tem esse problema.</p>
+</div>
+
+<div class="cenario">
+<strong>"esperava número inteiro"</strong>
+<pre class="term">$ ./nota.sh dez
+./nota.sh: linha 4: [: dez: esperava número inteiro
+./nota.sh: linha 6: [: dez: esperava número inteiro
+Reprovado</pre>
+<p><strong>O que aconteceu:</strong> <code>-ge</code> só compara números inteiros. Com "dez", os dois testes deram erro (código 2, que conta como falso), e o script caiu no <code>else</code>. Repare que ele <strong>não parou</strong>: mostrou "Reprovado", uma resposta errada.</p>
+<p><strong>Como resolver:</strong> valide a entrada antes. Por exemplo: <code>[[ $nota =~ ^[0-9]+$ ]] || { echo "Digite um número"; exit 1; }</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"erro de sintaxe próximo ao token inesperado `fi'"</strong>
+<pre class="term">$ if [ "ana" = "ana" ] then echo oi; fi
+bash: erro de sintaxe próximo ao token inesperado `fi'</pre>
+<p><strong>O que aconteceu:</strong> faltou o <code>;</code> antes do <code>then</code>. Na mesma linha, o Bash precisa dele para saber onde o teste termina.</p>
+<p><strong>Como resolver:</strong> <code>if [ ... ]; then ...; fi</code>. Em várias linhas, o <code>then</code> pode ir na linha de baixo, sem <code>;</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O terminal mostra <code>&gt;</code> e não responde</strong>
+<pre class="term">$ if [ -f frutas.txt ]; then echo ok
+&gt;</pre>
+<p><strong>O que aconteceu:</strong> o <code>if</code> não foi fechado com <code>fi</code>. O <code>&gt;</code> é o Bash pedindo o resto do comando.</p>
+<p><strong>Como resolver:</strong> digite <code>fi</code> e Enter, ou cancele com <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
+</div>
+
+<hr>
+
+<h2>Referência rápida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Estrutura</th><th>Sintaxe</th></tr>
+<tr><td>if simples</td><td><code>if COND; then …; fi</code></td></tr>
+<tr><td>if / else</td><td><code>if COND; then …; else …; fi</code></td></tr>
+<tr><td>if / elif</td><td><code>if C1; then …; elif C2; then …; else …; fi</code></td></tr>
+<tr><td>Teste POSIX</td><td><code>[ -f "$a" ]</code> ou <code>test -f "$a"</code></td></tr>
+<tr><td>Teste Bash</td><td><code>[[ $a == *.txt &amp;&amp; -s $a ]]</code></td></tr>
+<tr><td>Números</td><td><code>(( a &gt;= 10 ))</code></td></tr>
+<tr><td>Regex</td><td><code>[[ $a =~ ^[0-9]+$ ]]</code></td></tr>
+<tr><td>Uma linha</td><td><code>COND &amp;&amp; SE_SIM || SE_NAO</code></td></tr>
+<tr><td>case</td><td><code>case "$v" in a|b) …;; *) …;; esac</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. A pasta existe?</h3>
+<p>Complete para escrever "achei" se <code>Documentos</code> for uma pasta:</p>
+<div class="ex-code">if [ <input data-answer="-d" aria-label="teste"> Documentos ]; then echo "achei"; fi</div>
+</div>
+
+<div class="exercise">
+<h3>2. Maior ou igual</h3>
+<p>Complete para testar se <code>$idade</code> é maior ou igual a 18:</p>
+<div class="ex-code">if [ "$idade" <input data-answer="-ge" aria-label="operador"> 18 ]; then echo "maior de idade"; fi</div>
+</div>
+
+<div class="exercise">
+<h3>3. Fechando o if</h3>
+<p>Complete a palavra que encerra o bloco:</p>
+<div class="ex-code">if [ -z "$1" ]; then echo "faltou o argumento"; <input data-answer="fi" aria-label="fim"></div>
+</div>
+
+<div class="exercise">
+<h3>4. Criar só se faltar</h3>
+<p>Complete para criar a pasta <code>logs</code> apenas se ela <strong>não</strong> existir:</p>
+<div class="ex-code">[ -d logs ] <input data-answer="||" aria-label="operador"> mkdir logs</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Para o Bash, o que significa um comando terminar com código 0?</p>
+<label><input type="radio" name="q5"> Que ele falhou.</label>
+<label><input type="radio" name="q5"> Que ele não mostrou nada na tela.</label>
+<label><input type="radio" name="q5"> Que deu certo, e o <code>if</code> considera verdadeiro.</label>
+<label><input type="radio" name="q5"> Que ele ainda está rodando.</label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">6. Por que <code>[ 3 &gt; 5 ]</code> é perigoso?</p>
+<label><input type="radio" name="q6"> Porque compara em ordem alfabética.</label>
+<label><input type="radio" name="q6"> Porque o <code>&gt;</code> vira redirecionamento e cria um arquivo "5".</label>
+<label><input type="radio" name="q6"> Porque o Bash não aceita números.</label>
+<label><input type="radio" name="q6"> Porque falta o <code>then</code>.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>O <code>if</code> roda um comando: código 0 é verdadeiro, qualquer outro é falso.</li>
+  <li><code>[ ]</code> é um comando: precisa de espaços e de variáveis entre aspas.</li>
+  <li>Arquivos: <code>-e -f -d -s -x</code>; textos: <code>= != -z -n</code>; números: <code>-eq -ne -lt -le -gt -ge</code>.</li>
+  <li><code>[[ ]]</code> é o teste mais seguro no Bash; <code>(( ))</code> é o melhor para números.</li>
+  <li><code>&amp;&amp;</code> e <code>||</code> fazem decisões de uma linha; <code>case</code> organiza muitas opções.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

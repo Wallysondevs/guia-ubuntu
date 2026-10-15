@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu snap — instalar e gerenciar snaps | Guia Ubuntu</title>
+<meta name="description" content="O que é um snap no Ubuntu e como usar snap find, info, install --classic, list, refresh, revert e remove; canais, revisões, permissões (connections) e a diferença entre snap e apt.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Snap</span></h1>
+
+<p class="intro">Além dos pacotes do <a href="apt.html">apt</a>, o Ubuntu usa <strong>snaps</strong>: programas empacotados com tudo de que precisam, que se atualizam sozinhos. O Firefox e o Chromium do Ubuntu, por exemplo, são snaps. Nesta aula você vai entender como eles funcionam e como instalar, atualizar, voltar versões e remover.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que é um snap e em que ele é diferente de um pacote do apt.</li>
+  <li>Como achar, instalar e remover snaps.</li>
+  <li>O que são canais, revisões e o modo <code>--classic</code>.</li>
+  <li>Como voltar para a versão anterior quando uma atualização dá problema.</li>
+  <li>Por que um snap às vezes "não enxerga" uma pasta ou um pendrive.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>O que é um snap</h2>
+<p>Um pacote do apt usa bibliotecas que já estão no sistema e são compartilhadas com outros programas. Um <strong>snap</strong> traz dentro dele quase tudo de que precisa. Isso tem consequências:</p>
+<ul>
+  <li><strong>Funciona igual em várias versões do Ubuntu</strong>, e o desenvolvedor publica direto, sem esperar o Ubuntu.</li>
+  <li><strong>Atualiza sozinho</strong>, várias vezes por dia se houver versão nova.</li>
+  <li><strong>Roda numa "caixa" isolada</strong> (<em>sandbox</em>): só acessa o que tem permissão, como a sua pasta pessoal.</li>
+  <li><strong>Ocupa mais espaço</strong> e costuma abrir um pouco mais devagar na primeira vez.</li>
+</ul>
+
+<p>Os snaps instalados ficam em <code>/snap/</code>. Por isso o processo do Chromium aparece como <code>/snap/chromium/3554/…/chrome</code> no <a href="processos.html">ps</a>: <code>3554</code> é o número da revisão instalada.</p>
+
+<hr>
+
+<h2>Ver o que está instalado</h2>
+<dl class="anatomy">
+  <dt>snap</dt><dd>O programa que gerencia snaps (ele conversa com o serviço <code>snapd</code>).</dd>
+  <dt>list</dt><dd>Lista os snaps instalados.</dd>
+</dl>
+
+<pre class="term">$ snap list
+Name      Version         Rev   Tracking       Publisher    Notes
+bare      1.0             5     latest/stable  canonical✓   base
+chromium  155.0.8059.39   3554  latest/stable  canonical✓   -
+core24    20260815        1243  latest/stable  canonical✓   base
+firefox   144.0.2-1       7120  latest/stable  mozilla✓     -
+snapd     2.77.1          25577 latest/stable  canonical✓   snapd</pre>
+
+<p>As versões e revisões da sua máquina serão outras.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Significado</th></tr>
+<tr><td><code>Name</code></td><td>Nome do snap, usado nos comandos.</td></tr>
+<tr><td><code>Version</code></td><td>Versão do programa, como o desenvolvedor a chama.</td></tr>
+<tr><td><code>Rev</code></td><td>Revisão: número interno que aumenta a cada publicação. É ele que aparece no caminho <code>/snap/nome/REV</code>.</td></tr>
+<tr><td><code>Tracking</code></td><td>O canal que você acompanha (veja abaixo).</td></tr>
+<tr><td><code>Publisher</code></td><td>Quem publicou. O <code>✓</code> indica editor verificado.</td></tr>
+<tr><td><code>Notes</code></td><td><code>base</code> e <code>snapd</code> são peças do sistema de snaps; <code>classic</code> indica sem isolamento.</td></tr>
+</table>
+</div>
+
+<p>Snaps como <code>core24</code> e <code>bare</code> são bases e bibliotecas que outros snaps usam. Não remova.</p>
+
+<hr>
+
+<h2>Achar e instalar</h2>
+
+<h3>Procurar: <code>snap find</code></h3>
+<pre class="term">$ snap find htop
+Name      Version   Publisher     Notes  Summary
+htop      3.5.3     maxiberta✪    -      Interactive processes viewer
+htop-pro  2026.7.2  rishabh3354   -      Lightweight CPU and RAM usage monitor with internet speed</pre>
+<p>O <code>✪</code> marca um editor de destaque; sem símbolo, é um editor comum. Prefira snaps de editores verificados (<code>✓</code>) ou do próprio projeto.</p>
+
+<h3>Ver detalhes: <code>snap info</code></h3>
+<pre class="term">$ snap info chromium
+name:      chromium
+summary:   Chromium web browser, open-source version of Chrome
+publisher: Canonical✓
+store-url: https://snapcraft.io/chromium
+license:   unset
+description: |
+  An open-source browser project that aims to build a safer, faster, and more
+  stable way for all Internet users to experience the web.
+commands:
+  - chromium.chromedriver
+  - chromium
+channels:
+  latest/stable:    155.0.8059.79 2026-10-14 (3559) 194MB -
+  latest/candidate: 155.0.8059.79 2026-10-12 (3559) 194MB -
+  latest/beta:      156.0.8115.12 2026-10-13 (3570) 197MB -
+  latest/edge:      157.0.8150.2  2026-10-15 (3578) 199MB -</pre>
+<p>A lista <code>channels</code> mostra as versões disponíveis em cada canal (as datas e números acima são ilustrativos).</p>
+
+<h3>Instalar: <code>snap install</code></h3>
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Instalar mexe no sistema.</dd>
+  <dt>snap install</dt><dd>Baixa e instala o snap.</dd>
+  <dt>vlc</dt><dd>O nome do snap (o reprodutor de vídeo VLC).</dd>
+</dl>
+
+<pre class="term">$ sudo snap install vlc
+vlc 3.0.21 from VideoLAN✓ installed</pre>
+
+<p>Enquanto baixa, aparece uma barra de progresso. No fim fica só essa linha: nome, versão, quem publicou e "installed" (instalado). O VLC já aparece no menu de aplicativos e pode ser aberto pelo terminal com <code>vlc</code>.</p>
+
+<h3>Modo clássico: <code>--classic</code></h3>
+<p>Alguns programas, como editores de código, precisam acessar o sistema todo e não funcionam isolados. Eles usam o modo <strong>classic</strong>, e você precisa concordar explicitamente:</p>
+
+<pre class="term">$ sudo snap install code
+error: This revision of snap "code" was published using classic confinement and thus may perform
+       arbitrary system changes outside of the security sandbox that snaps are usually confined to,
+       which may put your system at risk.
+
+       If you understand and want to proceed repeat the command including --classic.
+$ sudo snap install code --classic
+code 1.105.0 from Visual Studio Code (vscode✓) installed</pre>
+
+<p>A mensagem diz: "este snap usa confinamento clássico e pode fazer mudanças fora da caixa de segurança; se você entende, repita com <code>--classic</code>". Só faça isso com programas de fontes confiáveis.</p>
+
+<h3>Canais: escolher entre estável e teste</h3>
+<p>Cada snap pode ter quatro canais, do mais seguro ao mais experimental:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Canal</th><th>Para quem</th></tr>
+<tr><td><code>stable</code></td><td>Todo mundo. É o padrão.</td></tr>
+<tr><td><code>candidate</code></td><td>Quem quer testar a próxima versão estável.</td></tr>
+<tr><td><code>beta</code></td><td>Testadores.</td></tr>
+<tr><td><code>edge</code></td><td>Desenvolvedores: a versão do dia, pode quebrar.</td></tr>
+</table>
+</div>
+
+<pre class="term">$ sudo snap install firefox --channel=beta
+$ sudo snap refresh firefox --channel=stable</pre>
+
+<hr>
+
+<h2>Atualizar, voltar e segurar</h2>
+<p>Os snaps se atualizam sozinhos, em segundo plano. Você pode forçar ou consultar:</p>
+
+<pre class="term">$ snap refresh --list
+Name      Version        Rev   Size   Publisher    Notes
+chromium  155.0.8059.79  3559  194MB  canonical✓   -
+$ sudo snap refresh
+chromium 155.0.8059.79 from Canonical✓ refreshed</pre>
+
+<p><code>snap refresh --list</code> mostra o que tem versão nova; <code>sudo snap refresh</code> atualiza tudo; <code>sudo snap refresh chromium</code> atualiza só um.</p>
+
+<div class="note">
+<strong>"Fechar o app para atualizar"</strong>
+<p>Se o programa estiver aberto, o snap espera ele fechar para trocar a versão, e o Ubuntu mostra uma notificação pedindo para fechá-lo. Feche e abra de novo.</p>
+</div>
+
+<h3>Voltar para a versão anterior: <code>snap revert</code></h3>
+<p>O snap guarda a revisão anterior. Se uma atualização quebrou algo, volte em segundos:</p>
+
+<pre class="term">$ sudo snap revert firefox
+firefox reverted to 143.0.4-1
+$ snap list --all firefox
+Name     Version     Rev   Tracking       Publisher   Notes
+firefox  143.0.4-1   7085  latest/stable  mozilla✓    -
+firefox  144.0.2-1   7120  latest/stable  mozilla✓    disabled     « a versão nova fica guardada, desativada</pre>
+
+<h3>Segurar as atualizações</h3>
+<pre class="term">$ sudo snap refresh --hold firefox
+$ sudo snap refresh --unhold firefox</pre>
+<p><code>--hold</code> pausa as atualizações automáticas daquele snap (sem prazo, se você não informar um); <code>--unhold</code> libera.</p>
+
+<hr>
+
+<h2>Remover</h2>
+<pre class="term">$ sudo snap remove vlc
+vlc removed</pre>
+<p>O snap guarda uma cópia dos dados do app por 31 dias (um "snapshot"), caso você mude de ideia. Para remover sem guardar nada, use <code>sudo snap remove --purge vlc</code>.</p>
+
+<hr>
+
+<h2>Permissões: as "interfaces"</h2>
+<p>Como o snap vive numa caixa isolada, cada acesso (câmera, microfone, pendrives, rede) é uma <strong>interface</strong> que precisa estar conectada:</p>
+
+<pre class="term">$ snap connections chromium
+Interface          Plug                         Slot              Notes
+audio-playback     chromium:audio-playback      :audio-playback   -
+audio-record       chromium:audio-record        :audio-record     -
+camera             chromium:camera              :camera           -
+home               chromium:home                :home             -
+removable-media    chromium:removable-media     -                 -       « não conectada</pre>
+
+<p>Uma linha com <code>-</code> na coluna <code>Slot</code> é uma permissão desconectada. Nesse exemplo, o Chromium não enxerga pendrives. Para liberar:</p>
+
+<dl class="anatomy">
+  <dt>sudo snap connect</dt><dd>Conecta uma interface…</dd>
+  <dt>chromium:removable-media</dt><dd>…do snap <code>chromium</code>, a permissão <code>removable-media</code> (pendrives e HDs externos em <code>/media</code>).</dd>
+</dl>
+
+<pre class="term">$ sudo snap connect chromium:removable-media</pre>
+
+<p>Na interface gráfica, o mesmo ajuste fica em <strong>Configurações → Aplicativos</strong>, escolhendo o app.</p>
+
+<hr>
+
+<h2>snap ou apt?</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>apt (.deb)</th><th>snap</th><th>flatpak</th></tr>
+<tr><td>Atualização</td><td>Quando você roda <code>apt upgrade</code></td><td>Automática</td><td>Manual ou pela loja</td></tr>
+<tr><td>Isolamento</td><td>Não</td><td>Sim (exceto <code>classic</code>)</td><td>Sim</td></tr>
+<tr><td>Versões</td><td>Fixas por versão do Ubuntu</td><td>As do desenvolvedor, por canal</td><td>As do desenvolvedor</td></tr>
+<tr><td>Espaço</td><td>Menor</td><td>Maior</td><td>Maior</td></tr>
+<tr><td>Melhor para</td><td>Ferramentas do sistema e de terminal</td><td>Apps de desktop, versões recentes</td><td>Apps de desktop do Flathub</td></tr>
+</table>
+</div>
+<p>Evite instalar o mesmo programa pelos dois caminhos: você fica com dois ícones e não sabe qual está abrindo. Veja também <a href="flatpak.html">Flatpak</a>.</p>
+
+<p>Os comandos do snap não rodam no terminal simulado deste guia. Pratique numa máquina virtual.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"snap … not found"</strong>
+<pre class="term">$ sudo snap install vscode
+error: snap "vscode" not found</pre>
+<p><strong>O que aconteceu:</strong> o nome do snap é outro. O VS Code se chama <code>code</code>.</p>
+<p><strong>Como resolver:</strong> procure com <code>snap find "visual studio code"</code> e use a coluna <code>Name</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"access denied"</strong>
+<pre class="term">$ snap install htop
+error: access denied (try with sudo)</pre>
+<p><strong>O que aconteceu:</strong> faltou o sudo (em algumas situações, o Ubuntu pede a senha numa janela em vez de dar o erro).</p>
+<p><strong>Como resolver:</strong> <code>sudo !!</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O app não abre arquivos de uma pasta</strong>
+<p><strong>O que aconteceu:</strong> a interface <code>home</code> dá acesso à sua pasta pessoal, mas não às pastas ocultas (que começam com ponto), nem a <code>/mnt</code> ou a outros discos.</p>
+<p><strong>Como resolver:</strong> mova o arquivo para uma pasta comum (como Documentos) ou conecte a interface certa, como <code>removable-media</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Disco cheio de revisões antigas</strong>
+<p><strong>O que aconteceu:</strong> o snap guarda revisões antigas de cada app. Veja com <code>snap list --all</code>: as marcadas como <code>disabled</code> são cópias antigas.</p>
+<p><strong>Como resolver:</strong> remova uma revisão específica com <code>sudo snap remove nome --revision=NÚMERO</code>, ou reduza quantas são guardadas: <code>sudo snap set system refresh.retain=2</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Descrição</th></tr>
+<tr><td><code>snap find texto</code></td><td>Procura na loja</td></tr>
+<tr><td><code>snap info nome</code></td><td>Detalhes e canais</td></tr>
+<tr><td><code>sudo snap install nome</code></td><td>Instala (<code>--classic</code>, <code>--channel=beta</code>)</td></tr>
+<tr><td><code>snap list</code></td><td>Lista os instalados (<code>--all</code> mostra revisões antigas)</td></tr>
+<tr><td><code>snap refresh --list</code></td><td>Mostra atualizações disponíveis</td></tr>
+<tr><td><code>sudo snap refresh [nome]</code></td><td>Atualiza um ou todos</td></tr>
+<tr><td><code>sudo snap refresh --hold nome</code></td><td>Pausa atualizações automáticas</td></tr>
+<tr><td><code>sudo snap revert nome</code></td><td>Volta para a revisão anterior</td></tr>
+<tr><td><code>sudo snap remove nome</code></td><td>Remove (<code>--purge</code> sem guardar dados)</td></tr>
+<tr><td><code>snap connections nome</code></td><td>Mostra as permissões</td></tr>
+<tr><td><code>sudo snap connect nome:interface</code></td><td>Libera uma permissão</td></tr>
+<tr><td><code>snap services</code></td><td>Serviços em segundo plano dos snaps</td></tr>
+<tr><td><code>snap changes</code></td><td>Histórico de instalações e atualizações</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Instalar um app clássico</h3>
+<p>Complete para instalar o VS Code (snap <code>code</code>), que exige o modo clássico:</p>
+<div class="ex-code">sudo snap install code <input data-answer="--classic" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Desfazer uma atualização</h3>
+<p>O Firefox atualizou e começou a travar. Complete para voltar à versão anterior:</p>
+<div class="ex-code">sudo snap <input data-answer="revert" aria-label="ação"> firefox</div>
+</div>
+
+<div class="exercise">
+<h3>3. Liberar pendrives</h3>
+<p>Complete para o Chromium acessar pendrives:</p>
+<div class="ex-code">sudo snap connect chromium:<input data-answer="removable-media" aria-label="interface"></div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Por que o processo do Chromium aparece em <code>/snap/chromium/3554/…</code>?</p>
+<label><input type="radio" name="q4"> Porque o Chromium foi instalado pelo apt.</label>
+<label><input type="radio" name="q4"> Porque 3554 é o PID dele.</label>
+<label><input type="radio" name="q4"> Porque ele é um snap, e 3554 é a revisão instalada.</label>
+<label><input type="radio" name="q4"> Porque está rodando como root.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. Qual canal de um snap é o padrão e o mais seguro?</p>
+<label><input type="radio" name="q5"> <code>stable</code></label>
+<label><input type="radio" name="q5"> <code>candidate</code></label>
+<label><input type="radio" name="q5"> <code>beta</code></label>
+<label><input type="radio" name="q5"> <code>edge</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Snaps trazem as próprias dependências, rodam isolados e se atualizam sozinhos.</li>
+  <li><code>snap find</code> → <code>snap info</code> → <code>sudo snap install</code>; <code>--classic</code> só para apps confiáveis que pedem.</li>
+  <li><code>sudo snap revert</code> desfaz uma atualização problemática em segundos.</li>
+  <li>App sem acesso a algo? Veja <code>snap connections</code> e conecte a interface.</li>
+  <li>Ferramentas de sistema: prefira o apt. Apps de desktop: snap ou flatpak.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

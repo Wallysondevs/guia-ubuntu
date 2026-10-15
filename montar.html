@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu mount e fstab — montar discos e pendrives | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a montar e desmontar discos e pendrives no Ubuntu com mount, umount, udisksctl e /etc/fstab, com cada parte explicada e o que fazer quando o fstab impede o boot.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">mount e fstab</span></h1>
+
+<p class="intro"><strong>Montar</strong> é ligar uma partição a uma pasta, para que os arquivos dela apareçam ali. O desktop faz isso sozinho quando você conecta um pendrive. Num servidor, num segundo HD ou quando algo dá errado, você faz pelo terminal com <code>mount</code>. Para montar automaticamente a cada boot, existe o arquivo <code>/etc/fstab</code>.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que é um ponto de montagem e como ver o que está montado.</li>
+  <li>Montar e desmontar à mão com <code>mount</code> e <code>umount</code>, entendendo cada parte.</li>
+  <li>Quatro formas de montar, do clique ao <code>/etc/fstab</code>.</li>
+  <li>Configurar um HD extra para montar sozinho no boot, sem risco de travar o sistema.</li>
+  <li>Consertar o sistema quando um <code>fstab</code> errado impede o boot.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Antes dos comandos: uma árvore só</h2>
+<p>No Windows, cada disco vira uma letra: <code>C:</code>, <code>D:</code>, <code>E:</code>. No Linux existe <strong>uma árvore única</strong> que começa em <code>/</code>. Os outros discos são "pendurados" em pastas dessa árvore. A pasta onde um disco é pendurado se chama <strong>ponto de montagem</strong>.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Partição</th><th>Ponto de montagem</th><th>Quem montou</th></tr>
+<tr><td><code>/dev/nvme0n1p2</code></td><td><code>/</code></td><td>O sistema, no boot (está no <code>fstab</code>).</td></tr>
+<tr><td><code>/dev/nvme0n1p1</code></td><td><code>/boot/efi</code></td><td>O sistema, no boot.</td></tr>
+<tr><td><code>/dev/sda1</code> (pendrive)</td><td><code>/media/ana/PENDRIVE</code></td><td>O desktop, ao conectar.</td></tr>
+<tr><td>Um HD extra</td><td><code>/mnt/backup</code> ou <code>/dados</code></td><td>Você, com <code>mount</code> ou <code>fstab</code>.</td></tr>
+</table>
+</div>
+
+<p>Por convenção, <code>/media</code> é para montagens automáticas do desktop e <code>/mnt</code> é para montagens temporárias feitas à mão.</p>
+
+<hr>
+
+<h2>Ver o que está montado</h2>
+<p>O <code>findmnt</code> (de <em>find mount</em>) mostra as montagens em forma de árvore. Para uma pasta específica, passe o caminho:</p>
+
+<dl class="anatomy">
+  <dt>findmnt</dt><dd>O programa: lista o que está montado.</dd>
+  <dt>/</dt><dd>Mostra só a montagem da pasta <code>/</code>.</dd>
+</dl>
+
+<pre class="term">$ findmnt /
+TARGET SOURCE         FSTYPE OPTIONS
+/      /dev/nvme0n1p2 ext4   rw,relatime</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Significado</th></tr>
+<tr><td><code>TARGET</code></td><td>O ponto de montagem (a pasta).</td></tr>
+<tr><td><code>SOURCE</code></td><td>A partição que está ali.</td></tr>
+<tr><td><code>FSTYPE</code></td><td>O sistema de arquivos.</td></tr>
+<tr><td><code>OPTIONS</code></td><td>As opções: <code>rw</code> = leitura e escrita, <code>ro</code> = só leitura.</td></tr>
+</table>
+</div>
+
+<p>Outras formas de ver as montagens:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Quando usar</th></tr>
+<tr><td><code>findmnt</code></td><td>Ver tudo em árvore, inclusive montagens internas do sistema.</td></tr>
+<tr><td><code>df -h</code></td><td>Ver só os discos de verdade, com o espaço livre.</td></tr>
+<tr><td><code>lsblk</code></td><td>Ver discos montados e <strong>não</strong> montados (coluna <code>MOUNTPOINTS</code> vazia).</td></tr>
+<tr><td><code>mount</code> (sem nada)</td><td>A forma antiga: uma linha por montagem, muito longa.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Montar à mão: mount</h2>
+<p>Vamos montar o pendrive <code>/dev/sda1</code> na pasta <code>/mnt/pendrive</code>. São três passos.</p>
+
+<ol class="passo">
+<li>
+<p><strong>Descubra o nome da partição.</strong> Conecte o pendrive e rode <code>lsblk</code>. Se o desktop já tiver montado o pendrive em <code>/media</code>, desmonte pelo app Arquivos primeiro.</p>
+<pre class="term">$ lsblk -e7 -o NAME,SIZE,FSTYPE,MOUNTPOINTS
+NAME          SIZE FSTYPE MOUNTPOINTS
+sda          29,3G
+└─sda1       29,3G vfat                    « o pendrive, ainda sem pasta
+nvme0n1     476,9G
+├─nvme0n1p1     1G vfat   /boot/efi
+└─nvme0n1p2 475,9G ext4   /</pre>
+</li>
+<li>
+<p><strong>Crie a pasta</strong> que vai servir de ponto de montagem. Ela precisa existir antes.</p>
+<pre class="term">$ sudo mkdir -p /mnt/pendrive
+[sudo: authenticate] Senha:</pre>
+</li>
+<li>
+<p><strong>Monte.</strong></p>
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Montar exige permissão de administrador.</dd>
+  <dt>mount</dt><dd>O programa que monta.</dd>
+  <dt>/dev/sda1</dt><dd>O quê: a partição.</dd>
+  <dt>/mnt/pendrive</dt><dd>Onde: o ponto de montagem.</dd>
+</dl>
+<pre class="term">$ sudo mount /dev/sda1 /mnt/pendrive
+$ ls /mnt/pendrive
+ fotos   trabalho.odt  'Meus documentos'
+$ findmnt /mnt/pendrive
+TARGET        SOURCE    FSTYPE OPTIONS
+/mnt/pendrive /dev/sda1 vfat   rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=ascii,shortname=mixed,utf8,errors=remount-ro</pre>
+</li>
+</ol>
+
+<p>Mais uma vez, silêncio significa sucesso: o <code>mount</code> não mostra nada quando dá certo. O <code>mount</code> descobre sozinho o tipo (aqui, <code>vfat</code>). Para forçar um tipo, use <code>-t</code>: <code>sudo mount -t ext4 /dev/sdb1 /mnt/hd</code>.</p>
+
+<h3>Opções de montagem: <code>-o</code></h3>
+<p>A opção <code>-o</code> (de <em>options</em>) passa ajustes separados por vírgula, sem espaço.</p>
+
+<dl class="anatomy">
+  <dt>sudo mount</dt><dd>Montar como administrador.</dd>
+  <dt>-o ro,uid=1000</dt><dd>Opções: <code>ro</code> = só leitura; <code>uid=1000</code> = os arquivos pertencem à ana.</dd>
+  <dt>/dev/sda1 /mnt/pendrive</dt><dd>O quê e onde.</dd>
+</dl>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Para quê</th></tr>
+<tr><td><code>ro</code> / <code>rw</code></td><td>Só leitura / leitura e escrita. <code>ro</code> é ótimo para examinar um disco sem risco.</td></tr>
+<tr><td><code>uid=1000,gid=1000</code></td><td>Em FAT32, exFAT e NTFS (que não têm donos), define quem é o dono dos arquivos. Sem isso, só o root grava.</td></tr>
+<tr><td><code>noexec</code></td><td>Impede rodar programas a partir desse disco.</td></tr>
+<tr><td><code>nofail</code></td><td>No <code>fstab</code>: se o disco não estiver conectado, o boot continua.</td></tr>
+<tr><td><code>remount,rw</code></td><td>Remonta algo que está só leitura como leitura e escrita.</td></tr>
+</table>
+</div>
+
+<p>Para descobrir o seu número de usuário (o <code>uid</code>), rode <code>id -u</code>. O primeiro usuário criado no Ubuntu é o 1000.</p>
+
+<hr>
+
+<h2>Desmontar: umount</h2>
+<p>Repare: é <code>umount</code>, sem o "n". Desmontar grava no disco o que ainda estava na memória. <strong>Sempre desmonte antes de tirar um pendrive</strong>, ou arquivos podem ficar corrompidos.</p>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Desmontar também exige administrador (para o que você montou com sudo).</dd>
+  <dt>umount</dt><dd>O programa que desmonta.</dd>
+  <dt>/mnt/pendrive</dt><dd>A pasta ou a partição (<code>/dev/sda1</code>); os dois funcionam.</dd>
+</dl>
+
+<pre class="term">$ sudo umount /mnt/pendrive
+$ findmnt /mnt/pendrive
+$ echo $?
+1                              « 1 = nada montado ali; deu certo</pre>
+
+<hr>
+
+<h2>Quatro formas de montar</h2>
+
+<h3>Forma 1: o desktop</h3>
+<p>Conecte o pendrive: ele aparece no app Arquivos e é montado em <code>/media/ana/RÓTULO</code>. Para desmontar, clique no ícone de ejetar ao lado do nome.</p>
+
+<h3>Forma 2: udisksctl, sem sudo</h3>
+<p>O <code>udisksctl</code> faz pelo terminal o mesmo que o desktop: monta em <code>/media/ana</code> e não pede senha para discos removíveis.</p>
+<pre class="term">$ udisksctl mount -b /dev/sda1
+Mounted /dev/sda1 at /media/ana/PENDRIVE
+$ udisksctl unmount -b /dev/sda1
+Unmounted /dev/sda1.
+$ udisksctl power-off -b /dev/sda          « desliga o pendrive para remover com segurança</pre>
+<p><code>-b</code> vem de <em>block device</em>. Saída ilustrativa: o texto pode variar conforme a versão.</p>
+
+<h3>Forma 3: mount, à mão</h3>
+<p>É o que você aprendeu acima. Use para montagens temporárias, em servidores ou quando precisa de opções especiais.</p>
+
+<h3>Forma 4: /etc/fstab, automático no boot</h3>
+<p>Para um HD que fica sempre conectado. É o assunto da próxima seção.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Precisa de sudo?</th><th>Melhor quando…</th></tr>
+<tr><td>Desktop</td><td>Não</td><td>Pendrive no dia a dia.</td></tr>
+<tr><td><code>udisksctl</code></td><td>Não (removíveis)</td><td>Pendrive pelo terminal ou por SSH no desktop.</td></tr>
+<tr><td><code>mount</code></td><td>Sim</td><td>Montagem temporária ou com opções especiais.</td></tr>
+<tr><td><code>/etc/fstab</code></td><td>Sim, para editar</td><td>Disco fixo que deve montar sozinho a cada boot.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>/etc/fstab: montar sozinho no boot</h2>
+<p><code>fstab</code> vem de <em>file systems table</em>, "tabela de sistemas de arquivos". Cada linha diz ao sistema: "monte isto, ali, desse jeito". Veja o <code>fstab</code> de uma instalação nova do Ubuntu:</p>
+
+<pre class="term">$ cat /etc/fstab
+# /etc/fstab: static file system information.
+# (comentários do instalador omitidos)
+/dev/disk/by-uuid/3f6c1e2a-9b7d-4c1e-8a5f-2d4b6c8e0f12 / ext4 defaults 0 1
+/dev/disk/by-uuid/8E3F-1A2B /boot/efi vfat defaults 0 1
+/swap.img	none	swap	sw	0	0</pre>
+
+<p>Cada linha tem seis colunas, separadas por espaços ou tabs:</p>
+
+<dl class="anatomy">
+  <dt>UUID=7c9e...</dt><dd><strong>1. O quê:</strong> a partição. Use o UUID: o nome <code>/dev/sdb1</code> pode mudar se você trocar um cabo de lugar.</dd>
+  <dt>/dados</dt><dd><strong>2. Onde:</strong> o ponto de montagem (a pasta precisa existir).</dd>
+  <dt>ext4</dt><dd><strong>3. Tipo</strong> do sistema de arquivos.</dd>
+  <dt>defaults,nofail</dt><dd><strong>4. Opções.</strong> <code>defaults</code> é o padrão; <code>nofail</code> evita travar o boot se o disco faltar.</dd>
+  <dt>0</dt><dd><strong>5. dump:</strong> coluna antiga de backup. Use sempre 0.</dd>
+  <dt>2</dt><dd><strong>6. Ordem de verificação</strong> no boot: 1 para o <code>/</code>, 2 para os outros discos, 0 para não verificar.</dd>
+</dl>
+
+<h3>Passo a passo: um HD extra em /dados</h3>
+
+<ol class="passo">
+<li>
+<p><strong>Ache o UUID</strong> da partição do HD:</p>
+<pre class="term">$ lsblk -f -e7 -o NAME,FSTYPE,UUID,MOUNTPOINTS
+NAME        FSTYPE UUID                                 MOUNTPOINTS
+sdb
+└─sdb1      ext4   7c9e2d41-0a6b-4f3e-9d8c-1b2a3c4d5e6f                 « o HD novo
+nvme0n1
+├─nvme0n1p1 vfat   8E3F-1A2B                            /boot/efi
+└─nvme0n1p2 ext4   3f6c1e2a-9b7d-4c1e-8a5f-2d4b6c8e0f12 /</pre>
+</li>
+<li>
+<p><strong>Crie a pasta</strong> e <strong>faça uma cópia</strong> do <code>fstab</code> atual, para poder voltar atrás:</p>
+<pre class="term">$ sudo mkdir -p /dados
+$ sudo cp /etc/fstab /etc/fstab.bak</pre>
+</li>
+<li>
+<p><strong>Acrescente a linha</strong> no fim do arquivo com <code>sudo nano /etc/fstab</code> (veja <a href="editores.html">nano e vim</a>):</p>
+<pre class="file" data-file="/etc/fstab (linha nova)">UUID=7c9e2d41-0a6b-4f3e-9d8c-1b2a3c4d5e6f  /dados  ext4  defaults,nofail  0  2</pre>
+</li>
+<li>
+<p><strong>Confira o arquivo antes de reiniciar.</strong> O <code>findmnt --verify</code> procura erros:</p>
+<pre class="term">$ sudo findmnt --verify
+Sucesso, nenhum erro ou aviso detectado</pre>
+</li>
+<li>
+<p><strong>Teste sem reiniciar.</strong> O <code>systemctl daemon-reload</code> avisa o sistema que o <code>fstab</code> mudou, e o <code>mount -a</code> monta tudo o que está no <code>fstab</code> e ainda não está montado:</p>
+<pre class="term">$ sudo systemctl daemon-reload
+$ sudo mount -a
+$ df -h /dados
+Sist. Arq.      Tam. Usado Disp. Uso% Montado em
+/dev/sdb1       916G   28K  870G   1% /dados</pre>
+<p>Se o <code>mount -a</code> mostrar qualquer erro, <strong>não reinicie</strong>: corrija a linha ou volte o backup com <code>sudo cp /etc/fstab.bak /etc/fstab</code>.</p>
+</li>
+<li>
+<p><strong>Dê a pasta para o seu usuário</strong>, porque um ext4 novo pertence ao root:</p>
+<pre class="term">$ sudo chown ana:ana /dados</pre>
+</li>
+</ol>
+
+<div class="warning">
+<strong>Um fstab errado pode impedir o boot</strong>
+<p>Sem <code>nofail</code>, se o disco não for encontrado, o sistema espera 90 segundos e para no modo de emergência. Sempre rode <code>sudo findmnt --verify</code> e <code>sudo mount -a</code> antes de reiniciar.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"é necessário ser superusuário para montar"</strong>
+<pre class="term">$ mount /dev/sda1 /mnt/pendrive
+mount: /mnt/pendrive: é necessário ser superusuário para montar.
+       dmesg(1) pode ter mais informação após uma chamada a montar o sistema falhada.</pre>
+<p><strong>O que aconteceu:</strong> só o root pode montar com <code>mount</code>.</p>
+<p><strong>Como resolver:</strong> use <code>sudo mount …</code>, ou <code>udisksctl mount -b /dev/sda1</code>, que não precisa de sudo.</p>
+</div>
+
+<div class="cenario">
+<strong>"o ponto de montagem não existe"</strong>
+<pre class="term">$ sudo mount /dev/sda1 /mnt/usb
+mount: /mnt/usb: o ponto de montagem não existe.</pre>
+<p><strong>Como resolver:</strong> crie a pasta antes: <code>sudo mkdir -p /mnt/usb</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"o dispositivo especial … não existe"</strong>
+<pre class="term">$ sudo mount /dev/sdc1 /mnt/pendrive
+mount: /mnt/pendrive: o dispositivo especial /dev/sdc1 não existe.</pre>
+<p><strong>O que aconteceu:</strong> o nome está errado ou o pendrive não foi detectado.</p>
+<p><strong>Como resolver:</strong> confira o nome com <code>lsblk</code>. Se o pendrive não aparece, troque de porta USB e veja as mensagens do kernel com <code>sudo dmesg | tail</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"o alvo está ocupado" ao desmontar</strong>
+<pre class="term">$ sudo umount /mnt/pendrive
+umount: /mnt/pendrive: o alvo está ocupado.</pre>
+<p><strong>O que aconteceu:</strong> algum programa está usando arquivos do disco. Muitas vezes é o próprio terminal, que está <strong>dentro</strong> da pasta.</p>
+<p><strong>Como resolver:</strong> saia da pasta com <code>cd</code>. Para ver quem está usando: <code>sudo lsof /mnt/pendrive</code> ou <code>sudo fuser -vm /mnt/pendrive</code>. Feche o programa e tente de novo.</p>
+</div>
+
+<div class="cenario">
+<strong>"tipo de sistema de arquivos incorreto"</strong>
+<pre class="term">$ sudo mount -t ext4 /dev/sda1 /mnt/pendrive
+mount: /mnt/pendrive: tipo de sistema de arquivos incorreto, opção inválida, superbloco inválido em /dev/sda1, página de código ou programa auxiliar faltando ou outro erro.
+       dmesg(1) pode ter mais informação após uma chamada a montar o sistema falhada.</pre>
+<p><strong>O que aconteceu:</strong> o tipo informado com <code>-t</code> está errado (o pendrive é <code>vfat</code>), ou a partição está danificada.</p>
+<p><strong>Como resolver:</strong> tire o <code>-t</code> e deixe o <code>mount</code> descobrir, ou confira o tipo com <code>lsblk -f</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Um fstab errado e o sistema não liga</strong>
+<p>Depois de editar o <code>fstab</code> e reiniciar, o boot fica parado por 1min30s e aparece algo assim:</p>
+<pre class="term" data-title="tela do boot">[ TIME ] Timed out waiting for device dev-disk-by\x2duuid-7c9e2d41….device - /dev/disk/by-uuid/7c9e2d41-0a6b-….
+[DEPEND] Dependency failed for dados.mount - /dados.
+You are in emergency mode. After logging in, type "journalctl -xb" to view
+system logs, "systemctl reboot" to reboot, or "exit" to boot into default mode.
+Cannot open access to console, the root account is locked.
+See sulogin(8) man page for more details.
+
+Press Enter to continue.</pre>
+<p><strong>O que aconteceu:</strong> uma linha do <code>fstab</code> aponta para um disco que não existe (UUID digitado errado ou HD desconectado) e não tem <code>nofail</code>. O sistema entra no <strong>modo de emergência</strong>. Como a conta root do Ubuntu não tem senha, ele nem deixa entrar.</p>
+<p><strong>Como resolver pelo modo de recuperação:</strong></p>
+<ol class="passo">
+<li>Reinicie e segure <kbd>Shift</kbd> (BIOS) ou toque <kbd>Esc</kbd> (UEFI) para abrir o menu do GRUB.</li>
+<li>Escolha <strong>Opções avançadas para Ubuntu</strong> e depois a linha que termina em <strong>(recovery mode)</strong>.</li>
+<li>No menu de recuperação, escolha <strong>root</strong> (abrir um shell como root) e pressione <kbd>Enter</kbd>.</li>
+<li>O disco está montado só para leitura. Libere a escrita e corrija o arquivo:
+<pre class="term" data-user="root">#> mount -o remount,rw /
+#> nano /etc/fstab</pre>
+Coloque <code>#</code> no começo da linha problemática (ou acrescente <code>nofail</code>), salve com <kbd>Ctrl</kbd>+<kbd>O</kbd> e saia com <kbd>Ctrl</kbd>+<kbd>X</kbd>. Se você fez o backup, basta <code>cp /etc/fstab.bak /etc/fstab</code>.</li>
+<li>Reinicie com <code>reboot</code>.</li>
+</ol>
+<p>Se nem o modo de recuperação abrir, use um pendrive do Ubuntu. Veja <a href="recuperacao.html">Recuperar um Sistema</a>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>findmnt</code></td><td>Lista as montagens em árvore</td></tr>
+<tr><td><code>findmnt PASTA</code></td><td>Mostra o que está montado numa pasta</td></tr>
+<tr><td><code>sudo mount DISP PASTA</code></td><td>Monta uma partição numa pasta</td></tr>
+<tr><td><code>sudo mount -t TIPO …</code></td><td>Força o tipo do sistema de arquivos</td></tr>
+<tr><td><code>sudo mount -o ro …</code></td><td>Monta com opções (aqui, só leitura)</td></tr>
+<tr><td><code>sudo mount -o remount,rw /</code></td><td>Remonta o <code>/</code> para leitura e escrita</td></tr>
+<tr><td><code>sudo mount -a</code></td><td>Monta tudo do <code>fstab</code> que ainda não está montado</td></tr>
+<tr><td><code>sudo umount PASTA</code></td><td>Desmonta</td></tr>
+<tr><td><code>udisksctl mount -b DISP</code></td><td>Monta em <code>/media</code> sem sudo (removíveis)</td></tr>
+<tr><td><code>sudo findmnt --verify</code></td><td>Procura erros no <code>/etc/fstab</code></td></tr>
+<tr><td><code>sudo lsof PASTA</code></td><td>Mostra quem está usando um disco</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Montar só para leitura</h3>
+<p>Complete para montar <code>/dev/sdb1</code> em <code>/mnt/hd</code> sem poder alterar nada:</p>
+<div class="ex-code">sudo mount -o <input data-answer="ro" aria-label="opção"> /dev/sdb1 /mnt/hd</div>
+</div>
+
+<div class="exercise">
+<h3>2. Desmontar</h3>
+<p>Complete o comando que desmonta <code>/mnt/hd</code>:</p>
+<div class="ex-code">sudo <input data-answer="umount" aria-label="comando"> /mnt/hd</div>
+</div>
+
+<div class="exercise">
+<h3>3. Testar o fstab</h3>
+<p>Complete o comando que monta tudo o que está no <code>/etc/fstab</code>, para testar antes de reiniciar:</p>
+<div class="ex-code">sudo mount <input data-answer="-a|--all" aria-label="opção"></div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Por que usar o UUID, e não <code>/dev/sdb1</code>, no <code>fstab</code>?</p>
+<label><input type="radio" name="q4"> Porque o <code>fstab</code> não aceita <code>/dev</code>.</label>
+<label><input type="radio" name="q4"> Porque o UUID deixa o disco mais rápido.</label>
+<label><input type="radio" name="q4"> Porque o nome <code>sdb1</code> pode mudar quando você conecta outros discos.</label>
+<label><input type="radio" name="q4"> Porque o UUID dispensa a pasta de montagem.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. O que a opção <code>nofail</code> faz no <code>fstab</code>?</p>
+<label><input type="radio" name="q5"> Deixa o boot continuar se o disco não estiver conectado.</label>
+<label><input type="radio" name="q5"> Impede que o disco tenha erros.</label>
+<label><input type="radio" name="q5"> Monta o disco só para leitura.</label>
+<label><input type="radio" name="q5"> Verifica o disco a cada boot.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Montar = ligar uma partição a uma pasta (ponto de montagem). Veja as montagens com <code>findmnt</code> ou <code>df -h</code>.</li>
+  <li><code>sudo mount /dev/X /pasta</code> monta; <code>sudo umount /pasta</code> desmonta. Desmonte sempre antes de tirar um pendrive.</li>
+  <li><code>udisksctl mount -b /dev/X</code> monta sem sudo, como o desktop.</li>
+  <li>No <code>/etc/fstab</code>, use UUID e <code>nofail</code>, e teste com <code>findmnt --verify</code> e <code>mount -a</code> antes de reiniciar.</li>
+  <li>Se o boot parar no modo de emergência, corrija o <code>fstab</code> pelo modo de recuperação.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

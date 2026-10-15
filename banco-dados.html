@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu bancos de dados — PostgreSQL e MariaDB | Guia Ubuntu</title>
+<meta name="description" content="Instale e use PostgreSQL e MariaDB no Ubuntu: criar usuário e banco, comandos básicos do psql e do mariadb, backup com pg_dump e mariadb-dump, acesso remoto seguro e erros comuns.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Bancos de Dados</span></h1>
+
+<p class="intro">Quase toda aplicação guarda seus dados num <strong>banco de dados</strong>: um programa servidor que organiza informações em tabelas e responde a pedidos na linguagem <strong>SQL</strong>. Nesta aula você instala e usa os dois mais comuns em servidores Ubuntu: <strong>PostgreSQL</strong> e <strong>MariaDB</strong> (o substituto livre do MySQL).</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Como funciona um servidor de banco de dados e por que existem "usuários do banco".</li>
+  <li>Instalar o PostgreSQL, criar um usuário e um banco, e usar o <code>psql</code>.</li>
+  <li>Fazer o mesmo no MariaDB com o cliente <code>mariadb</code>.</li>
+  <li>Fazer backup e restaurar com <code>pg_dump</code> e <code>mariadb-dump</code>.</li>
+  <li>Liberar acesso remoto com segurança, e resolver "Access denied" e "role does not exist".</li>
+</ul>
+</div>
+
+<p>Os exemplos acontecem na máquina fictícia <strong>servidor</strong>, com a usuária <strong>ana</strong>. Você vai criar um banco chamado <code>loja</code>, usado por uma aplicação que se conecta com o usuário <code>app</code>.</p>
+
+<hr>
+
+<h2>Conceito: um servidor dentro do servidor</h2>
+<ul>
+  <li>O banco roda como um <strong>serviço</strong> (veja <a href="systemctl.html">systemctl</a>) e escuta numa porta: <strong>5432</strong> no PostgreSQL, <strong>3306</strong> no MariaDB.</li>
+  <li>Ele tem <strong>usuários próprios</strong>, separados dos usuários do Ubuntu. A aplicação entra com um usuário do banco, com senha.</li>
+  <li>Dentro do servidor existem vários <strong>bancos</strong> (<code>loja</code>, <code>blog</code>…). Cada banco tem <strong>tabelas</strong>; cada tabela tem <strong>colunas</strong> e <strong>linhas</strong>, como uma planilha.</li>
+  <li>Você conversa com ele por um <strong>cliente</strong>: <code>psql</code> (PostgreSQL) ou <code>mariadb</code>. Comandos SQL terminam com <code>;</code>.</li>
+</ul>
+
+<h3>Qual escolher?</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>PostgreSQL</th><th>MariaDB / MySQL</th></tr>
+<tr><td>Ponto forte</td><td>Recursos avançados, rigor com os dados</td><td>Simplicidade, muito usado em hospedagem</td></tr>
+<tr><td>Usado por</td><td>Django, Rails, muitos sistemas novos</td><td>WordPress, Nextcloud, PHP em geral</td></tr>
+<tr><td>Cliente</td><td><code>psql</code></td><td><code>mariadb</code> (antigo <code>mysql</code>)</td></tr>
+<tr><td>Porta</td><td>5432</td><td>3306</td></tr>
+<tr><td>Pacote no Ubuntu 26.04</td><td><code>postgresql</code> (versão 18)</td><td><code>mariadb-server</code> (versão 11.8)</td></tr>
+</table>
+</div>
+
+<p>Na dúvida, use o que a aplicação recomenda. Para um sistema novo, o PostgreSQL é uma ótima escolha.</p>
+
+<hr>
+
+<h2>PostgreSQL</h2>
+
+<h3>Instalar</h3>
+<pre class="term" data-host="servidor">$ sudo apt install postgresql
+$ systemctl is-active postgresql
+active
+$ sudo ss -tlnp | grep 5432
+LISTEN 0      200        127.0.0.1:5432      0.0.0.0:*    users:(("postgres",pid=2210,fd=6))   « só na própria máquina</pre>
+
+<p>Repare no <code>127.0.0.1</code>: por padrão o banco só aceita conexões vindas do próprio servidor. Isso é bom para segurança.</p>
+
+<h3>Entrar como administrador</h3>
+<p>A instalação cria um usuário do Ubuntu chamado <code>postgres</code>, que é o administrador do banco. O PostgreSQL usa autenticação <strong>peer</strong> ("par"): se você é o usuário <code>postgres</code> do Ubuntu, entra como <code>postgres</code> no banco, sem senha.</p>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Executa o próximo comando como outro usuário.</dd>
+  <dt>-u postgres</dt><dd>Como o usuário <code>postgres</code> (e não como root).</dd>
+  <dt>psql</dt><dd>O cliente do PostgreSQL.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ sudo -u postgres psql
+psql (18.3 (Ubuntu 18.3-1))
+Type "help" for help.
+
+postgres=#                                         « prompt do psql: banco "postgres", # = administrador</pre>
+
+<p>Dentro do <code>psql</code>, o prompt mostra o banco atual. Termina em <code>=#</code> para administrador e <code>=&gt;</code> para usuário comum. Dependendo dos pacotes de idioma, algumas mensagens aparecem em português.</p>
+
+<h3>Criar o usuário e o banco da aplicação</h3>
+<pre class="term" data-host="servidor" data-title="psql — postgres@servidor">postgres=# CREATE USER app WITH PASSWORD 'troque-esta-senha';
+CREATE ROLE                                        « "role" é o nome que o PostgreSQL dá para usuários
+postgres=# CREATE DATABASE loja OWNER app;
+CREATE DATABASE
+postgres=# \q</pre>
+
+<p>Linhas que começam com <code>\</code> são comandos do próprio <code>psql</code> (não SQL) e não precisam de <code>;</code>. <code>\q</code> sai.</p>
+
+<h3>Outra forma: sem entrar no psql</h3>
+<p>O PostgreSQL traz programas que fazem o mesmo direto do terminal:</p>
+<pre class="term" data-host="servidor">$ sudo -u postgres createuser --pwprompt app
+Enter password for new role:
+Enter it again:
+$ sudo -u postgres createdb -O app loja</pre>
+
+<h3>Conectar como a aplicação</h3>
+<dl class="anatomy">
+  <dt>psql</dt><dd>O cliente.</dd>
+  <dt>-h localhost</dt><dd>Conecta pela rede (TCP), o que exige senha. Sem <code>-h</code>, tentaria a autenticação peer.</dd>
+  <dt>-U app</dt><dd>Usuário do banco.</dd>
+  <dt>-d loja</dt><dd>Banco.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ psql -h localhost -U app -d loja
+Password for user app:
+psql (18.3 (Ubuntu 18.3-1))
+SSL connection (protocol: TLSv1.3, cipher: TLS_AES_256_GCM_SHA384, compression: off, ALPN: postgresql)
+Type "help" for help.
+
+loja=&gt;</pre>
+
+<h3>Uma tabela de verdade</h3>
+<pre class="term" data-host="servidor" data-title="psql — app@loja">loja=&gt; CREATE TABLE produtos (id serial PRIMARY KEY, nome text NOT NULL, preco numeric(10,2));
+CREATE TABLE
+loja=&gt; INSERT INTO produtos (nome, preco) VALUES ('Café', 18.90), ('Pão', 7.50);
+INSERT 0 2                                          « 2 linhas inseridas
+loja=&gt; SELECT * FROM produtos;
+ id | nome | preco
+----+------+-------
+  1 | Café | 18.90
+  2 | Pão  |  7.50
+(2 rows)
+loja=&gt; \dt
+         List of relations
+ Schema |   Name   | Type  | Owner
+--------+----------+-------+-------
+ public | produtos | table | app
+(1 row)</pre>
+
+<h3>Comandos do psql</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>\l</code></td><td>Lista os bancos (<em>list</em>)</td></tr>
+<tr><td><code>\c loja</code></td><td>Conecta em outro banco</td></tr>
+<tr><td><code>\dt</code></td><td>Lista as tabelas</td></tr>
+<tr><td><code>\d produtos</code></td><td>Mostra as colunas de uma tabela</td></tr>
+<tr><td><code>\du</code></td><td>Lista os usuários (roles)</td></tr>
+<tr><td><code>\x</code></td><td>Liga/desliga a exibição vertical (bom para linhas largas)</td></tr>
+<tr><td><code>\?</code> / <code>\h</code></td><td>Ajuda dos comandos do psql / ajuda de SQL</td></tr>
+<tr><td><code>\q</code></td><td>Sai</td></tr>
+</table>
+</div>
+
+<h3>Backup e restauração</h3>
+<p><code>pg_dump</code> gera um arquivo com tudo o que é preciso para recriar o banco.</p>
+
+<dl class="anatomy">
+  <dt>pg_dump</dt><dd>"<em>PostgreSQL dump</em>": exporta um banco.</dd>
+  <dt>-h localhost -U app</dt><dd>Como se conectar, igual ao <code>psql</code>.</dd>
+  <dt>-Fc</dt><dd>Formato <em>custom</em>: compactado e restaurável por partes com <code>pg_restore</code>.</dd>
+  <dt>-f loja-2026-10-15.dump</dt><dd>Arquivo de saída.</dd>
+  <dt>loja</dt><dd>O banco.</dd>
+</dl>
+
+<pre class="term" data-host="servidor" data-cwd="~/backups">$ pg_dump -h localhost -U app -Fc -f loja-$(date +%F).dump loja
+Password:
+$ ls -lh
+total 4,0K
+-rw-rw-r-- 1 ana ana 2,1K Oct 15 10:30 loja-2026-10-15.dump</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Backup</th><th>Restauração</th></tr>
+<tr><td>SQL puro (legível)</td><td><code>pg_dump -h localhost -U app loja &gt; loja.sql</code></td><td><code>psql -h localhost -U app -d loja &lt; loja.sql</code></td></tr>
+<tr><td>Custom (recomendado)</td><td><code>pg_dump … -Fc -f loja.dump loja</code></td><td><code>pg_restore -h localhost -U app -d loja --clean loja.dump</code></td></tr>
+<tr><td>Todos os bancos</td><td><code>sudo -u postgres pg_dumpall &gt; tudo.sql</code></td><td><code>sudo -u postgres psql &lt; tudo.sql</code></td></tr>
+</table>
+</div>
+
+<p>Para backup diário automático, coloque o <code>pg_dump</code> num script com <a href="cron.html">cron</a>. A senha pode ficar no arquivo <code>~/.pgpass</code> (permissão <code>600</code>), no formato <code>localhost:5432:loja:app:SENHA</code>.</p>
+
+<hr>
+
+<h2>MariaDB</h2>
+
+<h3>Instalar e proteger</h3>
+<pre class="term" data-host="servidor">$ sudo apt install mariadb-server
+$ systemctl is-active mariadb
+active
+$ sudo mariadb-secure-installation</pre>
+
+<p>O <code>mariadb-secure-installation</code> faz perguntas. Respostas recomendadas para um servidor novo:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Pergunta (em inglês)</th><th>Resposta</th><th>Por quê</th></tr>
+<tr><td>Enter current password for root</td><td><kbd>Enter</kbd></td><td>Ainda não há senha</td></tr>
+<tr><td>Switch to unix_socket authentication</td><td><code>n</code></td><td>O Ubuntu já usa esse método para o root</td></tr>
+<tr><td>Change the root password?</td><td><code>n</code></td><td>O root entra via <code>sudo mariadb</code>, sem senha</td></tr>
+<tr><td>Remove anonymous users?</td><td><code>Y</code></td><td>Ninguém deve entrar sem usuário</td></tr>
+<tr><td>Disallow root login remotely?</td><td><code>Y</code></td><td>Root só local</td></tr>
+<tr><td>Remove test database?</td><td><code>Y</code></td><td>Banco de teste é desnecessário</td></tr>
+<tr><td>Reload privilege tables now?</td><td><code>Y</code></td><td>Aplica tudo</td></tr>
+</table>
+</div>
+
+<h3>Entrar como administrador</h3>
+<p>No Ubuntu, o root do MariaDB usa autenticação <strong>unix_socket</strong>: quem é root no Ubuntu (via <code>sudo</code>) é root no banco.</p>
+<pre class="term" data-host="servidor">$ sudo mariadb
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MariaDB connection id is 31
+Server version: 11.8.6-MariaDB-5ubuntu0.1 Ubuntu 26.04
+
+MariaDB [(none)]&gt;                                « (none) = nenhum banco selecionado</pre>
+
+<h3>Criar o usuário e o banco da aplicação</h3>
+<pre class="term" data-host="servidor" data-title="mariadb — root@servidor">MariaDB [(none)]&gt; CREATE DATABASE loja;
+Query OK, 1 row affected (0.001 sec)
+MariaDB [(none)]&gt; CREATE USER 'app'@'localhost' IDENTIFIED BY 'troque-esta-senha';
+Query OK, 0 rows affected (0.004 sec)
+MariaDB [(none)]&gt; GRANT ALL PRIVILEGES ON loja.* TO 'app'@'localhost';
+Query OK, 0 rows affected (0.003 sec)
+MariaDB [(none)]&gt; exit
+Bye</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Trecho</th><th>Significado</th></tr>
+<tr><td><code>'app'@'localhost'</code></td><td>Usuário <code>app</code> que só pode entrar <strong>a partir da própria máquina</strong>. No MariaDB, o usuário inclui de onde ele vem</td></tr>
+<tr><td><code>IDENTIFIED BY '…'</code></td><td>A senha</td></tr>
+<tr><td><code>GRANT ALL PRIVILEGES ON loja.*</code></td><td>Dá todas as permissões em todas as tabelas (<code>*</code>) do banco <code>loja</code>, e só nele</td></tr>
+</table>
+</div>
+
+<h3>Conectar como a aplicação</h3>
+<dl class="anatomy">
+  <dt>mariadb</dt><dd>O cliente.</dd>
+  <dt>-u app</dt><dd>Usuário.</dd>
+  <dt>-p</dt><dd>Pede a senha (não escreva a senha na linha de comando: ela fica no histórico).</dd>
+  <dt>loja</dt><dd>Banco que já abre selecionado.</dd>
+</dl>
+
+<pre class="term" data-host="servidor">$ mariadb -u app -p loja
+Enter password:
+MariaDB [loja]&gt; CREATE TABLE produtos (id INT AUTO_INCREMENT PRIMARY KEY, nome VARCHAR(100), preco DECIMAL(10,2));
+Query OK, 0 rows affected (0.012 sec)
+MariaDB [loja]&gt; INSERT INTO produtos (nome, preco) VALUES ('Café', 18.90), ('Pão', 7.50);
+Query OK, 2 rows affected (0.003 sec)
+Records: 2  Duplicates: 0  Warnings: 0
+MariaDB [loja]&gt; SELECT * FROM produtos;
++----+-------+-------+
+| id | nome  | preco |
++----+-------+-------+
+|  1 | Café  | 18.90 |
+|  2 | Pão   |  7.50 |
++----+-------+-------+
+2 rows in set (0.001 sec)</pre>
+
+<h3>Comandos úteis no MariaDB</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Equivalente no psql</th><th>O que faz</th></tr>
+<tr><td><code>SHOW DATABASES;</code></td><td><code>\l</code></td><td>Lista bancos</td></tr>
+<tr><td><code>USE loja;</code></td><td><code>\c loja</code></td><td>Troca de banco</td></tr>
+<tr><td><code>SHOW TABLES;</code></td><td><code>\dt</code></td><td>Lista tabelas</td></tr>
+<tr><td><code>DESCRIBE produtos;</code></td><td><code>\d produtos</code></td><td>Colunas da tabela</td></tr>
+<tr><td><code>SELECT user, host FROM mysql.user;</code></td><td><code>\du</code></td><td>Lista usuários</td></tr>
+<tr><td><code>exit</code></td><td><code>\q</code></td><td>Sai</td></tr>
+</table>
+</div>
+
+<h3>Backup e restauração</h3>
+<pre class="term" data-host="servidor" data-cwd="~/backups">$ mariadb-dump -u app -p loja &gt; loja-$(date +%F).sql
+Enter password:
+$ mariadb -u app -p loja &lt; loja-2026-10-15.sql            « restaura
+Enter password:
+$ sudo mariadb-dump --all-databases &gt; tudo.sql             « todos os bancos, como root</pre>
+
+<div class="note">
+<strong>Nomes antigos</strong>
+<p>Em tutoriais você vai ver <code>mysql</code>, <code>mysqldump</code> e <code>mysql_secure_installation</code>. São os nomes antigos (e os do MySQL da Oracle, pacote <code>mysql-server</code>). Nas versões novas do MariaDB, use <code>mariadb</code>, <code>mariadb-dump</code> e <code>mariadb-secure-installation</code>.</p>
+</div>
+
+<hr>
+
+<h2>Acesso remoto, com cuidado</h2>
+<p>Expor o banco na internet é um dos erros de segurança mais comuns. A melhor forma de acessar de outro computador é <strong>não abrir a porta</strong> e usar um túnel SSH:</p>
+
+<dl class="anatomy">
+  <dt>ssh</dt><dd>Conexão segura com o servidor (veja <a href="ssh.html">SSH</a>).</dd>
+  <dt>-L 5432:localhost:5432</dt><dd>Porta 5432 do <strong>seu computador</strong> → porta 5432 do servidor, por dentro do SSH.</dd>
+  <dt>ana@192.168.0.50</dt><dd>O servidor.</dd>
+</dl>
+
+<pre class="term" data-host="notebook">$ ssh -L 5432:localhost:5432 ana@192.168.0.50
+# deixe esse terminal aberto; em outro, no seu computador:
+$ psql -h localhost -U app -d loja</pre>
+
+<p>Se realmente precisar abrir (ex.: o servidor da aplicação é outra máquina da rede interna):</p>
+<ol class="passo">
+  <li><strong>PostgreSQL:</strong> em <code>/etc/postgresql/18/main/postgresql.conf</code>, mude <code>listen_addresses = 'localhost'</code> para o IP do servidor. Em <code>/etc/postgresql/18/main/pg_hba.conf</code>, permita só a máquina da aplicação:
+<pre class="file" data-file="/etc/postgresql/18/main/pg_hba.conf (linha nova)"># TIPO  BANCO  USUÁRIO  ENDEREÇO           MÉTODO
+host    loja   app      192.168.0.60/32    scram-sha-256</pre></li>
+  <li><strong>MariaDB:</strong> em <code>/etc/mysql/mariadb.conf.d/50-server.cnf</code>, mude <code>bind-address = 127.0.0.1</code> para o IP do servidor e crie o usuário com o IP de origem: <code>'app'@'192.168.0.60'</code>.</li>
+  <li><strong>Firewall:</strong> libere só para aquele IP:
+<pre class="term" data-host="servidor">$ sudo ufw allow from 192.168.0.60 to any port 5432 proto tcp
+Regra adicionada</pre></li>
+  <li>Reinicie o serviço: <code>sudo systemctl restart postgresql</code> ou <code>mariadb</code>.</li>
+</ol>
+
+<div class="warning">
+<strong>Nunca</strong>
+<p>Não libere a porta 5432 ou 3306 para "qualquer lugar" (<code>0.0.0.0/0</code>) nem use <code>'app'@'%'</code> com senha fraca. Robôs varrem a internet o tempo todo procurando essas portas.</p>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>PostgreSQL: "role "ana" does not exist"</strong>
+<pre class="term" data-host="servidor">$ psql
+psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "ana" does not exist</pre>
+<p><strong>O que aconteceu:</strong> sem opções, o <code>psql</code> tenta entrar com o seu nome de usuário do Ubuntu (<code>ana</code>), que não existe no banco.</p>
+<p><strong>Como resolver:</strong> entre como administrador (<code>sudo -u postgres psql</code>) ou informe o usuário do banco (<code>psql -h localhost -U app -d loja</code>).</p>
+</div>
+
+<div class="cenario">
+<strong>PostgreSQL: "password authentication failed"</strong>
+<pre class="term" data-host="servidor">$ psql -h localhost -U app -d loja
+Password for user app:
+psql: error: connection to server at "localhost" (127.0.0.1), port 5432 failed: FATAL:  password authentication failed for user "app"</pre>
+<p><strong>O que aconteceu:</strong> senha errada (ou o usuário não existe).</p>
+<p><strong>Como resolver:</strong> redefina como administrador: <code>sudo -u postgres psql -c "ALTER USER app WITH PASSWORD 'nova-senha';"</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>MariaDB: "Access denied for user 'root'@'localhost'"</strong>
+<pre class="term" data-host="servidor">$ mariadb -u root -p
+Enter password:
+ERROR 1698 (28000): Access denied for user 'root'@'localhost'</pre>
+<p><strong>O que aconteceu:</strong> o root do MariaDB usa <strong>unix_socket</strong>: só entra quem é root no Ubuntu. Senha não adianta.</p>
+<p><strong>Como resolver:</strong> use <code>sudo mariadb</code>. Para aplicações, crie um usuário próprio, como <code>app</code>; nunca use o root do banco numa aplicação.</p>
+</div>
+
+<div class="cenario">
+<strong>"Connection refused"</strong>
+<pre class="term" data-host="servidor">$ psql -h 192.168.0.50 -U app -d loja
+psql: error: connection to server at "192.168.0.50", port 5432 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?</pre>
+<p><strong>O que aconteceu:</strong> o serviço está parado, ou está escutando só em <code>127.0.0.1</code> e você tentou pelo IP da rede.</p>
+<p><strong>Como confirmar:</strong> <code>systemctl status postgresql</code> e <code>sudo ss -tlnp | grep 5432</code>.</p>
+<p><strong>Como resolver:</strong> inicie o serviço ou ajuste <code>listen_addresses</code> (seção "Acesso remoto").</p>
+</div>
+
+<hr>
+
+<h2>Referência rápida</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tarefa</th><th>PostgreSQL</th><th>MariaDB</th></tr>
+<tr><td>Instalar</td><td><code>sudo apt install postgresql</code></td><td><code>sudo apt install mariadb-server</code></td></tr>
+<tr><td>Entrar como admin</td><td><code>sudo -u postgres psql</code></td><td><code>sudo mariadb</code></td></tr>
+<tr><td>Criar usuário</td><td><code>CREATE USER app WITH PASSWORD '…';</code></td><td><code>CREATE USER 'app'@'localhost' IDENTIFIED BY '…';</code></td></tr>
+<tr><td>Criar banco</td><td><code>CREATE DATABASE loja OWNER app;</code></td><td><code>CREATE DATABASE loja;</code> + <code>GRANT ALL …</code></td></tr>
+<tr><td>Conectar</td><td><code>psql -h localhost -U app -d loja</code></td><td><code>mariadb -u app -p loja</code></td></tr>
+<tr><td>Backup</td><td><code>pg_dump -Fc -f loja.dump loja</code></td><td><code>mariadb-dump loja &gt; loja.sql</code></td></tr>
+<tr><td>Restaurar</td><td><code>pg_restore -d loja loja.dump</code></td><td><code>mariadb loja &lt; loja.sql</code></td></tr>
+<tr><td>Configuração</td><td><code>/etc/postgresql/18/main/</code></td><td><code>/etc/mysql/mariadb.conf.d/</code></td></tr>
+<tr><td>Porta</td><td>5432</td><td>3306</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Administrador do PostgreSQL</h3>
+<p>Complete para abrir o <code>psql</code> como o administrador do banco:</p>
+<div class="ex-code">sudo <input data-answer="-u postgres" aria-label="usuário"> psql</div>
+</div>
+
+<div class="exercise">
+<h3>2. Conectar com senha</h3>
+<p>Complete para entrar no banco <code>blog</code> com o usuário <code>editor</code>, pela rede local da máquina:</p>
+<div class="ex-code">psql -h localhost <input data-answer="-U editor -d blog|-d blog -U editor" aria-label="usuário e banco"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Backup do MariaDB</h3>
+<p>Complete para salvar o banco <code>loja</code> no arquivo <code>loja.sql</code>:</p>
+<div class="ex-code"><input data-answer="mariadb-dump|mysqldump" aria-label="programa"> -u app -p loja &gt; loja.sql</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. <code>mariadb -u root -p</code> responde "Access denied", mesmo com a senha certa. Por quê?</p>
+<label><input type="radio" name="q4"> O MariaDB está parado.</label>
+<label><input type="radio" name="q4"> O root do MariaDB no Ubuntu usa unix_socket: entre com <code>sudo mariadb</code>.</label>
+<label><input type="radio" name="q4"> É preciso reiniciar o servidor.</label>
+<label><input type="radio" name="q4"> A porta 3306 está fechada no firewall.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. Qual é a forma mais segura de acessar o banco do servidor a partir do seu notebook?</p>
+<label><input type="radio" name="q5"> Liberar a porta 5432 para qualquer IP.</label>
+<label><input type="radio" name="q5"> Criar o usuário <code>'app'@'%'</code>.</label>
+<label><input type="radio" name="q5"> Desligar o firewall.</label>
+<label><input type="radio" name="q5"> Um túnel SSH com <code>ssh -L</code>.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>O banco é um serviço com usuários próprios; a aplicação usa um usuário dedicado, nunca o administrador.</li>
+  <li>PostgreSQL: <code>sudo -u postgres psql</code>, <code>CREATE USER</code>, <code>CREATE DATABASE … OWNER</code>, conectar com <code>psql -h localhost -U app -d loja</code>.</li>
+  <li>MariaDB: <code>sudo mariadb-secure-installation</code>, <code>sudo mariadb</code>, <code>CREATE USER 'app'@'localhost'</code> + <code>GRANT</code>.</li>
+  <li>Backup: <code>pg_dump</code> / <code>mariadb-dump</code>, agendados com cron.</li>
+  <li>Acesso remoto: prefira túnel SSH; se abrir, libere só o IP necessário.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Instalação — máquina virtual, Multipass, WSL, pendrive e dual boot | Guia Ubuntu</title>
+<meta name="description" content="Como ter um Ubuntu para estudar: VirtualBox, Multipass, WSL, pendrive bootável e dual boot, com cada comando explicado, conferência da ISO e a primeira atualização.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Instalação</span></h1>
+
+<p class="intro">Para aprender Ubuntu você precisa de um Ubuntu. A forma mais segura é uma <strong>máquina virtual</strong>: um computador simulado dentro do seu, que você pode estragar, apagar e recriar sem perder nada. Nesta aula você vê as opções, do jeito mais seguro ao mais definitivo.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que é uma ISO, uma máquina virtual e um pendrive bootável.</li>
+  <li>Qual forma de instalação escolher, de acordo com o seu objetivo.</li>
+  <li>Criar e controlar máquinas virtuais com o Multipass, comando por comando.</li>
+  <li>Conferir se a ISO baixada não veio corrompida.</li>
+  <li>Fazer a primeira atualização depois de instalar.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Três ideias antes de começar</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Termo</th><th>O que é</th></tr>
+<tr><td><strong>ISO</strong></td><td>Um arquivo que é a "foto" de um disco de instalação, como <code>ubuntu-26.04-desktop-amd64.iso</code>. Você baixa uma vez e usa para instalar.</td></tr>
+<tr><td><strong>Máquina virtual (VM)</strong></td><td>Um computador de mentira, criado por um programa (VirtualBox, Multipass). Ela tem disco, memória e rede próprios, que na verdade são pedaços do seu computador.</td></tr>
+<tr><td><strong>Hospedeiro e convidado</strong></td><td>O hospedeiro (<em>host</em>) é o seu computador de verdade. O convidado (<em>guest</em>) é o sistema que roda dentro da VM.</td></tr>
+</table>
+</div>
+
+<p>O que acontece dentro de uma VM fica dentro dela. Se você apagar uma pasta do sistema na VM, o seu computador nem fica sabendo.</p>
+
+<hr>
+
+<h2>Qual forma escolher?</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Dificuldade</th><th>Risco para seus dados</th><th>Indicado para</th></tr>
+<tr><td>Multipass</td><td>Muito fácil</td><td>Nenhum</td><td>Estudar terminal e servidor rapidamente</td></tr>
+<tr><td>VirtualBox</td><td>Fácil</td><td>Nenhum</td><td>Estudar o Ubuntu Desktop com interface gráfica</td></tr>
+<tr><td>WSL (Windows)</td><td>Muito fácil</td><td>Nenhum</td><td>Usar o terminal do Ubuntu dentro do Windows</td></tr>
+<tr><td>Pendrive (só testar)</td><td>Média</td><td>Nenhum, se não instalar</td><td>Ver se o seu hardware funciona bem</td></tr>
+<tr><td>Dual boot</td><td>Média a difícil</td><td>Existe: faça backup</td><td>Ter Ubuntu e Windows no mesmo computador</td></tr>
+<tr><td>Instalação completa</td><td>Média</td><td>Apaga o disco</td><td>Usar só o Ubuntu</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Recomendação</strong>
+<p>Comece por uma máquina virtual. Quando estiver confortável, experimente o pendrive no seu computador e só então pense em instalar de verdade.</p>
+</div>
+
+<h3>Requisitos mínimos do Ubuntu Desktop</h3>
+<ul>
+  <li>Processador de 64 bits com 2 núcleos.</li>
+  <li>4 GB de memória RAM (8 GB deixam tudo bem mais fluido).</li>
+  <li>25 GB de espaço em disco.</li>
+  <li>Pendrive de 8 GB ou mais, se for instalar num computador de verdade.</li>
+</ul>
+<p>Baixe a ISO sempre do site oficial: <strong>ubuntu.com/download</strong>.</p>
+
+<hr>
+
+<h2>Conferir a ISO baixada: <code>sha256sum</code></h2>
+<p>Um download pode chegar corrompido, e uma ISO corrompida gera erros estranhos na instalação. O site do Ubuntu publica um arquivo chamado <code>SHA256SUMS</code> com a "impressão digital" de cada ISO. Se a impressão digital do seu arquivo for igual à publicada, o arquivo está perfeito.</p>
+
+<dl class="anatomy">
+  <dt>sha256sum</dt><dd>O programa: calcula a impressão digital (o <em>hash</em> SHA-256) de um arquivo.</dd>
+  <dt>-c SHA256SUMS</dt><dd>Opção de <em>check</em>, "conferir": compara com a lista do arquivo <code>SHA256SUMS</code>.</dd>
+  <dt>--ignore-missing</dt><dd>Ignora as ISOs da lista que você não baixou.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/Downloads">$ ls
+SHA256SUMS  ubuntu-26.04-desktop-amd64.iso
+$ sha256sum -c SHA256SUMS --ignore-missing
+ubuntu-26.04-desktop-amd64.iso: OK                     « OK = arquivo íntegro</pre>
+
+<p>Se aparecer <code>FAILED</code> no lugar de <code>OK</code>, apague a ISO e baixe de novo.</p>
+
+<hr>
+
+<h2>Máquina virtual com VirtualBox</h2>
+<p>O <strong>VirtualBox</strong> é um programa gratuito que cria máquinas virtuais com tela, mouse e tudo. Ele roda no Windows, no macOS e no Linux. Baixe em <strong>virtualbox.org</strong>.</p>
+
+<ol class="passo">
+  <li>Baixe a ISO do <strong>Ubuntu Desktop 26.04 LTS</strong>.</li>
+  <li>No VirtualBox, clique em <strong>Novo</strong>.</li>
+  <li>Dê um nome (ex.: <code>Ubuntu</code>) e selecione a ISO baixada.</li>
+  <li>Reserve <strong>4096 MB</strong> de memória e <strong>2 CPUs</strong>.</li>
+  <li>Crie um disco virtual de pelo menos <strong>25 GB</strong>.</li>
+  <li>Clique em <strong>Finalizar</strong> e inicie a máquina.</li>
+  <li>No instalador, escolha <strong>Instalar o Ubuntu</strong>. O disco que ele "apaga" é o virtual, e não o seu.</li>
+</ol>
+
+<div class="tip">
+<strong>Snapshots: o botão de desfazer</strong>
+<p>Antes de testar algo arriscado, use <strong>Máquina → Criar snapshot</strong>. Se algo der errado, você volta a máquina para aquele ponto em segundos.</p>
+</div>
+
+<hr>
+
+<h2>Máquina virtual com Multipass</h2>
+<p>O <strong>Multipass</strong>, da Canonical, cria máquinas virtuais Ubuntu <strong>sem interface gráfica</strong> com um único comando. É o jeito mais rápido de ter um "servidor" para treinar.</p>
+
+<h3>Instalar o Multipass</h3>
+<p>No Ubuntu, ele é instalado como <a href="snap.html">snap</a>. No Windows e no macOS, baixe o instalador em <strong>canonical.com/multipass</strong>.</p>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Roda o comando como administrador. Instalar programas exige isso (veja <a href="sudo.html">sudo</a>).</dd>
+  <dt>snap</dt><dd>O gerenciador de pacotes snap.</dd>
+  <dt>install</dt><dd>Um <strong>subcomando</strong>: diz ao snap qual ação fazer.</dd>
+  <dt>multipass</dt><dd>O nome do pacote a instalar.</dd>
+</dl>
+
+<pre class="term">$ sudo snap install multipass
+[sudo: authenticate] Senha:
+multipass 1.16.1 from Canonical✓ installed</pre>
+
+<p>A senha não aparece enquanto você digita. Isso é normal. A versão mostrada pode ser outra no seu computador.</p>
+
+<h3>Criar a primeira máquina</h3>
+<p>Comece pela forma mais simples: só o nome.</p>
+
+<dl class="anatomy">
+  <dt>multipass</dt><dd>O programa.</dd>
+  <dt>launch</dt><dd>Subcomando que cria e liga uma máquina nova.</dd>
+  <dt>--name estudo</dt><dd>Opção com valor: o nome da máquina.</dd>
+</dl>
+
+<pre class="term">$ multipass launch --name estudo
+Launched: estudo</pre>
+
+<p>Sem outras opções, a máquina usa a LTS mais recente, 1 CPU, 1 GB de memória e 5 GB de disco. Para estudar com folga, informe os recursos, uma opção para cada:</p>
+
+<dl class="anatomy">
+  <dt>multipass launch</dt><dd>Cria e liga uma máquina.</dd>
+  <dt>26.04</dt><dd>Argumento: a versão do Ubuntu da máquina.</dd>
+  <dt>--name estudo2</dt><dd>O nome.</dd>
+  <dt>--cpus 2</dt><dd>Quantos núcleos do processador ela pode usar.</dd>
+  <dt>--memory 4G</dt><dd>Quanta memória RAM.</dd>
+  <dt>--disk 20G</dt><dd>Tamanho do disco virtual.</dd>
+</dl>
+
+<pre class="term">$ multipass launch 26.04 --name estudo2 --cpus 2 --memory 4G --disk 20G
+Launched: estudo2</pre>
+
+<h3>Ver, entrar e sair</h3>
+<pre class="term">$ multipass list
+Name                    State             IPv4             Image
+estudo                  Running           10.48.217.5      Ubuntu 26.04 LTS
+estudo2                 Running           10.48.217.9      Ubuntu 26.04 LTS</pre>
+
+<p>Cada linha é uma máquina: nome, estado (<code>Running</code> = ligada, <code>Stopped</code> = desligada), endereço de rede e versão. Para abrir um terminal dentro dela, use <code>shell</code>:</p>
+
+<pre class="term">$ multipass shell estudo
+Welcome to Ubuntu 26.04.1 LTS (GNU/Linux 7.0.0-38-generic x86_64)
+...</pre>
+
+<p>Agora o prompt muda: você está <strong>dentro</strong> da máquina virtual, com o usuário <code>ubuntu</code>. Tudo o que digitar aqui acontece nela:</p>
+
+<pre class="term" data-user="ubuntu" data-host="estudo">$ hostname
+estudo
+$ exit
+logout</pre>
+
+<p>O <code>exit</code> fecha a sessão e você volta para o terminal do seu computador.</p>
+
+<h3>Rodar um comando sem entrar</h3>
+<p>Com <code>exec</code>, você manda um comando para a máquina e recebe a resposta, sem abrir uma sessão. Os dois hífens <code>--</code> separam as opções do Multipass do comando que vai rodar lá dentro.</p>
+
+<pre class="term">$ multipass exec estudo -- lsb_release -rs
+26.04</pre>
+
+<h3>Desligar, ligar e apagar</h3>
+<pre class="term">$ multipass stop estudo
+$ multipass start estudo
+$ multipass delete estudo2
+$ multipass purge</pre>
+
+<p>Nenhum desses comandos mostra mensagem quando dá certo. Confira com <code>multipass list</code>.</p>
+
+<div class="warning">
+<strong>Atenção: delete + purge não tem volta</strong>
+<p><code>multipass delete</code> manda a máquina para a lixeira (dá para recuperar com <code>multipass recover</code>). Depois de <code>multipass purge</code>, a máquina e todos os arquivos dentro dela somem para sempre.</p>
+</div>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>O que faz</th></tr>
+<tr><td><code>multipass find</code></td><td>Lista as versões disponíveis para criar máquinas</td></tr>
+<tr><td><code>multipass launch --name &lt;nome&gt;</code></td><td>Cria e liga uma máquina</td></tr>
+<tr><td><code>multipass list</code></td><td>Lista as máquinas, o estado e o IP</td></tr>
+<tr><td><code>multipass shell &lt;nome&gt;</code></td><td>Abre um terminal dentro da máquina</td></tr>
+<tr><td><code>multipass exec &lt;nome&gt; -- &lt;comando&gt;</code></td><td>Roda um comando lá dentro sem entrar</td></tr>
+<tr><td><code>multipass info &lt;nome&gt;</code></td><td>Mostra CPU, memória, disco e IP</td></tr>
+<tr><td><code>multipass stop</code> / <code>start</code></td><td>Desliga / liga</td></tr>
+<tr><td><code>multipass delete</code> / <code>recover</code></td><td>Manda para a lixeira / tira da lixeira</td></tr>
+<tr><td><code>multipass purge</code></td><td>Esvazia a lixeira de vez</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Ubuntu no Windows com WSL</h2>
+<p>O <strong>WSL</strong> (<em>Windows Subsystem for Linux</em>, "subsistema Windows para Linux") roda o Ubuntu dentro do Windows 10 ou 11. Você ganha o terminal do Ubuntu, mas não a interface gráfica completa. Estes comandos são digitados no <strong>PowerShell do Windows</strong>, aberto como administrador:</p>
+
+<pre class="file" data-file="PowerShell (como administrador)">wsl --list --online
+wsl --install -d Ubuntu</pre>
+
+<p>O primeiro comando lista as distribuições disponíveis e o nome exato de cada uma (por exemplo, para escolher uma versão específica). O segundo instala. Reinicie o computador se for pedido. Na primeira vez que o Ubuntu abrir, ele pede para criar um usuário e uma senha. Essa é a senha que o <code>sudo</code> vai pedir depois.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando (no PowerShell)</th><th>O que faz</th></tr>
+<tr><td><code>wsl --list --online</code></td><td>Lista as distribuições que podem ser instaladas</td></tr>
+<tr><td><code>wsl --install -d &lt;nome&gt;</code></td><td>Instala uma distribuição</td></tr>
+<tr><td><code>wsl -l -v</code></td><td>Lista as instaladas e a versão do WSL</td></tr>
+<tr><td><code>wsl</code></td><td>Abre a distribuição padrão</td></tr>
+<tr><td><code>wsl --shutdown</code></td><td>Desliga todas as distribuições</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Diferenças do WSL</strong>
+<p>No WSL, os discos do Windows aparecem em <code>/mnt/c</code>, <code>/mnt/d</code> e assim por diante. Alguns recursos, como serviços do sistema e drivers, funcionam diferente de um Ubuntu instalado de verdade.</p>
+</div>
+
+<hr>
+
+<h2>Pendrive bootável</h2>
+<p>Para instalar o Ubuntu num computador de verdade, ou só testá-lo sem instalar, grave a ISO num pendrive. Há várias formas:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Ferramenta</th><th>Sistema</th><th>Observação</th></tr>
+<tr><td>balenaEtcher</td><td>Windows, macOS e Linux</td><td>A mais simples: escolha a ISO, o pendrive e clique em Flash</td></tr>
+<tr><td>Rufus</td><td>Windows</td><td>Muito usada no Windows</td></tr>
+<tr><td>Criador de discos de inicialização</td><td>Ubuntu</td><td>Já vem no Ubuntu Desktop</td></tr>
+<tr><td>Discos → Restaurar imagem de disco</td><td>Ubuntu</td><td>Outra opção gráfica do Ubuntu</td></tr>
+<tr><td><code>dd</code> no terminal</td><td>Linux</td><td>Rápido, mas perigoso se você errar o destino</td></tr>
+</table>
+</div>
+
+<div class="warning">
+<strong>Gravar a ISO apaga o pendrive</strong>
+<p>Tudo o que estiver no pendrive é perdido. Copie os arquivos dele antes.</p>
+</div>
+
+<h3>Gravando com <code>dd</code></h3>
+<p>Primeiro, descubra o nome do pendrive com <code>lsblk</code> (veja <a href="discos.html">lsblk, df, du</a>). Olhe o tamanho e a coluna <code>TRAN</code>: pendrives aparecem como <code>usb</code>.</p>
+
+<pre class="term">$ lsblk -d -o NAME,SIZE,TRAN,MODEL
+NAME      SIZE TRAN   MODEL
+nvme0n1 476,9G nvme   WDC PC SN530          « o disco do sistema: NÃO é esse
+sdb      14,6G usb    SanDisk Ultra         « o pendrive de 16 GB</pre>
+
+<dl class="anatomy">
+  <dt>sudo dd</dt><dd>O <code>dd</code> copia dados byte a byte. Precisa de <code>sudo</code> para escrever no pendrive.</dd>
+  <dt>if=ubuntu-26.04-desktop-amd64.iso</dt><dd><em>input file</em>: de onde ler (a ISO).</dd>
+  <dt>of=/dev/sdb</dt><dd><em>output file</em>: onde escrever (o pendrive inteiro, sem número no fim).</dd>
+  <dt>bs=4M</dt><dd>Copia em blocos de 4 MB, o que deixa mais rápido.</dd>
+  <dt>status=progress</dt><dd>Mostra o progresso enquanto copia.</dd>
+  <dt>conv=fsync</dt><dd>Só termina quando tudo estiver gravado de fato no pendrive.</dd>
+</dl>
+
+<pre class="term" data-cwd="~/Downloads">$ sudo dd if=ubuntu-26.04-desktop-amd64.iso of=/dev/sdb bs=4M status=progress conv=fsync
+[sudo: authenticate] Senha:
+1510+1 registros entrados
+1510+1 registros saídos
+6333579264 bytes (6.3 GB, 5.9 GiB) copiados, 412.71 s, 15.3 MB/s</pre>
+
+<div class="warning">
+<strong>Cuidado redobrado com o dd</strong>
+<p>Se você errar o <code>of=</code>, o <code>dd</code> apaga o disco errado sem perguntar nada, inclusive o disco do seu sistema. Confira o nome três vezes. Na dúvida, use o balenaEtcher.</p>
+</div>
+
+<h3>Iniciando pelo pendrive</h3>
+<ol class="passo">
+  <li>Com o pendrive conectado, reinicie o computador.</li>
+  <li>Logo ao ligar, aperte a tecla do menu de inicialização. Costuma ser <kbd>F12</kbd>, <kbd>F11</kbd>, <kbd>F10</kbd>, <kbd>F8</kbd> ou <kbd>Esc</kbd>, conforme o fabricante.</li>
+  <li>Escolha o pendrive na lista.</li>
+  <li>No menu do Ubuntu, escolha <strong>Try or Install Ubuntu</strong>.</li>
+  <li>Para só testar, escolha <strong>Experimentar o Ubuntu</strong>. Nada é gravado no disco.</li>
+</ol>
+
+<hr>
+
+<h2>Dual boot com o Windows</h2>
+<p><strong>Dual boot</strong> é ter dois sistemas no mesmo computador e escolher qual usar ao ligar. O instalador do Ubuntu detecta o Windows e oferece instalar ao lado dele.</p>
+
+<ol class="passo">
+  <li>Faça <strong>backup</strong> de todos os arquivos importantes. Mexer em partições sempre tem risco.</li>
+  <li>Se o disco usa <strong>BitLocker</strong>, anote a chave de recuperação antes de qualquer coisa.</li>
+  <li>No Windows, desative a <strong>Inicialização rápida</strong> (Painel de Controle → Opções de energia).</li>
+  <li>Libere espaço: em <strong>Gerenciamento de Disco → Diminuir volume</strong>, deixe pelo menos 25 GB livres.</li>
+  <li>Inicie pelo pendrive e escolha <strong>Instalar o Ubuntu</strong>.</li>
+  <li>Na etapa do disco, escolha <strong>instalar ao lado do Windows</strong>.</li>
+  <li>Ao final, toda vez que ligar o computador aparece o menu do <strong>GRUB</strong> para escolher Ubuntu ou Windows.</li>
+</ol>
+
+<div class="warning">
+<strong>"Apagar disco e instalar o Ubuntu"</strong>
+<p>Essa opção remove o Windows e todos os arquivos do disco. Use só se tiver certeza e backup.</p>
+</div>
+
+<hr>
+
+<h2>A primeira atualização</h2>
+<p>A ISO foi gerada num certo dia. Depois de instalar, baixe as atualizações publicadas desde então. São dois passos, e cada um tem uma função:</p>
+
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Como administrador.</dd>
+  <dt>apt</dt><dd>O gerenciador de pacotes do Ubuntu.</dd>
+  <dt>update</dt><dd>Atualiza a <strong>lista</strong> do que existe de novo. Não instala nada.</dd>
+</dl>
+
+<pre class="term">$ sudo apt update
+[sudo: authenticate] Senha:
+Atingido:1 http://br.archive.ubuntu.com/ubuntu resolute InRelease
+Obter:2 http://br.archive.ubuntu.com/ubuntu resolute-updates InRelease [126 kB]
+Obter:3 http://security.ubuntu.com/ubuntu resolute-security InRelease [126 kB]
+...
+Lendo listas de pacotes... Pronto
+12 pacotes podem ser atualizados. Execute 'apt list --upgradable' para vê-los.</pre>
+
+<p>Agora o segundo passo, que realmente instala as novidades:</p>
+
+<dl class="anatomy">
+  <dt>sudo apt</dt><dd>O gerenciador de pacotes, como administrador.</dd>
+  <dt>upgrade</dt><dd>Instala as versões novas dos pacotes já instalados.</dd>
+  <dt>-y</dt><dd>Responde "sim" sozinho à pergunta de confirmação.</dd>
+</dl>
+
+<pre class="term">$ sudo apt upgrade -y
+Lendo listas de pacotes... Pronto
+Construindo árvore de dependências... Pronto
+Lendo informação de estado... Pronto
+Calculando atualização... Pronto
+...
+Resumo:
+  Atualizando: 12, Instalando: 0, Removendo: 0, Não atualizando: 0
+...</pre>
+
+<p>Os programas instalados como snap se atualizam sozinhos, mas você pode forçar com <code>sudo snap refresh</code>. Os detalhes estão em <a href="apt.html">apt</a> e <a href="atualizacoes.html">Atualizações</a>.</p>
+
+<h3>Precisa reiniciar?</h3>
+<p>Se a atualização trouxe um kernel novo, o Ubuntu cria o arquivo <code>/var/run/reboot-required</code>. Basta ver se ele existe:</p>
+
+<pre class="term">$ cat /var/run/reboot-required
+*** System restart required ***                         « reinicie quando puder</pre>
+
+<p>Se a resposta for <code>cat: /var/run/reboot-required: No such file or directory</code>, não é preciso reiniciar.</p>
+
+<h3>Formas de atualizar</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Como</th><th>Melhor quando…</th></tr>
+<tr><td>Terminal</td><td><code>sudo apt update &amp;&amp; sudo apt upgrade -y</code></td><td>Você quer ver o que está acontecendo, ou está num servidor.</td></tr>
+<tr><td>Atualizador de Programas</td><td>Super → "Atualizador de Programas"</td><td>Prefere clicar. Ele também avisa sozinho quando há atualizações.</td></tr>
+<tr><td>Automática</td><td><code>unattended-upgrades</code> (já vem ligado)</td><td>Correções de segurança, sem você fazer nada.</td></tr>
+</table>
+</div>
+
+<p>O <code>&amp;&amp;</code> roda o segundo comando só se o primeiro der certo. Você aprende isso em <a href="sintaxe.html">Sintaxe dos Comandos</a>.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Não foi possível obter a trava" logo depois de instalar</strong>
+<pre class="term">$ sudo apt upgrade
+Erro: Não foi possível obter a trava /var/lib/dpkg/lock-frontend. Ela está sendo mantida pelo processo 2154 (unattended-upgr)</pre>
+<p><strong>O que aconteceu:</strong> o Ubuntu está baixando atualizações sozinho em segundo plano (<code>unattended-upgr</code>). Só um programa pode instalar pacotes por vez.</p>
+<p><strong>Como resolver:</strong> espere alguns minutos e tente de novo. Não apague arquivos de trava à força.</p>
+</div>
+
+<div class="cenario">
+<strong>A máquina virtual não liga: "VT-x is not available"</strong>
+<p><strong>O que aconteceu:</strong> a virtualização do processador (Intel VT-x ou AMD-V/SVM) está desligada na BIOS/UEFI do computador.</p>
+<p><strong>Como resolver:</strong> entre na configuração da BIOS/UEFI (geralmente <kbd>Del</kbd> ou <kbd>F2</kbd> ao ligar) e ative a opção de virtualização. No Linux, confira se o processador suporta com <code>grep -c -E 'vmx|svm' /proc/cpuinfo</code>: qualquer número acima de 0 indica que sim.</p>
+</div>
+
+<div class="cenario">
+<strong>A máquina virtual está muito lenta</strong>
+<p><strong>Como resolver:</strong> dê 4 GB de memória e 2 CPUs para a VM. Se o seu computador tem só 8 GB, feche outros programas enquanto usa a VM, ou prefira o Multipass, que não tem interface gráfica e gasta menos.</p>
+</div>
+
+<div class="cenario">
+<strong>O computador não inicia pelo pendrive</strong>
+<p><strong>Como resolver:</strong> use o menu de inicialização (<kbd>F12</kbd> e similares) em vez de mudar a ordem de boot. Se o pendrive não aparece, grave a ISO de novo com outra ferramenta e confira a ISO com <code>sha256sum</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"sha256sum: WARNING: 1 computed checksum did NOT match"</strong>
+<pre class="term" data-cwd="~/Downloads">$ sha256sum -c SHA256SUMS --ignore-missing
+ubuntu-26.04-desktop-amd64.iso: FAILED
+sha256sum: WARNING: 1 computed checksum did NOT match</pre>
+<p><strong>O que aconteceu:</strong> o arquivo baixado não é idêntico ao publicado. O download foi interrompido ou corrompido.</p>
+<p><strong>Como resolver:</strong> apague a ISO e baixe de novo, de preferência por cabo de rede.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Entrar na máquina virtual</h3>
+<p>Complete para abrir um terminal dentro da máquina <code>estudo</code> do Multipass:</p>
+<div class="ex-code">multipass <input data-answer="shell" aria-label="subcomando"> estudo</div>
+</div>
+
+<div class="exercise">
+<h3>2. A primeira atualização</h3>
+<p>Complete os dois passos, na ordem:</p>
+<div class="ex-code">sudo apt <input data-answer="update" aria-label="primeiro passo">
+sudo apt <input data-answer="upgrade" aria-label="segundo passo"> -y</div>
+</div>
+
+<div class="exercise">
+<h3>3. Máquina com mais memória</h3>
+<p>Complete para criar a máquina <code>lab</code> com 4 GB de memória:</p>
+<div class="ex-code">multipass launch --name lab <input data-answer="--memory 4G|--memory=4G|-m 4G" aria-label="opção"></div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Qual a diferença entre <code>apt update</code> e <code>apt upgrade</code>?</p>
+<label><input type="radio" name="q4"> Nenhuma, são sinônimos.</label>
+<label><input type="radio" name="q4"> <code>update</code> instala e <code>upgrade</code> remove.</label>
+<label><input type="radio" name="q4"> <code>update</code> baixa a lista de novidades; <code>upgrade</code> instala as novidades.</label>
+<label><input type="radio" name="q4"> <code>update</code> atualiza o Ubuntu para a próxima versão.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">5. No <code>dd</code>, qual parte pode destruir o disco errado se for digitada errada?</p>
+<label><input type="radio" name="q5"> <code>of=</code></label>
+<label><input type="radio" name="q5"> <code>if=</code></label>
+<label><input type="radio" name="q5"> <code>bs=4M</code></label>
+<label><input type="radio" name="q5"> <code>status=progress</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Para estudar, use uma máquina virtual: Multipass (só terminal) ou VirtualBox (com interface).</li>
+  <li>Confira a ISO com <code>sha256sum -c SHA256SUMS --ignore-missing</code>.</li>
+  <li><code>multipass launch</code>, <code>list</code>, <code>shell</code>, <code>stop</code>, <code>delete</code> e <code>purge</code> controlam as máquinas.</li>
+  <li>No <code>dd</code>, confira o <code>of=</code> três vezes. Na dúvida, use o balenaEtcher.</li>
+  <li>Depois de instalar: <code>sudo apt update</code> e <code>sudo apt upgrade</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

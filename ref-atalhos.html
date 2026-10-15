@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Atalhos de Teclado — terminal, GNOME, emergência, nano, vim, tmux | Guia Ubuntu</title>
+<meta name="description" content="Todos os atalhos de teclado do Guia Ubuntu em um só lugar: terminal e bash, terminal do GNOME, desktop, emergência (TTY e SysRq), less, nano, vim e tmux.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Atalhos de Teclado</span></h1>
+
+<p class="intro">Os atalhos do guia em uma página só, separados por onde funcionam. Um atalho que funciona no terminal pode não fazer nada no desktop, e vice-versa. Por isso, cada tabela diz em qual lugar você precisa estar.</p>
+
+<div class="note">
+<strong>Nesta página</strong>
+<ul>
+  <li><a href="#ler">Como ler um atalho</a></li>
+  <li><a href="#bash">Terminal: editar a linha e controlar comandos (bash)</a></li>
+  <li><a href="#historico">Histórico: !! e !$</a></li>
+  <li><a href="#janela">Janela do terminal (Ptyxis)</a></li>
+  <li><a href="#desktop">Desktop GNOME e app Arquivos</a></li>
+  <li><a href="#emergencia">Emergência: TTY e SysRq</a></li>
+  <li><a href="#less">less e man</a> · <a href="#nano">nano</a> · <a href="#vim">vim</a> · <a href="#tmux">tmux</a></li>
+</ul>
+</div>
+
+<hr>
+
+<h2 id="ler">Como ler um atalho</h2>
+<p>Um <code>+</code> significa "segure as teclas anteriores e aperte a próxima". As teclas são apertadas na ordem da esquerda para a direita, e as primeiras ficam seguradas.</p>
+
+<dl class="anatomy">
+  <dt>Ctrl</dt><dd>Segure o Control primeiro…</dd>
+  <dt>Shift</dt><dd>…depois segure também o Shift…</dd>
+  <dt>C</dt><dd>…e aperte C. Solte tudo. Resultado: copia o texto selecionado no terminal.</dd>
+</dl>
+
+<p>Há dois outros formatos. <kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>D</kbd> (tmux) quer dizer "aperte Ctrl+B, solte, depois aperte D". Já <code>^X</code> (nano) é outra forma de escrever <kbd>Ctrl</kbd>+<kbd>X</kbd>.</p>
+
+<div class="warning">
+<strong>Por que Ctrl+C não copia no terminal?</strong>
+<p>No terminal, <kbd>Ctrl</kbd>+<kbd>C</kbd> é o sinal de <strong>cancelar</strong> o comando que está rodando, um costume com décadas de idade. Para copiar e colar, use <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> e <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>.</p>
+</div>
+
+<hr>
+
+<h2 id="bash">Terminal: editar a linha e controlar comandos</h2>
+<p>Funcionam no terminal, enquanto você digita no bash. Também funcionam no TTY de emergência e numa sessão SSH. Detalhes em <a href="terminal.html">O Terminal</a>.</p>
+
+<h3>Mover o cursor e apagar</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>O que faz</th></tr>
+<tr><td><kbd>Tab</kbd></td><td>Completa o nome de um comando, pasta ou arquivo</td></tr>
+<tr><td><kbd>Tab</kbd> <kbd>Tab</kbd></td><td>Quando há várias opções, lista todas</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>Vai para o início da linha</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>E</kbd></td><td>Vai para o fim da linha</td></tr>
+<tr><td><kbd>Alt</kbd>+<kbd>B</kbd> / <kbd>Alt</kbd>+<kbd>F</kbd></td><td>Volta / avança uma palavra (o mesmo que <kbd>Ctrl</kbd>+<kbd>←</kbd> / <kbd>→</kbd>)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>U</kbd></td><td>Apaga do cursor até o início da linha</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>Apaga do cursor até o fim da linha</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>Apaga a palavra antes do cursor</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Cola o que foi apagado com <kbd>Ctrl</kbd>+<kbd>U</kbd>, <kbd>K</kbd> ou <kbd>W</kbd></td></tr>
+</table>
+</div>
+
+<h3>Controlar o que está rodando</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>O que faz</th><th>Aula</th></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Cancela o comando que está rodando (ou a linha que você digitava)</td><td><a href="kill.html">kill e sinais</a></td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Pausa o comando atual; <code>fg</code> continua, <code>bg</code> manda para o fundo</td><td><a href="jobs.html">Jobs</a></td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Numa linha vazia, fecha o shell (igual a <code>exit</code>). Dentro de um programa que lê o teclado, significa "fim da entrada"</td><td><a href="terminal.html">O Terminal</a></td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>Limpa a tela (igual a <code>clear</code>)</td><td><a href="primeiros-comandos.html">Primeiros Comandos</a></td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd> / <kbd>Ctrl</kbd>+<kbd>Q</kbd></td><td>Congela / descongela a saída da tela. Se o terminal "parou" do nada, tente <kbd>Ctrl</kbd>+<kbd>Q</kbd></td><td><a href="terminal.html">O Terminal</a></td></tr>
+</table>
+</div>
+
+<h3>Buscar no histórico</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>O que faz</th></tr>
+<tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Comando anterior / seguinte</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>R</kbd></td><td>Busca para trás no histórico: digite parte do comando</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>R</kbd> de novo</td><td>Mostra a ocorrência anterior</td></tr>
+<tr><td><kbd>Enter</kbd> / <kbd>Esc</kbd></td><td>Executa o achado / coloca na linha para editar</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>G</kbd></td><td>Desiste da busca</td></tr>
+</table>
+</div>
+
+<div class="try" data-goal="ran:^\s*history">
+<p class="try-task"><strong>Missão:</strong> digite três comandos (por exemplo <code>pwd</code>, <code>ls</code> e <code>whoami</code>). Depois use <kbd>↑</kbd> para repetir um deles sem digitar, <kbd>Tab</kbd> para completar <code>Docu</code> em <code>cd Docu</code>, e termine com <code>history</code>.</p>
+</div>
+
+<hr>
+
+<h2 id="historico">Histórico: <code>!!</code> e <code>!$</code></h2>
+<p>Não são atalhos de tecla, mas economizam tanto quanto um. O bash troca essas marcas por partes do comando anterior <strong>antes</strong> de executar, e mostra na tela como ficou.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Marca</th><th>É trocada por</th><th>Uso típico</th></tr>
+<tr><td><code>!!</code></td><td>O comando anterior inteiro</td><td><code>sudo !!</code> quando esqueceu o sudo</td></tr>
+<tr><td><code>!$</code></td><td>O último argumento do comando anterior</td><td><code>mkdir projeto</code> e depois <code>cd !$</code></td></tr>
+<tr><td><code>!texto</code></td><td>O último comando que começa com "texto"</td><td><code>!ssh</code> repete o último ssh</td></tr>
+</table>
+</div>
+
+<pre class="term">$ apt install htop
+Erro: Não foi possível abrir arquivo de trava /var/lib/dpkg/lock-frontend - open (13: Permissão negada)
+Erro: Não é possível adquirir a trava da interface do dpkg (/var/lib/dpkg/lock-frontend), você é root?
+$ sudo !!
+sudo apt install htop                       « o bash mostra o comando já trocado
+[sudo: authenticate] Senha:
+$ mkdir relatorios-2026
+$ cd !$
+cd relatorios-2026</pre>
+
+<div class="warning">
+<strong>Cuidado com <code>!</code> dentro de aspas duplas</strong>
+<p><code>echo "Oi!"</code> funciona, mas <code>echo "Oi!ls"</code> tenta buscar um comando. Para textos com <code>!</code>, use aspas simples: <code>echo 'Oi!'</code>.</p>
+</div>
+
+<hr>
+
+<h2 id="janela">Janela do terminal (Ptyxis)</h2>
+<p>No Ubuntu 26.04, o app Terminal é o <strong>Ptyxis</strong>. Estes atalhos são da <strong>janela</strong>, não do bash; por isso quase todos levam <kbd>Shift</kbd>, para não brigar com os do bash.</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>O que faz</th></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd></td><td>Abre o terminal (atalho do desktop)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd></td><td>Copia o texto selecionado</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd></td><td>Cola</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></td><td>Nova aba</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td><td>Nova janela</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd></td><td>Fecha a aba</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Page Up</kbd> / <kbd>Page Down</kbd></td><td>Troca de aba</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd> / <kbd>Ctrl</kbd>+<kbd>0</kbd></td><td>Aumenta / diminui / restaura o tamanho da letra</td></tr>
+</table>
+</div>
+<div class="tip">
+<strong>Dica</strong>
+<p>Selecionar um texto com o mouse e clicar com o <strong>botão do meio</strong> cola esse texto em qualquer lugar, sem copiar antes. É um recurso antigo do Linux que ainda funciona.</p>
+</div>
+
+<hr>
+
+<h2 id="desktop">Desktop GNOME e app Arquivos</h2>
+<p>A tecla <kbd>Super</kbd> é a do logotipo do Windows na maioria dos teclados. Detalhes em <a href="desktop.html">O Desktop</a>.</p>
+
+<h3>Desktop</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>O que faz</th></tr>
+<tr><td><kbd>Super</kbd></td><td>Visão geral e busca de apps e arquivos</td></tr>
+<tr><td><kbd>Super</kbd>+<kbd>A</kbd></td><td>Grade de aplicativos</td></tr>
+<tr><td><kbd>Super</kbd>+<kbd>1</kbd>, <kbd>2</kbd>…</td><td>Abre o 1º, 2º… app da dock</td></tr>
+<tr><td><kbd>Alt</kbd>+<kbd>Tab</kbd></td><td>Alterna entre janelas</td></tr>
+<tr><td><kbd>Alt</kbd>+<kbd>F4</kbd></td><td>Fecha a janela</td></tr>
+<tr><td><kbd>Super</kbd>+<kbd>L</kbd></td><td>Bloqueia a tela</td></tr>
+<tr><td><kbd>Super</kbd>+<kbd>D</kbd></td><td>Esconde todas as janelas</td></tr>
+<tr><td><kbd>Super</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></td><td>Maximiza / restaura a janela</td></tr>
+<tr><td><kbd>Super</kbd>+<kbd>←</kbd> / <kbd>→</kbd></td><td>Encosta a janela na metade esquerda / direita</td></tr>
+<tr><td><kbd>Super</kbd>+<kbd>Page Up</kbd> / <kbd>Page Down</kbd></td><td>Troca de área de trabalho</td></tr>
+<tr><td><kbd>Print Screen</kbd></td><td>Ferramenta de captura de tela</td></tr>
+</table>
+</div>
+
+<h3>App Arquivos (Nautilus)</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>O que faz</th></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>H</kbd></td><td>Mostra ou esconde os arquivos ocultos</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>Deixa você digitar um caminho, como <code>/etc</code></td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td><td>Nova pasta</td></tr>
+<tr><td><kbd>F2</kbd></td><td>Renomeia o item selecionado</td></tr>
+<tr><td><kbd>Delete</kbd></td><td>Manda para a lixeira</td></tr>
+<tr><td><kbd>Shift</kbd>+<kbd>Delete</kbd></td><td>Apaga de vez, sem lixeira</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2 id="emergencia">Emergência: TTY e SysRq</h2>
+<p>Quando a interface gráfica trava, o teclado ainda pode salvar você. Use os atalhos <strong>na ordem</strong>, do mais leve ao mais pesado. O passo a passo completo está em <a href="travamentos.html">Quando o Sistema Trava</a>.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>O que faz</th><th>Quando usar</th></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd> … <kbd>F6</kbd></td><td>Abre um terminal de texto (TTY) fora da interface gráfica. Entre com usuário e senha</td><td>A interface travou, mas o computador ainda responde</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F1</kbd></td><td>Tela de login gráfica</td><td>Voltar ao login</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F2</kbd></td><td>Volta para a sua sessão gráfica</td><td>Depois de resolver no TTY</td></tr>
+<tr><td><kbd>Alt</kbd>+<kbd>SysRq</kbd>+<kbd>S</kbd>, <kbd>U</kbd>, <kbd>B</kbd></td><td>Grava os discos, remonta só-leitura e reinicia</td><td>Nem o TTY responde</td></tr>
+<tr><td>Botão de energia por 5–10 s</td><td>Desliga à força</td><td>Último recurso: pode perder dados</td></tr>
+</table>
+</div>
+
+<h3>As teclas mágicas: REISUB</h3>
+<p><kbd>SysRq</kbd> é a mesma tecla do <kbd>Print Screen</kbd>; em notebooks, às vezes precisa de <kbd>Fn</kbd>. Segure <kbd>Alt</kbd>+<kbd>SysRq</kbd> e aperte as letras <strong>devagar</strong>, uma por vez, com 1 a 2 segundos entre elas.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Letra</th><th>O que faz</th><th>Funciona no padrão do Ubuntu?</th></tr>
+<tr><td><kbd>R</kbd></td><td>Tira o teclado do controle da interface gráfica</td><td>Não</td></tr>
+<tr><td><kbd>E</kbd></td><td>Pede a todos os processos para terminar (SIGTERM)</td><td>Não</td></tr>
+<tr><td><kbd>I</kbd></td><td>Mata todos os processos na hora (SIGKILL)</td><td>Não</td></tr>
+<tr><td><kbd>S</kbd></td><td>Grava nos discos o que estava pendente (sync)</td><td>Sim</td></tr>
+<tr><td><kbd>U</kbd></td><td>Remonta os discos como só-leitura</td><td>Sim</td></tr>
+<tr><td><kbd>B</kbd></td><td>Reinicia imediatamente</td><td>Sim</td></tr>
+</table>
+</div>
+
+<p>Por que só S, U e B? O Ubuntu vem com <code>kernel.sysrq = 176</code>, que é 16 (sync) + 32 (remontar) + 128 (reiniciar). As outras letras ficam bloqueadas:</p>
+
+<pre class="term">$ cat /proc/sys/kernel/sysrq
+176                                          « 16 + 32 + 128: só S, U e B
+$ cat /usr/lib/sysctl.d/55-magic-sysrq.conf | grep -v '^#'
+kernel.sysrq = 176</pre>
+
+<p>A aula <a href="travamentos.html">Quando o Sistema Trava</a> mostra como liberar todas as letras com <code>kernel.sysrq = 1</code>, e quando isso vale a pena.</p>
+
+<div class="note">
+<strong>Numa máquina virtual</strong>
+<p>O computador hospedeiro "pega" esses atalhos antes da VM. No VirtualBox, use a tecla Host (normalmente <kbd>Ctrl</kbd> direito) + <kbd>F3</kbd>, ou o menu <em>Entrada → Teclado</em>.</p>
+</div>
+
+<hr>
+
+<h2 id="less">less e man</h2>
+<p>Valem para o <code>less</code> e também para o <code>man</code>, que usa o less para mostrar o manual. Veja <a href="ver-arquivos.html">cat, less, head, tail</a> e <a href="ajuda.html">Obtendo Ajuda</a>.</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tecla</th><th>O que faz</th></tr>
+<tr><td><kbd>Espaço</kbd> / <kbd>b</kbd></td><td>Página seguinte / anterior</td></tr>
+<tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Uma linha</td></tr>
+<tr><td><kbd>g</kbd> / <kbd>G</kbd></td><td>Início / fim do arquivo</td></tr>
+<tr><td><kbd>/</kbd>texto</td><td>Procura para frente; <kbd>n</kbd> vai para a próxima, <kbd>N</kbd> para a anterior</td></tr>
+<tr><td><kbd>?</kbd>texto</td><td>Procura para trás</td></tr>
+<tr><td><kbd>F</kbd></td><td>Acompanha o fim do arquivo (como <code>tail -f</code>); <kbd>Ctrl</kbd>+<kbd>C</kbd> para</td></tr>
+<tr><td><kbd>h</kbd></td><td>Ajuda do less</td></tr>
+<tr><td><kbd>q</kbd></td><td>Sai</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2 id="nano">nano</h2>
+<p>A barra de baixo do nano mostra os atalhos com <code>^</code> (Ctrl) e <code>M-</code> (Alt). Aula: <a href="editores.html">nano e vim</a>.</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>Na barra</th><th>O que faz</th></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td><code>^O</code> Gravar</td><td>Salva (confirme o nome com <kbd>Enter</kbd>)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>—</td><td>Salva direto, sem perguntar</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>X</kbd></td><td><code>^X</code> Sair</td><td>Sai (pergunta se quer salvar)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td><code>^W</code> Onde está?</td><td>Procura; <kbd>Alt</kbd>+<kbd>W</kbd> vai para a próxima</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>\</kbd></td><td><code>^\</code> Substituir</td><td>Procura e troca</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd> / <kbd>Ctrl</kbd>+<kbd>U</kbd></td><td><code>^K</code> / <code>^U</code></td><td>Recorta a linha / cola</td></tr>
+<tr><td><kbd>Alt</kbd>+<kbd>6</kbd></td><td><code>M-6</code> Copiar</td><td>Copia a linha sem recortar</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>_</kbd></td><td><code>^_</code> Ir p/ linha</td><td>Vai para uma linha específica</td></tr>
+<tr><td><kbd>Alt</kbd>+<kbd>U</kbd> / <kbd>Alt</kbd>+<kbd>E</kbd></td><td><code>M-U</code> / <code>M-E</code></td><td>Desfaz / refaz</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td><code>^C</code> Local</td><td>Mostra linha e coluna do cursor</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>G</kbd></td><td><code>^G</code> Ajuda</td><td>Lista todos os atalhos</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2 id="vim">vim: o mínimo para sobreviver</h2>
+<p>O vim tem <strong>modos</strong>. No modo normal, as teclas são comandos; para digitar texto, você entra no modo de inserção. Na dúvida, aperte <kbd>Esc</kbd> duas vezes: você volta para o modo normal.</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>No modo normal</th><th>O que faz</th></tr>
+<tr><td><kbd>i</kbd></td><td>Entra no modo de inserção (aparece <code>-- INSERT --</code>)</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>Volta ao modo normal</td></tr>
+<tr><td><code>:w</code> <kbd>Enter</kbd></td><td>Salva</td></tr>
+<tr><td><code>:wq</code> ou <code>:x</code> <kbd>Enter</kbd></td><td>Salva e sai</td></tr>
+<tr><td><code>:q!</code> <kbd>Enter</kbd></td><td>Sai <strong>sem</strong> salvar (a saída de emergência)</td></tr>
+<tr><td><code>/texto</code> <kbd>Enter</kbd></td><td>Procura; <kbd>n</kbd> vai para a próxima</td></tr>
+<tr><td><kbd>u</kbd> / <kbd>Ctrl</kbd>+<kbd>R</kbd></td><td>Desfaz / refaz</td></tr>
+<tr><td><kbd>dd</kbd> / <kbd>yy</kbd> / <kbd>p</kbd></td><td>Recorta a linha / copia a linha / cola</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2 id="tmux">tmux</h2>
+<p>No tmux, todo atalho começa com o <strong>prefixo</strong> <kbd>Ctrl</kbd>+<kbd>B</kbd>: aperte, solte e só então aperte a tecla seguinte. Aula: <a href="jobs.html">Jobs, nohup, tmux</a>.</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>O que faz</th></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>D</kbd></td><td>Desanexa: sai e deixa tudo rodando (volte com <code>tmux attach</code>)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>C</kbd></td><td>Nova janela</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>N</kbd> / <kbd>P</kbd></td><td>Próxima / janela anterior</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>0</kbd>…<kbd>9</kbd></td><td>Vai para a janela de número tal</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>%</kbd></td><td>Divide a tela lado a lado</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>"</kbd></td><td>Divide em cima e embaixo</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> setas</td><td>Muda de painel</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>[</kbd></td><td>Modo de rolagem (<kbd>q</kbd> sai)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> <kbd>?</kbd></td><td>Lista todos os atalhos</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">1. Você selecionou um texto no terminal e apertou <kbd>Ctrl</kbd>+<kbd>C</kbd>. O que aconteceu?</p>
+<label><input type="radio" name="q1"> O texto foi copiado.</label>
+<label><input type="radio" name="q1"> O terminal fechou.</label>
+<label><input type="radio" name="q1"> Nada foi copiado: no terminal, Ctrl+C cancela; para copiar é Ctrl+Shift+C.</label>
+<label><input type="radio" name="q1"> O texto foi apagado.</label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">2. A interface gráfica congelou, mas o mouse ainda mexe às vezes. Qual é o primeiro atalho a tentar?</p>
+<label><input type="radio" name="q2"> Segurar o botão de energia.</label>
+<label><input type="radio" name="q2"> <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd> para abrir um TTY e encerrar o culpado.</label>
+<label><input type="radio" name="q2"> <kbd>Alt</kbd>+<kbd>SysRq</kbd>+<kbd>B</kbd>.</label>
+<label><input type="radio" name="q2"> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd>.</label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">3. No Ubuntu, com a configuração padrão, você digitou <kbd>Alt</kbd>+<kbd>SysRq</kbd>+<kbd>R</kbd> <kbd>E</kbd> <kbd>I</kbd> <kbd>S</kbd> <kbd>U</kbd> <kbd>B</kbd>. Quais letras realmente agiram?</p>
+<label><input type="radio" name="q3"> Todas.</label>
+<label><input type="radio" name="q3"> Só R, E e I.</label>
+<label><input type="radio" name="q3"> Nenhuma: SysRq vem desligado.</label>
+<label><input type="radio" name="q3"> Só S, U e B, porque o padrão é kernel.sysrq = 176.</label>
+</div>
+
+<div class="exercise">
+<h3>4. Esqueceu o sudo</h3>
+<p>O <code>apt update</code> falhou por falta de permissão. Complete para repetir o mesmo comando como administrador, sem redigitar:</p>
+<div class="ex-code">sudo <input data-answer="!!" aria-label="marca do histórico"></div>
+</div>
+
+<div class="exercise">
+<h3>5. Sair do vim sem salvar</h3>
+<p>Você abriu o vim sem querer e mexeu no arquivo. Complete o que digitar (no modo normal) para sair sem gravar nada:</p>
+<div class="ex-code"><input data-answer=":q!" aria-label="comando do vim"> e Enter</div>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>No terminal, copiar e colar levam <kbd>Shift</kbd>: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> / <kbd>V</kbd>. <kbd>Ctrl</kbd>+<kbd>C</kbd> cancela.</li>
+  <li><kbd>Tab</kbd>, <kbd>↑</kbd> e <kbd>Ctrl</kbd>+<kbd>R</kbd> poupam a maior parte da digitação.</li>
+  <li><code>sudo !!</code> repete o último comando como administrador.</li>
+  <li>Travou tudo: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd> primeiro. Se nem isso responder, <kbd>Alt</kbd>+<kbd>SysRq</kbd> + <kbd>S</kbd> <kbd>U</kbd> <kbd>B</kbd>.</li>
+  <li>Preso no vim: <kbd>Esc</kbd>, <code>:q!</code>, <kbd>Enter</kbd>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

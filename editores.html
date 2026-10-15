@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu nano e vim — editar arquivos no terminal | Guia Ubuntu</title>
+<meta name="description" content="Aprenda a editar arquivos no terminal do Ubuntu: nano passo a passo (salvar, sair, buscar, recortar e colar), o mínimo de vim para não ficar preso, editor gráfico e como editar arquivos do sistema com sudoedit.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">nano e vim</span></h1>
+
+<p class="intro">Mais cedo ou mais tarde você vai precisar mudar uma linha de um arquivo de configuração, às vezes num servidor sem tela gráfica. Para isso existem os <strong>editores de texto do terminal</strong>. O Ubuntu traz dois: o <code>nano</code>, simples e com os atalhos na tela, e o <code>vi</code>, poderoso mas estranho no começo. Esta aula ensina o <code>nano</code> por completo e o mínimo de <code>vi</code> para você nunca ficar preso nele.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Abrir, editar, salvar e sair do <code>nano</code>, passo a passo.</li>
+  <li>Buscar, substituir, recortar e colar linhas, ir para uma linha específica.</li>
+  <li>Sobreviver ao <code>vi</code>/<code>vim</code>: entrar no modo de digitação, salvar e sair.</li>
+  <li>Editar arquivos do sistema com segurança usando <code>sudoedit</code>.</li>
+  <li>Quando vale mais usar o editor gráfico.</li>
+</ul>
+</div>
+
+<p>Editores são programas interativos, de tela cheia. Por isso eles <strong>não funcionam no terminal simulado</strong>: pratique no seu Ubuntu, de preferência num arquivo de teste.</p>
+
+<hr>
+
+<h2>A ideia: o terminal vira uma folha de papel</h2>
+<p>Quando você abre um editor, ele ocupa o terminal inteiro. O que você digita vai para o arquivo, e não para o shell. Os comandos do editor (salvar, sair, buscar) são feitos com combinações de teclas, já que não há menus para clicar. Quando você sai, o terminal volta ao prompt.</p>
+
+<hr>
+
+<h2>nano: o editor para começar</h2>
+<p>O <code>nano</code> é o editor padrão do Ubuntu. Ele mostra os atalhos principais nas duas últimas linhas da tela, então você não precisa decorar nada.</p>
+
+<dl class="anatomy">
+  <dt>nano</dt><dd>O editor.</dd>
+  <dt>lembretes.txt</dt><dd>O arquivo a abrir. Se ele não existir, o nano cria quando você salvar.</dd>
+</dl>
+
+<pre class="term">$ nano lembretes.txt</pre>
+
+<p>A tela fica assim:</p>
+
+<pre class="syntax">  GNU nano 8.7.1                    lembretes.txt
+█                                                    ← o cursor: aqui você digita
+
+
+
+
+                               [ Novo arquivo ]
+^G Ajuda      ^O Gravar     ^W Onde está? ^K Recortar   ^T Executar   ^C Local
+^X Sair       ^R Ler o arq  ^\ Substituir ^U Colar      ^J Justificar ^/ Ir p/ linha</pre>
+
+<p>O <code>^</code> significa a tecla <kbd>Ctrl</kbd>. Então <code>^O</code> é <kbd>Ctrl</kbd>+<kbd>O</kbd> e <code>^X</code> é <kbd>Ctrl</kbd>+<kbd>X</kbd>. Os atalhos que começam com <code>M-</code> usam a tecla <kbd>Alt</kbd>.</p>
+
+<h3>Passo a passo: criar, salvar e sair</h3>
+<ol class="passo">
+  <li>Abra o arquivo: <code>nano lembretes.txt</code>.</li>
+  <li>Digite normalmente. Use as setas para andar; <kbd>Enter</kbd> para nova linha; <kbd>Backspace</kbd> para apagar.</li>
+  <li>Salve com <kbd>Ctrl</kbd>+<kbd>O</kbd> (de <em>Output</em>). Na parte de baixo, o nano mostra o nome do arquivo. Aperte <kbd>Enter</kbd> para confirmar.</li>
+  <li>Ele confirma na barra de status: <code>[ Escritas 3 linhas ]</code>.</li>
+  <li>Saia com <kbd>Ctrl</kbd>+<kbd>X</kbd>.</li>
+</ol>
+
+<p>Se você apertar <kbd>Ctrl</kbd>+<kbd>X</kbd> sem salvar, o nano pergunta <code>Salvar o buffer modificado?</code> ("buffer" é o texto que você está editando). Responda <kbd>S</kbd> para salvar, <kbd>N</kbd> para descartar as mudanças, ou <kbd>Ctrl</kbd>+<kbd>C</kbd> para cancelar e continuar editando.</p>
+
+<pre class="term">$ nano lembretes.txt
+$ cat lembretes.txt
+Pagar a conta de luz
+Renovar a CNH
+Estudar a aula de permissões</pre>
+
+<hr>
+
+<h2>Os atalhos que você vai usar</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Atalho</th><th>Nome na tela</th><th>O que faz</th></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Gravar</td><td>Salva (pede confirmação do nome)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>—</td><td>Salva direto, sem perguntar</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>X</kbd></td><td>Sair</td><td>Sai (pergunta se quer salvar)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>Onde está?</td><td>Procura um texto. <kbd>Alt</kbd>+<kbd>W</kbd> vai para a próxima ocorrência</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>\</kbd></td><td>Substituir</td><td>Procura e troca (pergunta a cada ocorrência; <kbd>A</kbd> troca todas)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>Recortar</td><td>Recorta a linha inteira</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>U</kbd></td><td>Colar</td><td>Cola o que foi recortado</td></tr>
+<tr><td><kbd>Alt</kbd>+<kbd>6</kbd></td><td>Copiar</td><td>Copia a linha sem recortar</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>/</kbd> ou <kbd>Ctrl</kbd>+<kbd>_</kbd></td><td>Ir p/ linha</td><td>Vai para uma linha (e coluna) específica</td></tr>
+<tr><td><kbd>Alt</kbd>+<kbd>U</kbd> / <kbd>Alt</kbd>+<kbd>E</kbd></td><td>Desfazer / Refazer</td><td>Desfaz e refaz a última mudança</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Local</td><td>Mostra em que linha e coluna você está</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>G</kbd></td><td>Ajuda</td><td>Lista todos os atalhos</td></tr>
+</table>
+</div>
+
+<h3>Mover linhas: recortar e colar</h3>
+<p>Para mover uma linha para outro lugar: coloque o cursor nela, <kbd>Ctrl</kbd>+<kbd>K</kbd> (recorta), leve o cursor até o destino, <kbd>Ctrl</kbd>+<kbd>U</kbd> (cola). Apertar <kbd>Ctrl</kbd>+<kbd>K</kbd> várias vezes seguidas recorta várias linhas de uma vez.</p>
+
+<h3>Ir direto para uma linha</h3>
+<p>Uma mensagem de erro diz "erro na linha 42 de /etc/fstab"? Abra o arquivo já na linha certa, com <code>+</code> e o número:</p>
+
+<dl class="anatomy">
+  <dt>nano</dt><dd>O editor.</dd>
+  <dt>+42</dt><dd>Abre com o cursor na linha 42.</dd>
+  <dt>config.txt</dt><dd>O arquivo.</dd>
+</dl>
+
+<pre class="term">$ nano +42 config.txt</pre>
+
+<h3>Opções úteis ao abrir</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>O que faz</th></tr>
+<tr><td><code>nano -l arquivo</code></td><td>Mostra o número das linhas na margem</td></tr>
+<tr><td><code>nano -v arquivo</code></td><td>Modo somente leitura: impossível estragar</td></tr>
+<tr><td><code>nano -B arquivo</code></td><td>Guarda uma cópia do original como <code>arquivo~</code> ao salvar</td></tr>
+<tr><td><code>nano -m arquivo</code></td><td>Permite usar o mouse para posicionar o cursor</td></tr>
+<tr><td><code>nano +N arquivo</code></td><td>Abre na linha N</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Editar arquivos do sistema</h2>
+<p>Arquivos em <code>/etc</code> pertencem ao root. Se você abrir com <code>nano</code> normal, consegue ler, mas na hora de salvar aparece um erro de permissão. Há duas formas de editar como administrador:</p>
+
+<h3>Forma 1: <code>sudoedit</code> (a recomendada)</h3>
+<p>O <code>sudoedit</code> copia o arquivo para um lugar temporário, abre a cópia no seu editor <strong>como seu usuário</strong> e, quando você salva e sai, coloca a cópia no lugar do original. O editor nunca roda como root, o que é mais seguro.</p>
+
+<dl class="anatomy">
+  <dt>sudoedit</dt><dd>Edita um arquivo protegido usando o seu editor, com segurança.</dd>
+  <dt>/etc/hosts</dt><dd>O arquivo do sistema a editar.</dd>
+</dl>
+
+<pre class="term">$ sudoedit /etc/hosts
+[sudo: authenticate] Senha:</pre>
+
+<p>Ele usa o editor definido na variável <code>EDITOR</code>; no Ubuntu, por padrão, é o nano.</p>
+
+<h3>Forma 2: <code>sudo nano</code></h3>
+<p>Funciona e é muito comum em tutoriais, mas o nano inteiro roda como root. Prefira o <code>sudoedit</code>.</p>
+
+<pre class="term">$ sudo nano /etc/hosts</pre>
+
+<div class="warning">
+<strong>Antes de editar um arquivo do sistema</strong>
+<p>Faça uma cópia: <code>sudo cp /etc/hosts /etc/hosts.bak</code>. Se algo der errado, você restaura com <code>sudo cp /etc/hosts.bak /etc/hosts</code>. Um erro em arquivos como <code>/etc/fstab</code> ou <code>/etc/sudoers</code> pode impedir o sistema de iniciar ou tirar seu acesso de administrador. Para o sudoers, use sempre <code>sudo visudo</code>.</p>
+</div>
+
+<hr>
+
+<h2>vi e vim: o mínimo para sobreviver</h2>
+<p>O <code>vi</code> existe em praticamente todo Linux, inclusive em servidores mínimos onde o nano não está instalado. No Ubuntu, <code>vi</code> abre o <code>vim.tiny</code>, uma versão enxuta do <code>vim</code>. O vim completo não vem instalado: <code>sudo apt install vim</code>.</p>
+
+<p>Muita gente abre o vi sem querer (às vezes ele é o editor do <code>git</code> ou do <code>crontab</code>) e não consegue sair. Isso acontece porque o vi tem <strong>modos</strong>:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Modo</th><th>Para que serve</th><th>Como entrar</th></tr>
+<tr><td><strong>Normal</strong></td><td>Comandos: andar, apagar, copiar. As teclas <strong>não</strong> digitam texto.</td><td>É o modo inicial. <kbd>Esc</kbd> sempre volta para ele.</td></tr>
+<tr><td><strong>Inserção</strong></td><td>Digitar texto, como num editor comum.</td><td><kbd>i</kbd> no modo normal. Aparece <code>-- INSERT --</code> embaixo.</td></tr>
+<tr><td><strong>Linha de comando</strong></td><td>Salvar, sair, buscar e substituir.</td><td><kbd>:</kbd> no modo normal.</td></tr>
+</table>
+</div>
+
+<h3>A receita de sobrevivência</h3>
+<ol class="passo">
+  <li>Abra: <code>vi notas.txt</code>.</li>
+  <li>Aperte <kbd>i</kbd> para entrar no modo de inserção e digite o texto.</li>
+  <li>Aperte <kbd>Esc</kbd> para voltar ao modo normal.</li>
+  <li>Digite <code>:wq</code> e <kbd>Enter</kbd> para salvar (<em>write</em>) e sair (<em>quit</em>).</li>
+</ol>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando (depois de <kbd>Esc</kbd>)</th><th>O que faz</th></tr>
+<tr><td><code>:wq</code> ou <code>:x</code></td><td>Salva e sai</td></tr>
+<tr><td><code>:w</code></td><td>Só salva</td></tr>
+<tr><td><code>:q</code></td><td>Sai (só se não houver mudanças)</td></tr>
+<tr><td><code>:q!</code></td><td><strong>Sai sem salvar</strong>, descartando tudo. É a saída de emergência.</td></tr>
+<tr><td><code>/palavra</code></td><td>Procura; <kbd>n</kbd> vai para a próxima</td></tr>
+<tr><td><code>dd</code></td><td>Apaga (recorta) a linha</td></tr>
+<tr><td><code>yy</code> / <code>p</code></td><td>Copia a linha / cola abaixo</td></tr>
+<tr><td><code>u</code></td><td>Desfaz</td></tr>
+<tr><td><code>:set number</code></td><td>Mostra o número das linhas</td></tr>
+<tr><td><code>:42</code></td><td>Vai para a linha 42</td></tr>
+</table>
+</div>
+
+<div class="tip">
+<strong>Preso no vi?</strong>
+<p>Aperte <kbd>Esc</kbd> duas vezes, digite <code>:q!</code> e <kbd>Enter</kbd>. Você sai sem salvar nada.</p>
+</div>
+
+<p>Se quiser aprender o vim de verdade, depois de instalar o pacote <code>vim</code> rode <code>vimtutor</code>: é um tutorial interativo de 30 minutos, dentro do próprio editor.</p>
+
+<hr>
+
+<h2>Escolher o editor padrão</h2>
+<p>Comandos como <code>crontab -e</code>, <code>sudoedit</code> e <code>git commit</code> abrem "o editor padrão". Ele é definido de duas formas:</p>
+
+<pre class="term">$ echo $EDITOR
+nano
+$ sudo update-alternatives --config editor</pre>
+
+<p>Para mudar só para você, coloque <code>export EDITOR=nano</code> (ou <code>vim</code>) no seu <code>~/.bashrc</code> (veja <a href="bashrc.html">.bashrc, alias, PATH</a>). O <code>update-alternatives</code> muda o padrão de todo o sistema.</p>
+
+<hr>
+
+<h2>Formas diferentes de editar um arquivo</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Comando</th><th>Quando usar</th></tr>
+<tr><td>nano</td><td><code>nano arquivo</code></td><td>Edições rápidas no terminal. O ponto de partida.</td></tr>
+<tr><td>vi/vim</td><td><code>vi arquivo</code></td><td>Servidores mínimos, ou quando você já domina o vim.</td></tr>
+<tr><td>Editor gráfico</td><td><code>gnome-text-editor arquivo</code></td><td>Desktop, arquivos longos, prefere o mouse.</td></tr>
+<tr><td>Arquivo do sistema</td><td><code>sudoedit /etc/arquivo</code></td><td>Qualquer arquivo de <code>/etc</code>.</td></tr>
+<tr><td>Uma linha só, sem abrir editor</td><td><code>echo "texto" &gt;&gt; arquivo</code></td><td>Acrescentar uma linha no fim (veja <a href="redirecionamento.html">Redirecionamento</a>).</td></tr>
+<tr><td>Trocar texto automaticamente</td><td><code>sed -i 's/velho/novo/' arquivo</code></td><td>Mesma troca em muitos arquivos (veja <a href="sed.html">sed</a>).</td></tr>
+</table>
+</div>
+
+<p>O editor gráfico do Ubuntu 26.04 é o <strong>Editor de Texto</strong> (<code>gnome-text-editor</code>). Se você abrir pelo terminal, ele fica ligado ao terminal; acrescente <code>&amp;</code> no fim para continuar usando o prompt: <code>gnome-text-editor notas.txt &amp;</code>.</p>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>O nano não deixa salvar: "Permissão negada"</strong>
+<p><strong>O que aconteceu:</strong> você abriu um arquivo do sistema sem <code>sudo</code>. Na hora de gravar, o nano mostra um erro de permissão na barra de status.</p>
+<p><strong>Como resolver:</strong> não perca o que digitou. Grave uma cópia na sua pasta: <kbd>Ctrl</kbd>+<kbd>O</kbd>, troque o nome por <code>/tmp/hosts-editado</code> e <kbd>Enter</kbd>. Saia e copie com <code>sudo cp /tmp/hosts-editado /etc/hosts</code>. Da próxima vez, use <code>sudoedit</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Não consigo sair do vi"</strong>
+<p><strong>O que aconteceu:</strong> você está no modo de inserção ou o comando foi digitado no modo errado.</p>
+<p><strong>Como resolver:</strong> <kbd>Esc</kbd>, <kbd>Esc</kbd>, <code>:q!</code>, <kbd>Enter</kbd>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Comando 'vim' não encontrado"</strong>
+<pre class="term">$ vim notas.txt
+Comando 'vim' não encontrado, mas poder ser instalado com:
+sudo apt install vim        # version 2:9.1.2141-1ubuntu4.6, or
+sudo apt install vim-gtk3   # version 2:9.1.2141-1ubuntu4.6
+sudo apt install vim-motif  # version 2:9.1.2141-1ubuntu4.6
+sudo apt install vim-nox    # version 2:9.1.2141-1ubuntu4.6
+sudo apt install neovim     # version 0.11.6-1</pre>
+<p><strong>O que aconteceu:</strong> o Ubuntu traz o <code>vi</code> (vim.tiny), mas não o comando <code>vim</code>. O próprio sistema sugere os pacotes que fornecem o comando (os números de versão mudam com o tempo). O "poder" no lugar de "pode" é um erro da tradução original.</p>
+<p><strong>Como resolver:</strong> use <code>vi</code>, ou instale com <code>sudo apt install vim</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O terminal ficou "travado" depois de <kbd>Ctrl</kbd>+<kbd>S</kbd></strong>
+<p><strong>O que aconteceu:</strong> no nano, <kbd>Ctrl</kbd>+<kbd>S</kbd> salva. Mas fora dele, em alguns terminais, <kbd>Ctrl</kbd>+<kbd>S</kbd> congela a saída da tela.</p>
+<p><strong>Como resolver:</strong> aperte <kbd>Ctrl</kbd>+<kbd>Q</kbd> para descongelar.</p>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Salvar no nano</h3>
+<p>Qual letra, junto com <kbd>Ctrl</kbd>, grava o arquivo no nano (o atalho que aparece na barra)?</p>
+<div class="ex-code">Ctrl + <input data-answer="O|o" aria-label="tecla"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Sair do vi sem salvar</h3>
+<p>Depois de apertar <kbd>Esc</kbd>, o que você digita para sair do vi descartando as mudanças?</p>
+<div class="ex-code"><input data-answer=":q!" aria-label="comando do vi"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Editar com segurança</h3>
+<p>Complete para editar <code>/etc/hosts</code> do jeito recomendado:</p>
+<div class="ex-code"><input data-answer="sudoedit|sudo -e" aria-label="comando"> /etc/hosts</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. No nano, o que significa <code>^K</code> na barra de atalhos?</p>
+<label><input type="radio" name="q4"> <kbd>Shift</kbd>+<kbd>K</kbd></label>
+<label><input type="radio" name="q4"> <kbd>Ctrl</kbd>+<kbd>K</kbd>, que recorta a linha</label>
+<label><input type="radio" name="q4"> <kbd>Alt</kbd>+<kbd>K</kbd></label>
+<label><input type="radio" name="q4"> Digitar o caractere ^ e depois K</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. No vi, você apertou teclas e nada foi escrito no arquivo. O que provavelmente aconteceu?</p>
+<label><input type="radio" name="q5"> O arquivo é somente leitura.</label>
+<label><input type="radio" name="q5"> O teclado está desconfigurado.</label>
+<label><input type="radio" name="q5"> Você está no modo normal; precisa apertar <kbd>i</kbd> para digitar.</label>
+<label><input type="radio" name="q5"> O vi não aceita acentos.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li><code>nano arquivo</code> abre o editor; <kbd>Ctrl</kbd>+<kbd>O</kbd> grava, <kbd>Ctrl</kbd>+<kbd>X</kbd> sai, <kbd>Ctrl</kbd>+<kbd>W</kbd> procura.</li>
+  <li><kbd>Ctrl</kbd>+<kbd>K</kbd> recorta e <kbd>Ctrl</kbd>+<kbd>U</kbd> cola linhas; <code>nano +N</code> abre na linha N.</li>
+  <li>No vi: <kbd>i</kbd> para digitar, <kbd>Esc</kbd> para sair do modo, <code>:wq</code> salva e sai, <code>:q!</code> sai sem salvar.</li>
+  <li>Para arquivos do sistema, faça um <code>.bak</code> e use <code>sudoedit</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

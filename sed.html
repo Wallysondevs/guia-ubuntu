@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu sed — substituir e editar texto | Guia Ubuntu</title>
+<meta name="description" content="Aprenda sed no Ubuntu: o comando s/procurar/trocar/ explicado parte por parte, editar arquivos com -i, endereços, apagar e imprimir linhas, erros reais e exemplos com arquivos de configuração.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">sed</span></h1>
+
+<p class="intro">O <code>sed</code> (de <em>stream editor</em>, "editor de fluxo") edita texto <strong>sem abrir</strong> o arquivo num editor. Você descreve a mudança, como "troque 8080 por 9090", e ele aplica em todas as linhas. É a ferramenta para mudar configurações em scripts e fazer substituições em massa.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>Como o sed processa o texto, linha por linha.</li>
+  <li>A ler e escrever o comando <code>s/procurar/trocar/</code> parte por parte.</li>
+  <li>A diferença entre mostrar o resultado e alterar o arquivo (<code>-i</code>), e como fazer backup antes.</li>
+  <li>A escolher linhas (endereços), apagar, imprimir e inserir linhas.</li>
+</ul>
+</div>
+
+<p>O simulador do guia não tem o <code>sed</code>. Os exemplos abaixo são sessões reais do Ubuntu 26.04 (GNU sed 4.9); para praticar, abra o seu terminal.</p>
+
+<hr>
+
+<h2>Como o sed trabalha</h2>
+<p>O sed lê o texto <strong>uma linha por vez</strong>. Para cada linha, aplica os seus comandos e escreve o resultado na saída. Depois passa para a próxima linha.</p>
+
+<pre class="syntax">  arquivo ──► [ lê a linha ] ──► [ aplica os comandos ] ──► [ escreve na tela ] ──┐
+                   ▲                                                              │
+                   └────────────────────── próxima linha ◄────────────────────────┘</pre>
+
+<p>Duas consequências importantes:</p>
+<ul>
+  <li>Por padrão, o resultado vai para a <strong>tela</strong>. O arquivo original <strong>não muda</strong>.</li>
+  <li>O sed funciona com arquivos de qualquer tamanho, porque nunca carrega o arquivo inteiro.</li>
+</ul>
+
+<p>Nos exemplos, vamos usar estes dois arquivos:</p>
+
+<pre class="term">$ cat frutas.txt
+banana
+maçã
+laranja
+banana
+uva
+$ cat app.conf
+caminho=/home/ana/fotos
+porta=8080
+# comentário
+
+nome=loja</pre>
+
+<hr>
+
+<h2>Substituir texto: o comando <code>s</code></h2>
+<p>O uso mais comum do sed é substituir. Primeiro, a linha inteira:</p>
+
+<dl class="anatomy">
+  <dt>sed</dt><dd>O programa.</dd>
+  <dt>'s/banana/BANANA/'</dt><dd>O <strong>script</strong>, ou seja, a instrução para o sed. Fica entre aspas simples para o shell não mexer nos símbolos.</dd>
+  <dt>frutas.txt</dt><dd>O arquivo a ler. Sem ele, o sed lê a entrada (por exemplo, de um pipe).</dd>
+</dl>
+
+<p>Agora, o script por dentro. As barras <code>/</code> separam as partes:</p>
+
+<dl class="anatomy">
+  <dt>s</dt><dd>O comando: <em>substitute</em>, "substituir".</dd>
+  <dt>/banana</dt><dd>O que <strong>procurar</strong>. Pode ser uma expressão regular.</dd>
+  <dt>/BANANA</dt><dd>Pelo que <strong>trocar</strong>.</dd>
+  <dt>/</dt><dd>Fim. Depois da última barra vêm as <strong>flags</strong> (opcionais), como <code>g</code>.</dd>
+</dl>
+
+<pre class="term">$ sed 's/banana/BANANA/' frutas.txt
+BANANA                 « trocou
+maçã
+laranja
+BANANA                 « trocou
+uva
+$ cat frutas.txt
+banana                 « o arquivo continua igual
+maçã
+laranja
+banana
+uva</pre>
+
+<h3>Todas as ocorrências da linha: flag <code>g</code></h3>
+<p>Sem flag, o sed troca só a <strong>primeira</strong> ocorrência de cada linha. A flag <code>g</code> (de <em>global</em>) troca todas:</p>
+
+<pre class="term">$ echo "a a a" | sed 's/a/X/'
+X a a
+$ echo "a a a" | sed 's/a/X/g'
+X X X
+$ echo "a a a" | sed 's/a/X/2'
+a X a                  « um número troca só a 2ª ocorrência</pre>
+
+<h3>Ignorar maiúsculas e minúsculas: flag <code>I</code></h3>
+<pre class="term">$ echo "Olá Mundo" | sed 's/mundo/Ubuntu/'
+Olá Mundo              « não achou: "mundo" ≠ "Mundo"
+$ echo "Olá Mundo" | sed 's/mundo/Ubuntu/I'
+Olá Ubuntu</pre>
+
+<hr>
+
+<h2>Alterar o arquivo de verdade: <code>-i</code></h2>
+<p>A opção <code>-i</code> (de <em>in-place</em>, "no lugar") grava o resultado no próprio arquivo, em vez de mostrar na tela.</p>
+
+<dl class="anatomy">
+  <dt>sed</dt><dd>O programa.</dd>
+  <dt>-i.bak</dt><dd>Edita o arquivo e guarda uma cópia do original com a extensão <code>.bak</code>.</dd>
+  <dt>'s/porta=8080/porta=9090/'</dt><dd>A substituição.</dd>
+  <dt>app.conf</dt><dd>O arquivo que será alterado.</dd>
+</dl>
+
+<pre class="term">$ sed -i.bak 's/porta=8080/porta=9090/' app.conf
+$ ls
+app.conf  app.conf.bak  frutas.txt
+$ grep porta app.conf app.conf.bak
+app.conf:porta=9090             « o arquivo mudou
+app.conf.bak:porta=8080         « a cópia guarda o original</pre>
+
+<div class="warning">
+<strong>Teste antes de usar <code>-i</code></strong>
+<p>Rode primeiro <strong>sem</strong> <code>-i</code> e confira a saída. Só depois acrescente o <code>-i</code>. Com <code>-i</code> sozinho (sem <code>.bak</code>), não existe "desfazer".</p>
+</div>
+
+<h3>Formas diferentes de salvar o resultado</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Exemplo</th><th>Quando usar</th></tr>
+<tr><td>Só olhar</td><td><code>sed 's/a/b/' arq</code></td><td>Sempre, primeiro, para testar.</td></tr>
+<tr><td>Novo arquivo</td><td><code>sed 's/a/b/' arq &gt; novo</code></td><td>Quer manter o original intacto.</td></tr>
+<tr><td>No lugar, com backup</td><td><code>sed -i.bak 's/a/b/' arq</code></td><td>Mudança em configuração: dá para voltar.</td></tr>
+<tr><td>No lugar, sem backup</td><td><code>sed -i 's/a/b/' arq</code></td><td>Scripts testados, arquivos que você pode recriar.</td></tr>
+</table>
+</div>
+
+<div class="warning">
+<strong>Nunca use <code>sed … arq &gt; arq</code></strong>
+<p>O <code>&gt;</code> esvazia o arquivo antes de o sed ler, e você perde tudo. Veja <a href="redirecionamento.html">Redirecionamento</a>.</p>
+</div>
+
+<hr>
+
+<h2>Caminhos com barras: troque o separador</h2>
+<p>Para trocar <code>/home/ana</code> por <code>/home/bia</code>, as barras do caminho se misturam com as barras do comando:</p>
+
+<pre class="term">$ sed 's//home/ana//home/bia/' app.conf
+sed: -e expressão #1, caractere 9: opção desconhecida para o comando `s' (s///?)</pre>
+
+<p>O sed aceita <strong>qualquer</strong> caractere como separador: é o primeiro que aparece depois do <code>s</code>. Use <code>|</code> ou <code>#</code>:</p>
+
+<pre class="term">$ sed 's|/home/ana|/home/bia|' app.conf
+caminho=/home/bia/fotos
+porta=8080
+# comentário
+
+nome=loja</pre>
+
+<p>Outra forma é "escapar" cada barra com <code>\</code>: <code>sed 's/\/home\/ana/\/home\/bia/'</code>. Funciona, mas é bem mais difícil de ler.</p>
+
+<hr>
+
+<h2>Padrões: expressões regulares</h2>
+<p>O que você procura pode ser um <strong>padrão</strong>, e não só um texto fixo. Os símbolos mais usados:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Símbolo</th><th>Significa</th><th>Exemplo</th></tr>
+<tr><td><code>.</code></td><td>Qualquer caractere</td><td><code>c.sa</code> casa com "casa" e "cosa"</td></tr>
+<tr><td><code>*</code></td><td>O anterior, zero ou mais vezes</td><td><code>porta=.*</code> = "porta=" e qualquer coisa depois</td></tr>
+<tr><td><code>^</code></td><td>Começo da linha</td><td><code>^#</code> = linha que começa com #</td></tr>
+<tr><td><code>$</code></td><td>Fim da linha</td><td><code>^$</code> = linha vazia</td></tr>
+<tr><td><code>[0-9]</code></td><td>Um caractere da lista</td><td><code>[0-9]</code> = um dígito</td></tr>
+<tr><td><code>\+</code></td><td>O anterior, uma ou mais vezes</td><td><code>[0-9]\+</code> = um número</td></tr>
+<tr><td><code>&amp;</code></td><td>Na troca: o texto encontrado</td><td><code>s/[0-9]\+/[&amp;]/</code> põe o número entre colchetes</td></tr>
+</table>
+</div>
+
+<p>Trocar o valor da porta, seja ele qual for:</p>
+
+<pre class="term">$ sed 's/porta=.*/porta=9090/' app.conf
+caminho=/home/ana/fotos
+porta=9090
+# comentário
+
+nome=loja
+$ sed 's/[0-9]\+/[&amp;]/' app.conf | head -n 2
+caminho=/home/ana/fotos
+porta=[8080]                    « &amp; repetiu o número encontrado</pre>
+
+<h3>Grupos e expressões estendidas: <code>-E</code></h3>
+<p>Com <code>-E</code>, você usa parênteses para guardar partes do que foi encontrado e devolvê-las com <code>\1</code>, <code>\2</code>…</p>
+
+<pre class="term">$ sed -E 's/([a-z]+)=(.*)/\2 &lt;- \1/' app.conf | head -n 2
+/home/ana/fotos &lt;- caminho
+8080 &lt;- porta</pre>
+
+<p>Aqui, <code>([a-z]+)</code> guardou o nome (grupo 1) e <code>(.*)</code> guardou o valor (grupo 2). Na troca, eles foram escritos em ordem invertida.</p>
+
+<hr>
+
+<h2>Escolher linhas: endereços</h2>
+<p>Antes de um comando, você pode dizer <strong>em quais linhas</strong> ele vale. Isso se chama <strong>endereço</strong>.</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Endereço</th><th>Linhas</th><th>Exemplo</th></tr>
+<tr><td><code>3</code></td><td>Só a linha 3</td><td><code>sed '3s/a/b/'</code></td></tr>
+<tr><td><code>2,4</code></td><td>Da 2 à 4</td><td><code>sed '2,4d'</code></td></tr>
+<tr><td><code>$</code></td><td>A última</td><td><code>sed '$d'</code></td></tr>
+<tr><td><code>/padrão/</code></td><td>As que contêm o padrão</td><td><code>sed '/porta/s/8080/80/'</code></td></tr>
+<tr><td><code>/ini/,/fim/</code></td><td>De uma linha com "ini" até uma com "fim"</td><td><code>sed -n '/\[db\]/,/^$/p'</code></td></tr>
+</table>
+</div>
+
+<h3>Apagar linhas: <code>d</code></h3>
+<p>O comando <code>d</code> (de <em>delete</em>) não escreve a linha. Um uso muito comum é ver uma configuração sem comentários nem linhas vazias:</p>
+
+<dl class="anatomy">
+  <dt>sed</dt><dd>O programa.</dd>
+  <dt>'/^#/d</dt><dd>Apaga as linhas que começam com <code>#</code>…</dd>
+  <dt>;</dt><dd>…e depois (o ponto e vírgula separa comandos)…</dd>
+  <dt>/^$/d'</dt><dd>…apaga as linhas vazias.</dd>
+  <dt>app.conf</dt><dd>O arquivo.</dd>
+</dl>
+
+<pre class="term">$ sed '/^#/d; /^$/d' app.conf
+caminho=/home/ana/fotos
+porta=8080
+nome=loja</pre>
+
+<h3>Imprimir só algumas linhas: <code>-n</code> + <code>p</code></h3>
+<p>A opção <code>-n</code> desliga a impressão automática. O comando <code>p</code> (de <em>print</em>) imprime a linha. Juntos, mostram só o que você escolheu:</p>
+
+<pre class="term">$ sed -n '2,3p' frutas.txt
+maçã
+laranja
+$ sed -n '/porta/p' app.conf
+porta=8080
+$ sed -n '$=' app.conf
+5                               « o comando = mostra o número da linha; aqui, a última</pre>
+
+<h3>Inserir e acrescentar linhas: <code>i</code> e <code>a</code></h3>
+<pre class="term">$ sed '1i # Arquivo gerado automaticamente' app.conf | head -n 2
+# Arquivo gerado automaticamente
+caminho=/home/ana/fotos
+$ sed '$a debug=false' app.conf | tail -n 2
+nome=loja
+debug=false</pre>
+
+<p><code>1i</code> insere antes da linha 1; <code>$a</code> acrescenta depois da última.</p>
+
+<hr>
+
+<h2>Formas diferentes de ver um arquivo sem comentários</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Observação</th></tr>
+<tr><td><code>sed '/^#/d; /^$/d' arq</code></td><td>Um programa só, dois comandos.</td></tr>
+<tr><td><code>grep -v '^#' arq | grep -v '^$'</code></td><td>Mais fácil de ler para iniciantes.</td></tr>
+<tr><td><code>grep -Ev '^(#|$)' arq</code></td><td>O mais curto. Veja <a href="grep.html">grep</a>.</td></tr>
+<tr><td><code>awk '!/^#/ &amp;&amp; NF' arq</code></td><td>Com awk: não começa com # e tem algum campo. Veja <a href="awk.html">awk</a>.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"comando `s' não terminado"</strong>
+<pre class="term">$ sed 's/banana/BANANA' frutas.txt
+sed: -e expressão #1, caractere 15: comando `s' não terminado</pre>
+<p><strong>O que aconteceu:</strong> faltou a última barra. O comando <code>s</code> precisa de três: <code>s/a/b/</code>.</p>
+<p><strong>Como resolver:</strong> <code>sed 's/banana/BANANA/' frutas.txt</code>. O número do "caractere" diz onde o sed se perdeu.</p>
+</div>
+
+<div class="cenario">
+<strong>"opção desconhecida para o comando `s'"</strong>
+<p><strong>O que aconteceu:</strong> o texto tem barras <code>/</code>, como um caminho, e o sed achou que o comando acabou antes.</p>
+<p><strong>Como resolver:</strong> troque o separador: <code>sed 's|/opt/app|/srv/app|'</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Permissão negada" com <code>-i</code></strong>
+<pre class="term">$ sed -i 's/notebook/estudio/' /etc/hostname
+sed: não foi possível abrir o arquivo temporário /etc/sedrkIxCO: Permissão negada</pre>
+<p><strong>O que aconteceu:</strong> o <code>-i</code> cria um arquivo temporário na mesma pasta e depois troca pelo original. Em <code>/etc</code>, só o root pode criar arquivos.</p>
+<p><strong>Como resolver:</strong> teste sem <code>-i</code>, depois rode com sudo e backup: <code>sudo sed -i.bak 's/notebook/estudio/' /etc/hostname</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Não deu erro, mas não trocou nada</strong>
+<p><strong>O que aconteceu:</strong> o padrão não casou. As causas mais comuns são maiúsculas diferentes ("Mundo" × "mundo"), espaços a mais, ou símbolos especiais. Por exemplo, o ponto em <code>s/1.0/2.0/</code> significa "qualquer caractere".</p>
+<p><strong>Como confirmar:</strong> procure o padrão com <code>grep</code> antes: <code>grep -n 'mundo' arquivo</code>. Se o grep não acha, o sed também não vai achar.</p>
+<p><strong>Como resolver:</strong> use a flag <code>I</code> para ignorar maiúsculas, e escape símbolos especiais com <code>\</code>: <code>s/1\.0/2.0/</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>Uma variável não foi trocada pelo valor</strong>
+<pre class="term">$ novo=9090
+$ sed 's/8080/$novo/' app.conf | grep porta
+porta=$novo</pre>
+<p><strong>O que aconteceu:</strong> dentro de aspas simples, o shell não troca variáveis.</p>
+<p><strong>Como resolver:</strong> use aspas duplas: <code>sed "s/8080/$novo/" app.conf</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<h3>Opções</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>-n</code></td><td>Não imprime automaticamente (use com <code>p</code>)</td><td><code>sed -n '5p' arq</code></td></tr>
+<tr><td><code>-i</code></td><td>Edita o próprio arquivo</td><td><code>sed -i 's/a/b/' arq</code></td></tr>
+<tr><td><code>-i.bak</code></td><td>Edita e guarda o original como <code>.bak</code></td><td><code>sed -i.bak 's/a/b/' arq</code></td></tr>
+<tr><td><code>-E</code></td><td>Expressões regulares estendidas (<code>+ ? ( ) |</code> sem barra)</td><td><code>sed -E 's/(a|b)+/X/'</code></td></tr>
+<tr><td><code>-e</code></td><td>Acrescenta um comando (pode repetir)</td><td><code>sed -e 's/a/b/' -e '/^$/d'</code></td></tr>
+</table>
+</div>
+<h3>Comandos</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Descrição</th><th>Exemplo</th></tr>
+<tr><td><code>s/a/b/</code></td><td>Substitui a primeira ocorrência por linha</td><td><code>sed 's/http/https/'</code></td></tr>
+<tr><td><code>s/a/b/g</code></td><td>Substitui todas</td><td><code>sed 's/ /_/g'</code></td></tr>
+<tr><td><code>s/a/b/I</code></td><td>Ignora maiúsculas</td><td><code>sed 's/erro/ERRO/I'</code></td></tr>
+<tr><td><code>d</code></td><td>Apaga a linha</td><td><code>sed '/^#/d'</code></td></tr>
+<tr><td><code>p</code></td><td>Imprime a linha</td><td><code>sed -n '/erro/p'</code></td></tr>
+<tr><td><code>i texto</code></td><td>Insere antes</td><td><code>sed '1i Título'</code></td></tr>
+<tr><td><code>a texto</code></td><td>Acrescenta depois</td><td><code>sed '$a Fim'</code></td></tr>
+<tr><td><code>=</code></td><td>Mostra o número da linha</td><td><code>sed -n '$='</code></td></tr>
+<tr><td><code>q</code></td><td>Sai (para de ler)</td><td><code>sed '10q'</code> (como <code>head</code>)</td></tr>
+<tr><td><code>y/abc/ABC/</code></td><td>Troca caractere por caractere</td><td><code>sed 'y/abc/ABC/'</code></td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Trocar todas</h3>
+<p>Complete para trocar <strong>todos</strong> os espaços de cada linha por <code>_</code>:</p>
+<div class="ex-code">sed 's/ /_/<input data-answer="g" aria-label="flag">' nomes.txt</div>
+</div>
+
+<div class="exercise">
+<h3>2. Editar com segurança</h3>
+<p>Complete para alterar <code>app.conf</code> no lugar, guardando uma cópia <code>.bak</code>:</p>
+<div class="ex-code">sed <input data-answer="-i.bak" aria-label="opção"> 's/debug=true/debug=false/' app.conf</div>
+</div>
+
+<div class="exercise">
+<h3>3. Só as linhas de erro</h3>
+<p>Complete para mostrar <strong>só</strong> as linhas que contêm "erro":</p>
+<div class="ex-code">sed <input data-answer="-n" aria-label="opção"> '/erro/<input data-answer="p" aria-label="comando">' sistema.log</div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. Você rodou <code>sed 's/8080/9090/' app.conf</code> e a tela mostrou "porta=9090". O que aconteceu com o arquivo?</p>
+<label><input type="radio" name="q4"> Foi alterado para porta=9090.</label>
+<label><input type="radio" name="q4"> Nada: sem <code>-i</code>, o sed só mostra o resultado na tela.</label>
+<label><input type="radio" name="q4"> Foi criado um <code>app.conf.bak</code>.</label>
+<label><input type="radio" name="q4"> Foi apagado.</label>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">5. Qual comando troca o caminho <code>/var/www</code> por <code>/srv/www</code> sem dar erro?</p>
+<label><input type="radio" name="q5"> <code>sed 's//var/www//srv/www/'</code></label>
+<label><input type="radio" name="q5"> <code>sed 's/var/www/srv/www/'</code></label>
+<label><input type="radio" name="q5"> <code>sed 's|/var/www|/srv/www|'</code></label>
+<label><input type="radio" name="q5"> <code>sed '/var/www/d'</code></label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>O sed lê linha por linha e mostra o resultado; o arquivo só muda com <code>-i</code>.</li>
+  <li><code>s/procurar/trocar/</code> troca a primeira ocorrência por linha; <code>g</code> troca todas.</li>
+  <li>Teste sem <code>-i</code>, depois use <code>-i.bak</code> para ter como voltar.</li>
+  <li>Com barras no texto, troque o separador: <code>s|a|b|</code>.</li>
+  <li>Endereços escolhem linhas; <code>d</code> apaga, <code>-n … p</code> imprime só o que você quer.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>
