@@ -498,7 +498,7 @@
       }
       if (!argv.length) continue;
 
-      var bufOut = [], bufErr = [], paraArquivo = null, errArquivo = null, errNoOut = false, errNull = false, outNull = false;
+      var bufOut = [], bufErr = [], paraArquivo = null, errArquivo = null, errNoOut = false, errNull = false, outNull = false, errDestino = null;
       var falhou = false;
       redir.forEach(function (r) {
         if (falhou) return;
@@ -506,7 +506,7 @@
           var a = self.achar(r.alvo);
           if (a.err || a.no.t !== "f") { esc.erro("bash: " + r.alvo + ": Arquivo ou diretório inexistente\n"); falhou = true; return; }
           entrada = a.no.d;
-        } else if (r.op === "2>&1") errNoOut = true;
+        } else if (r.op === "2>&1") { errNoOut = true; errDestino = paraArquivo ? "arquivo" : outNull ? "nulo" : "tela"; }
         else if (r.op === "&>") { if (r.alvo === "/dev/null") { outNull = errNull = true; } else { paraArquivo = { p: r.alvo, ap: false }; errNoOut = true; } }
         else if (r.op === "2>" || r.op === "2>>") { if (r.alvo === "/dev/null") errNull = true; else errArquivo = { p: r.alvo, ap: r.op === "2>>" }; }
         else { if (r.alvo === "/dev/null") outNull = true; else paraArquivo = { p: r.alvo, ap: r.op === ">>" }; }
@@ -531,7 +531,11 @@
         out: function (s) { if (outNull) return; if (vaiParaTela) esc.saida(s); else bufOut.push(s); },
         err: function (s) {
           if (errNull) return;
-          if (errNoOut) { io.out(s); return; }
+          if (errNoOut) {
+            if (errDestino === "tela" && (paraArquivo || outNull)) { esc.erro(s); return; }
+            if (errDestino === "nulo") return;
+            io.out(s); return;
+          }
           if (errArquivo) { bufErr.push(s); return; }
           esc.erro(s);
         }
@@ -799,15 +803,30 @@
   };
 
   CMDS.touch = function (argv, io) {
-    var p = opcoes(argv), self = this, st = 0;
-    if (invalida(io, "touch", p.o, [])) return 1;
+    var p = opcoes(argv, "dtr"), self = this, st = 0, quando = NOW;
+    if (p.o.date) { p.o.d = p.o.date; delete p.o.date; }
+    if (p.o["no-create"]) { p.o.c = true; delete p.o["no-create"]; }
+    if (invalida(io, "touch", p.o, ["d", "t", "c", "r"])) return 1;
+    if (p.o.d) {
+      var m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?$/.exec(p.o.d.trim());
+      if (m) quando = new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0));
+      else if (/^yesterday|ontem$/i.test(p.o.d)) quando = new Date(NOW - 864e5);
+      else { io.err("touch: data inválida '" + p.o.d + "'\n"); return 1; }
+    }
+    if (p.o.t) {
+      var t = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(p.o.t);
+      if (!t) { io.err("touch: formato de data inválido '" + p.o.t + "'\n"); return 1; }
+      quando = new Date(+t[1], +t[2] - 1, +t[3], +t[4], +t[5]);
+    }
+    if (p.o.r) { var ref = self.achar(p.o.r); if (ref.err) { io.err("touch: falha ao obter atributos de '" + p.o.r + "': Arquivo ou diretório inexistente\n"); return 1; } quando = ref.no.mt; }
     if (!p.a.length) { io.err("touch: operando de arquivo ausente\nDigite ‘touch --help’ para obter mais informações.\n"); return 1; }
     p.a.forEach(function (a) {
       var r = self.achar(a);
-      if (r.no) { r.no.mt = NOW; return; }
+      if (r.no) { r.no.mt = quando; return; }
+      if (p.o.c) return;
       if (r.err === "ENOENT" && r.pai) {
         if (!self.pode(r.pai, 2)) { io.err("touch: não é possível executor o touch em '" + a + "': Permission denied\n"); st = 1; return; }
-        r.pai.c[r.nome] = f(self.user, self.user === "root" ? 420 : 436, ""); r.pai.mt = NOW; return;
+        r.pai.c[r.nome] = f(self.user, self.user === "root" ? 420 : 436, "", quando); r.pai.mt = NOW; return;
       }
       io.err("touch: não é possível executor o touch em '" + a + "': " + (r.err === "EACCES" ? "Permission denied" : "No such file or directory") + "\n"); st = 1;
     });
@@ -877,7 +896,9 @@
       var alvoRot = destinoPasta ? destino.replace(/\/$/, "") + "/" + base(fo) : destino;
       var ra = self.achar(alvoRot);
       if (ra.abs === rf.abs || ra.abs.indexOf(rf.abs + "/") === 0) {
-        io.err(cmd + ": não é possível " + (mover ? "mover" : "copiar") + " um diretório, '" + fo + "', para si próprio, '" + alvoRot + "'\n"); st = 1; return;
+        if (mover) io.err("mv: não é possível mover '" + fo + "' para um subdiretório de si mesmo, '" + alvoRot + "'\n");
+        else io.err("cp: não é possível copiar um diretório, '" + fo + "', para si próprio, '" + alvoRot + "'\n");
+        st = 1; return;
       }
       var paiDest = ra.no ? ra.pai : ra.pai, nomeDest = ra.nome;
       if (!paiDest) { io.err(cmd + ": não foi possível criar arquivo comum '" + alvoRot + "': Arquivo ou diretório inexistente\n"); st = 1; return; }
@@ -1241,7 +1262,7 @@
   CMDS["true"] = function () { return 0; };
   CMDS["false"] = function () { return 1; };
   CMDS.exit = function (argv, io) {
-    if (this.user === "root" && this.antes) { this.user = this.antes.user; this.cwd = this.antes.cwd; this.vars.HOME = HOME; this.antes = null; io.out("sair\n"); return 0; }
+    if (this.user === "root" && this.antes) { var lg = this.antes.login; this.user = this.antes.user; this.cwd = this.antes.cwd; this.vars.HOME = HOME; this.antes = null; io.out(lg ? "sair\n" : "exit\n"); return 0; }
     io.out("(simulador) Para sair de verdade, feche a janela do terminal. Aqui o terminal continua aberto.\n");
     return 0;
   };
@@ -1263,12 +1284,14 @@
   };
   CMDS.xargs = function (argv, io) {
     var p = argv.slice(1), n = 0, rep = null, self = this;
-    while (p.length && p[0][0] === "-") { var op = p.shift(); if (op === "-n") n = +p.shift(); else if (/^-n\d+$/.test(op)) n = +op.slice(2); else if (op === "-I") rep = p.shift(); else if (/^-I./.test(op)) rep = op.slice(2); }
+    var mostrar = false;
+    while (p.length && p[0][0] === "-") { var op = p.shift(); if (op === "-t") { mostrar = true; continue; } if (op === "-n") n = +p.shift(); else if (/^-n\d+$/.test(op)) n = +op.slice(2); else if (op === "-I") rep = p.shift(); else if (/^-I./.test(op)) rep = op.slice(2); }
     if (!p.length) p = ["echo"];
     var itens = (io.stdin || "").split(rep ? /\n/ : /\s+/).filter(Boolean), st = 0;
-    if (rep) itens.forEach(function (it) { st = self.comando(p.map(function (x) { return x.split(rep).join(it); }), io) || st; });
-    else if (n) for (var i = 0; i < itens.length; i += n) st = self.comando(p.concat(itens.slice(i, i + n)), io) || st;
-    else if (itens.length) st = self.comando(p.concat(itens), io);
+    function roda(argv2) { if (mostrar) io.err(argv2.join(" ") + "\n"); return self.comando(argv2, io); }
+    if (rep) itens.forEach(function (it) { st = roda(p.map(function (x) { return x.split(rep).join(it); })) || st; });
+    else if (n) for (var i = 0; i < itens.length; i += n) st = roda(p.concat(itens.slice(i, i + n))) || st;
+    else if (itens.length) st = roda(p.concat(itens));
     return st;
   };
   CMDS.sudo = function (argv, io) {
@@ -1277,7 +1300,7 @@
     if (a[0] === "-k") { this.sudoOk = false; return 0; }
     if (!this.sudoOk && this.user !== "root") { io.out("[sudo: authenticate] Senha: \n"); io.out(cor("i", "(simulador: senha aceita — no Ubuntu real, nada aparece enquanto você digita)") + "\n"); this.sudoOk = true; }
     if (a[0] === "-i" || a[0] === "su" || a[0] === "-s") {
-      this.antes = { user: this.user, cwd: this.cwd }; this.user = "root"; this.cwd = "/root"; this.vars.HOME = "/root";
+      this.antes = { user: this.user, cwd: this.cwd, login: a[0] === "-i" }; this.user = "root"; if (a[0] === "-i") this.cwd = "/root"; this.vars.HOME = "/root";
       return 0;
     }
     var antes = this.user; this.user = "root";
@@ -1326,6 +1349,15 @@
   };
   CMDS["["] = CMDS.test;
   CMDS["[["] = CMDS.test;
+
+  CMDS.umask = function (argv, io) {
+    this.mascara = this.mascara == null ? (this.user === "root" ? 18 : 2) : this.mascara;
+    var m = this.user === "root" && this.mascara === 2 ? 18 : this.mascara;
+    if (argv[1] === "-S") { var bits = function (q) { var v = 7 & ~q; return (v & 4 ? "r" : "") + (v & 2 ? "w" : "") + (v & 1 ? "x" : ""); }; io.out("u=" + bits(m >> 6) + ",g=" + bits((m >> 3) & 7) + ",o=" + bits(m & 7) + "\n"); return 0; }
+    if (argv[1] && /^[0-7]{1,4}$/.test(argv[1])) { this.mascara = parseInt(argv[1], 8); return 0; }
+    if (argv[1]) { io.err("bash: umask: " + argv[1] + ": caractere de modo octal inválido\n"); return 1; }
+    var o = m.toString(8); while (o.length < 4) o = "0" + o; io.out(o + "\n"); return 0;
+  };
 
   CMDS.alias = function (argv, io) {
     var self = this, st = 0;
@@ -1446,6 +1478,7 @@
   CMDS.pgrep = function (argv, io) {
     var p = opcoes(argv, "u"), o = p.o, pad_ = p.a[0];
     if (pad_ == null) { io.err("pgrep: no matching criteria specified\nTry `pgrep --help' for more information.\n"); return 2; }
+    if (!o.f && pad_.replace(/\\./g, "x").length > 15) io.err("pgrep: o padrão que pesquisa por nomes de processo maiores que 15 caracteres vai resultar em zero correspondências\nTente a opção \"pgrep -f\" para corresponder com a linha de comando completa.\n");
     var re = new RegExp(o.x ? "^(?:" + pad_ + ")$" : pad_, o.i ? "i" : "");
     var lista = this.procs.filter(function (pr) { return re.test(o.f ? pr.cmd : pr.comm) && (!o.u || pr.u === o.u); });
     if (o.c) io.out(lista.length + "\n");

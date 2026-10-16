@@ -170,7 +170,7 @@ $ ~/bin/backup.sh
 <pre class="file" data-file="crontab da ana">0 2 * * * /home/ana/bin/backup.sh &gt;&gt; /home/ana/backup.log 2&gt;&amp;1</pre>
 <dl class="anatomy">
   <dt>0 2 * * *</dt><dd>Todo dia às 2h00.</dd>
-  <dt>/home/ana/bin/backup.sh</dt><dd>O script, com caminho completo (nada de <code>~</code> ou caminho relativo).</dd>
+  <dt>/home/ana/bin/backup.sh</dt><dd>O script, com caminho completo. Nada de caminho relativo: o cron não roda na pasta que você imagina. O <code>~</code> até funciona aqui, porque o <code>/bin/sh</code> o expande, mas <strong>não</strong> funciona nas variáveis do topo do crontab (<code>PATH=~/bin</code> fica literal). Na dúvida, escreva o caminho inteiro.</dd>
   <dt>&gt;&gt; /home/ana/backup.log</dt><dd>Acrescenta o que o script escreve num arquivo de log.</dd>
   <dt>2&gt;&amp;1</dt><dd>Manda também as mensagens de erro para o mesmo log.</dd>
 </dl>
