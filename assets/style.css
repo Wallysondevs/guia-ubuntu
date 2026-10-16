@@ -106,6 +106,9 @@ code, pre, kbd, .mono {
   font-family: "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 img { max-width: 100%; }
+figure { margin: 20px 0; }
+figure img { display: block; height: auto; border: 1px solid var(--border); border-radius: 6px; }
+figcaption { margin-top: 6px; font-size: 0.9em; color: var(--muted); }
 
 /* ---------------- Barra superior ---------------- */
 .topbar {

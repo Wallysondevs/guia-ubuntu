@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Celular por USB e Modem 4G — ancoragem, mmcli e APN | Guia Ubuntu</title>
+<meta name="description" content="Use a internet do celular no Ubuntu pelo cabo USB (Android e iPhone) e conecte um modem 4G com ModemManager (mmcli) e nmcli, sabendo onde achar o APN da sua operadora.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Celular e Modem 4G</span></h1>
+
+<p class="intro">Sem cabo de rede e sem Wi-Fi funcionando, o celular salva o dia: ligado ao computador por um cabo USB, ele empresta a internet dos dados móveis. Nesta aula você usa o celular (Android ou iPhone) como "placa de rede" e aprende a conectar um <strong>modem 4G</strong> (o modem USB ou o modem interno de alguns notebooks) com o ModemManager.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>As formas de usar a internet do celular no computador, e qual escolher.</li>
+  <li>Ligar a ancoragem USB no Android e no iPhone, e o que o Ubuntu mostra.</li>
+  <li>Avisar ao Ubuntu que a conexão é limitada (plano de dados).</li>
+  <li>Listar modems com <code>mmcli</code> e criar a conexão com <code>nmcli</code>.</li>
+  <li>Onde achar o APN certo da sua operadora.</li>
+</ul>
+</div>
+
+<div class="tip">
+<strong>O que é real e o que é ilustrativo nesta aula</strong>
+<p>O laboratório do guia é uma máquina virtual: não dá para espetar um celular nem um modem de verdade nele. Por isso:</p>
+<ul>
+  <li><strong>Reais:</strong> o <code>mmcli -L</code> sem modem, o serviço ModemManager, a criação da conexão com <code>nmcli</code> (com as mensagens de erro reais) e o comportamento do NetworkManager quando uma placa de rede USB aparece.</li>
+  <li><strong>Simulado:</strong> o "celular" da ancoragem foi uma placa de rede virtual com o mesmo tipo de nome que o Ubuntu dá a um celular USB. O NetworkManager reagiu de verdade a ela.</li>
+  <li><strong>Ilustrativo:</strong> tudo que depende do celular ou do modem físico (o <code>mmcli</code> com um modem, as telas do celular). Está marcado no texto.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2 id="conceito">Internet do celular no computador: as opções</h2>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Como funciona</th><th>Bom para</th></tr>
+<tr><td><strong>Ancoragem USB</strong> (<em>USB tethering</em>)</td><td>O celular, ligado pelo cabo, vira uma placa de rede para o computador.</td><td>Quando o Wi-Fi do computador não funciona. Não precisa de driver, e o cabo ainda carrega o celular.</td></tr>
+<tr><td><strong>Roteador Wi-Fi do celular</strong> (<em>hotspot</em>, "ponto de acesso")</td><td>O celular cria uma rede Wi-Fi; o computador conecta como em qualquer Wi-Fi.</td><td>Quando o Wi-Fi do computador funciona. Veja <a href="wifi.html">Wi-Fi</a>.</td></tr>
+<tr><td><strong>Modem 4G/5G</strong> (WWAN)</td><td>Um aparelho com chip de operadora: pendrive USB ou placa interna do notebook.</td><td>Uso frequente fora de casa, sem depender do celular.</td></tr>
+</table>
+</div>
+
+<p>Duas palavras aparecem o tempo todo. <strong>Ancoragem</strong> é o nome que o Android em português dá a "compartilhar a internet do celular". <strong>WWAN</strong> (<em>wireless wide area network</em>) é como o Linux chama a rede de celular, a "rede sem fio de longa distância".</p>
+
+<hr>
+
+<h2 id="usb">Ancoragem USB</h2>
+
+<h3>No Android</h3>
+<ol class="passo">
+  <li>Ligue o celular ao computador com um cabo USB <strong>de dados</strong> (alguns cabos baratos só carregam).</li>
+  <li>No celular, abra <strong>Configurações → Rede e internet → Ponto de acesso e tethering</strong> e ligue <strong>Tethering USB</strong> (ou "Ancoragem USB"). O caminho muda conforme a marca; nos Samsung, por exemplo: <strong>Conexões → Roteador Wi-Fi e ancoragem → Ancoragem USB</strong>. A opção só fica disponível com o cabo ligado.</li>
+  <li>Pronto. No computador não há nada a fazer.</li>
+</ol>
+
+<h3>No iPhone</h3>
+<ol class="passo">
+  <li>No iPhone, abra <strong>Ajustes → Acesso Pessoal</strong> e ligue <strong>Permitir Que Outros Acessem</strong>.</li>
+  <li>Ligue o cabo. Na primeira vez, o iPhone pergunta se deve <strong>Confiar</strong> neste computador: toque em Confiar e digite o código do iPhone.</li>
+  <li>No computador, também não há nada a fazer: o Ubuntu já traz o <code>usbmuxd</code> (o programa que conversa com o iPhone) e o driver <code>ipheth</code>.</li>
+</ol>
+
+<h3>O que o Ubuntu mostra</h3>
+<p>Para o Ubuntu, o celular é uma <strong>placa de rede com cabo</strong>. O NetworkManager vê a placa nova, cria sozinho a conexão <strong>Conexão cabeada 1</strong> e pede um IP ao celular. No menu do GNOME, aparece como rede cabeada, não como Wi-Fi.</p>
+
+<p>Saídas reais do NetworkManager, com o "celular" simulado do laboratório:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli device status
+DEVICE           TYPE      STATE                   CONNECTION
+enp0s3           ethernet  conectado               netplan-enp0s3
+enx02a1b2c3d4e5  ethernet  conectado               Conexão cabeada 1   « o celular, conectado sozinho
+lo               loopback  connected (externally)  lo
+wlan0            wifi      desconectado            --
+p2p-dev-wlan0    wifi-p2p  desconectado            --
+veth-lab         ethernet  não gerenciável         --                  « peça do laboratório
+hwsim0           unknown   não gerenciável         --                  « peça do laboratório
+$ nmcli connection show
+NAME               UUID                                  TYPE      DEVICE
+netplan-enp0s3     1eef7e45-3b9d-3043-bee3-fc5925c90273  ethernet  enp0s3
+Conexão cabeada 1  05545b3a-835d-3353-a5d1-8c7aedd17923  ethernet  enx02a1b2c3d4e5
+lo                 76ccc794-03c8-4624-a379-05002bb253bd  loopback  lo</pre>
+
+<p>O nome <code>enx02a1b2c3d4e5</code> segue a regra do Ubuntu para placas de rede USB: <code>en</code> (<em>ethernet</em>), <code>x</code> e o endereço físico da placa sem os dois-pontos. O seu celular vai gerar outro nome, mas sempre começando com <code>enx</code>. (O endereço do laboratório, <code>02:a1:b2:c3:d4:e5</code>, é fictício.)</p>
+
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ ip -br a show enx02a1b2c3d4e5
+enx02a1b2c3d4e5@if10 UP             192.168.42.135/24 fe80::23ee:89bc:2fce:48e8/64   « IP emprestado pelo "celular"</pre>
+<p>O <code>@if10</code> no nome é coisa da placa virtual do laboratório; com um celular de verdade aparece só <code>enx…</code>. A faixa de IP também depende do celular.</p>
+
+<h3>Cabo, celular e Wi-Fi ao mesmo tempo: quem ganha?</h3>
+<p>Se mais de uma conexão estiver ativa, o Ubuntu usa a de <strong>menor métrica</strong> (um "custo": quanto menor, mais preferida). Saída real das rotas, com o cabo e o celular ligados:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ ip route
+default via 10.0.2.2 dev enp0s3 proto dhcp src 10.0.2.15 metric 100                  « cabo: métrica 100, ganha
+default via 192.168.42.129 dev enx02a1b2c3d4e5 proto dhcp src 192.168.42.135 metric 101   « celular: reserva
+10.0.2.0/24 dev enp0s3 proto kernel scope link src 10.0.2.15 metric 100
+10.200.0.0/30 dev veth-lab proto kernel scope link src 10.200.0.1
+192.168.42.0/24 dev enx02a1b2c3d4e5 proto kernel scope link src 192.168.42.135 metric 101</pre>
+
+<p>Por padrão o NetworkManager dá métrica 100 ao cabo, 600 ao Wi-Fi e 700 ao modem. Como o celular por USB é "cabo", ele ganha do Wi-Fi. Para usar só o celular, desligue as outras conexões (<code>nmcli connection down NOME</code>). Para entender rotas e o <code>default</code>, veja <a href="redes.html">Conceitos de Rede</a>.</p>
+
+<h3>Avise que a conexão é limitada</h3>
+<p>Dados móveis acabam. Uma conexão marcada como <strong>limitada</strong> (<em>metered</em>) faz o Ubuntu adiar downloads grandes, como atualizações automáticas. Veja a coluna <code>METERED</code> (saída real, no cabo):</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli general status
+STATE      CONNECTIVITY  WIFI-HW  WIFI        WWAN-HW  WWAN        METERED
+conectado  completa      missing  habilitado  missing  habilitado  não (adivinhado)</pre>
+<p><code>não (adivinhado)</code> = "não limitada, por palpite". Celulares Android costumam avisar que são limitados, e aí aparece <code>sim (adivinhado)</code>. Para garantir:</p>
+<pre class="term">$ nmcli connection modify "Conexão cabeada 1" connection.metered yes
+$ nmcli connection up "Conexão cabeada 1"</pre>
+<p>Pelo mouse: <strong>Configurações → Rede</strong>, engrenagem da conexão, opção <strong>Conexão limitada</strong> (ou "tráfego de dados limitado").</p>
+
+<hr>
+
+<h2 id="modem">Modem 4G/5G: ModemManager</h2>
+<p>Modems de celular são controlados pelo <strong>ModemManager</strong>, um serviço que já vem ligado no Ubuntu Desktop. Ele conversa com o modem (chip, PIN, sinal, operadora); o NetworkManager usa o que ele descobre para conectar. Saídas reais:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ systemctl is-active ModemManager
+active
+$ mmcli --version
+mmcli 1.25.95
+Copyright (2011 - 2023) Aleksander Morgado
+License GPLv2+: GNU GPL version 2 or later &lt;http://gnu.org/licenses/gpl-2.0.html&gt;
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.</pre>
+
+<h3>Listar os modems: mmcli -L</h3>
+<p><code>mmcli</code> é o <em>ModemManager command line interface</em>; <code>-L</code> lista os modems. Sem modem (saída real):</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ mmcli -L
+No modems were found
+$ echo $?
+0</pre>
+<p><code>No modems were found</code> = "nenhum modem foi encontrado". O código <code>0</code> mostra que não é um erro: a lista só está vazia. Com um modem ligado, aparece algo assim (<strong>ilustrativo</strong>):</p>
+<pre class="term">$ mmcli -L
+    /org/freedesktop/ModemManager1/Modem/0 [Fabricante] Modem LTE      « o número no fim (0) identifica o modem</pre>
+
+<p>Para ver o estado do modem número 0, use <code>mmcli -m 0</code>. Trecho <strong>ilustrativo</strong>, com as linhas que mais importam:</p>
+<pre class="term">$ mmcli -m 0
+  --------------------------------
+  Hardware |         manufacturer: Fabricante
+           |                model: Modem LTE
+  --------------------------------
+  Status   |                 lock: sim-pin2
+           |                state: registered          « registrado na operadora: pronto para conectar
+           |          power state: on
+           |       signal quality: 72% (recent)
+  --------------------------------
+  3GPP     |        operator name: Operadora
+           |         registration: home</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th><code>state</code></th><th>Significado</th></tr>
+<tr><td><code>locked</code></td><td>O chip pede o PIN (veja abaixo).</td></tr>
+<tr><td><code>registered</code></td><td>Achou a operadora e está pronto para conectar.</td></tr>
+<tr><td><code>connected</code></td><td>Conectado: a internet está passando pelo modem.</td></tr>
+<tr><td><code>failed</code></td><td>Problema com o chip (ausente, mal encaixado ou bloqueado).</td></tr>
+</table>
+</div>
+
+<h3 id="apn">Onde achar o APN certo</h3>
+<p>O <strong>APN</strong> (<em>Access Point Name</em>, "nome do ponto de acesso") é o "endereço" que a operadora usa para liberar a internet do chip. Ele muda de operadora para operadora, às vezes de plano para plano, e pode mudar com o tempo. Por isso, em vez de decorar uma lista, pegue o valor numa fonte confiável:</p>
+<ol class="passo">
+  <li><strong>No próprio celular, com o chip que vai para o modem.</strong> O celular já está configurado e mostra o APN que usa:
+    <ul>
+      <li><strong>Android:</strong> <em>Configurações → Rede e internet → Chips (ou Rede móvel) → Nomes dos pontos de acesso</em>. Nos Samsung: <em>Conexões → Redes móveis → Nomes de Ponto de Acesso</em>. Toque no item marcado: o campo <strong>APN</strong> é o valor; <strong>Nome de usuário</strong> e <strong>Senha</strong>, se estiverem preenchidos, também vão no comando.</li>
+      <li><strong>iPhone:</strong> <em>Ajustes → Celular → Rede de Dados Celular</em>, campo <strong>APN</strong> em "Dados Celulares". Se esse menu não aparece, a operadora configura o iPhone sozinha: use a próxima opção.</li>
+    </ul>
+  </li>
+  <li><strong>No site ou no atendimento da operadora.</strong> Procure por "APN" na página de ajuda, ou pergunte no atendimento qual é o APN de internet do seu plano.</li>
+</ol>
+
+<div class="tip">
+<strong>Copie exatamente</strong>
+<p>O APN tem cara de endereço de site (palavras separadas por pontos). Copie letra por letra: um ponto a mais e a operadora não deixa conectar. Nos exemplos desta aula, <code>SEU_APN</code> marca o lugar onde vai o valor que você achou.</p>
+</div>
+
+<h3>Criar a conexão: nmcli connection add type gsm</h3>
+<dl class="anatomy">
+  <dt>nmcli connection add</dt><dd>Crie uma conexão salva nova.</dd>
+  <dt>type gsm</dt><dd>Do tipo modem de celular (GSM é a família das redes 2G a 5G).</dd>
+  <dt>ifname '*'</dt><dd>Em qualquer modem que aparecer. As <strong>aspas são obrigatórias</strong>: sem elas, o shell troca o <code>*</code> pelos nomes dos arquivos da pasta (veja <a href="curingas.html">Curingas</a>).</dd>
+  <dt>con-name Chip4G</dt><dd>O nome da conexão, à sua escolha.</dd>
+  <dt>apn SEU_APN</dt><dd>O APN da operadora.</dd>
+</dl>
+
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli connection add type gsm ifname '*' con-name Chip4G apn SEU_APN
+A conexão “Chip4G” (6c6cf4e8-1b1f-4343-9be0-cd58634272bd) foi adicionada com sucesso.
+$ nmcli connection show
+NAME               UUID                                  TYPE      DEVICE
+Conexão cabeada 1  05545b3a-835d-3353-a5d1-8c7aedd17923  ethernet  enx02a1b2c3d4e5
+netplan-enp0s3     1eef7e45-3b9d-3043-bee3-fc5925c90273  ethernet  enp0s3
+lo                 76ccc794-03c8-4624-a379-05002bb253bd  loopback  lo
+Chip4G             6c6cf4e8-1b1f-4343-9be0-cd58634272bd  gsm       --        « tipo gsm, ainda sem modem
+$ nmcli -f connection.id,connection.type,connection.interface-name,gsm.apn,connection.autoconnect connection show Chip4G
+connection.id:                          Chip4G
+connection.type:                        gsm
+connection.interface-name:              --
+gsm.apn:                                "SEU_APN"
+connection.autoconnect:                 sim       « conecta sozinha quando o modem aparecer</pre>
+
+<p>Se a operadora pede usuário e senha, ou se o chip tem PIN, acrescente ao <code>add</code> (ou depois, com <code>modify</code>):</p>
+<pre class="term">$ nmcli connection modify Chip4G gsm.username USUARIO gsm.password SENHA
+$ nmcli connection modify Chip4G gsm.pin 1234</pre>
+
+<p>Com o modem ligado e registrado, ative (<strong>ilustrativo</strong>):</p>
+<pre class="term">$ nmcli connection up Chip4G
+Conexão ativada com sucesso (caminho D-Bus ativo: /org/freedesktop/NetworkManager/ActiveConnection/3)</pre>
+
+<p>Sem modem, a mensagem é esta (saída real):</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli connection up Chip4G
+Erro: Ativação da conexão falhou: No suitable device found for this connection (device lo not available because profile is not compatible with device (connection type is not "loopback")).</pre>
+<p>"Nenhum dispositivo adequado encontrado para esta conexão". A parte entre parênteses só conta que ele testou a placa <code>lo</code> e ela não serve. Em resumo: não há modem.</p>
+
+<p>Pelo mouse, quando há um modem, as Configurações ganham uma seção de rede móvel, e o menu do sistema mostra a conexão do modem, como no Wi-Fi (<strong>ilustrativo</strong>: o laboratório não tinha modem).</p>
+
+<h3>Modem USB que vira pendrive: usb_modeswitch</h3>
+<p>Muitos modems USB chegam disfarçados de "CD" ou pendrive, com o programa de instalação para Windows. O pacote <code>usb-modeswitch</code>, que vem instalado no Ubuntu Desktop, troca o modem para o modo "modem" sozinho alguns segundos depois de espetar. Se o <code>mmcli -L</code> continuar vazio, rode <code>lsusb</code>: se o aparelho aparece como "Mass Storage" (armazenamento), espere um pouco ou tente outra porta USB; alguns modelos muito novos ou raros não são reconhecidos.</p>
+
+<hr>
+
+<h2 id="servidor">E no Ubuntu Server?</h2>
+<p>A ancoragem USB funciona do mesmo jeito: o celular vira uma placa <code>enx…</code>. Mas o servidor não cria a conexão sozinho, como o NetworkManager faz no desktop. Descubra o nome com <code>ip -br link</code> e acrescente a placa no Netplan com <code>dhcp4: true</code>, como em <a href="configurar-rede.html">Configurar a Rede</a>. Modems 4G no servidor dão mais trabalho: o Netplan só configura modems (a seção <code>modems:</code>) através do NetworkManager e do ModemManager, que o Ubuntu Server não traz instalados. Para estudar, o celular por USB é bem mais simples.</p>
+
+<hr>
+
+<h2>Formas diferentes de ter internet sem cabo de rede</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Situação</th><th>Use</th><th>Precisa de driver?</th></tr>
+<tr><td>Wi-Fi do computador funciona</td><td>Wi-Fi da casa, ou roteador Wi-Fi do celular</td><td>Não</td></tr>
+<tr><td>Wi-Fi do computador não funciona</td><td>Ancoragem USB do celular</td><td>Não (já vem no Ubuntu)</td></tr>
+<tr><td>Uso frequente fora de casa</td><td>Modem 4G com chip próprio</td><td>Geralmente não; o ModemManager reconhece a maioria</td></tr>
+<tr><td>Durante a instalação, sem Wi-Fi reconhecido</td><td>Ancoragem USB: o instalador a vê como cabo</td><td>Não (veja <a href="instalacao.html#internet">Instalação</a>)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2 id="problemas">Quando não funciona</h2>
+
+<div class="cenario">
+<strong>A opção de ancoragem USB está cinza no celular</strong>
+<p><strong>O que aconteceu:</strong> o celular não detectou um computador no cabo. Ou o cabo é só de carga, ou o celular está no modo "só carregar".</p>
+<p><strong>Como resolver:</strong> use outro cabo (de preferência o original) e, na notificação USB do Android, escolha "Transferência de arquivos" ou "Ancoragem USB".</p>
+</div>
+
+<div class="cenario">
+<strong>"Conexão cabeada 1" fica "conectando" e não pega IP</strong>
+<p><strong>O que aconteceu:</strong> o celular está sem dados móveis (sem sinal, sem crédito, dados desligados) ou a ancoragem foi desligada.</p>
+<p><strong>Como confirmar:</strong> abra um site no próprio celular. Rode <code>nmcli device status</code> e veja o estado da placa <code>enx…</code>.</p>
+<p><strong>Como resolver:</strong> ligue os dados móveis, desligue e ligue a ancoragem, e reconecte com <code>nmcli connection up "Conexão cabeada 1"</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"&lt;definição&gt;.&lt;propriedade&gt; … inválida" ao criar o modem</strong>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli connection add type gsm ifname * con-name Chip4G apn SEU_APN
+Erro: &lt;definição&gt;.&lt;propriedade&gt; “Documents” inválida.</pre>
+<p><strong>O que aconteceu:</strong> saída real. O <code>*</code> sem aspas foi trocado pelo shell pelos nomes das pastas da pasta pessoal (aqui, <code>Documents</code>), e o <code>nmcli</code> recebeu palavras que não entende.</p>
+<p><strong>Como resolver:</strong> ponha o asterisco entre aspas: <code>ifname '*'</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"No modems were found" com o modem espetado</strong>
+<p><strong>O que aconteceu:</strong> o modem ainda está no modo "pendrive", não é suportado, ou o ModemManager está parado.</p>
+<p><strong>Como confirmar:</strong> <code>systemctl is-active ModemManager</code> (deve dizer <code>active</code>) e <code>lsusb</code> (o modem aparece? como modem ou como armazenamento?).</p>
+<p><strong>Como resolver:</strong> espere alguns segundos (o <code>usb_modeswitch</code> trabalha sozinho), troque de porta, ou ligue o serviço com <code>sudo systemctl enable --now ModemManager</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>O modem conecta mas não navega</strong>
+<p><strong>O que aconteceu:</strong> quase sempre é o <strong>APN errado</strong>: a operadora aceita o chip, mas não libera os dados.</p>
+<p><strong>Como resolver:</strong> confira o APN no celular ou com a operadora (<a href="#apn">Onde achar o APN</a>) e corrija: <code>nmcli connection modify Chip4G gsm.apn SEU_APN</code>, depois <code>nmcli connection up Chip4G</code>.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Faz</th></tr>
+<tr><td><code>nmcli device status</code></td><td>Mostra a placa <code>enx…</code> do celular</td></tr>
+<tr><td><code>nmcli connection modify NOME connection.metered yes</code></td><td>Marca a conexão como limitada</td></tr>
+<tr><td><code>ip route</code></td><td>Mostra qual saída (métrica menor) está sendo usada</td></tr>
+<tr><td><code>systemctl is-active ModemManager</code></td><td>Confere se o serviço de modems está rodando</td></tr>
+<tr><td><code>mmcli -L</code></td><td>Lista os modems</td></tr>
+<tr><td><code>mmcli -m 0</code></td><td>Estado do modem 0 (chip, sinal, operadora)</td></tr>
+<tr><td><code>nmcli connection add type gsm ifname '*' con-name NOME apn SEU_APN</code></td><td>Cria a conexão do modem</td></tr>
+<tr><td><code>nmcli connection modify NOME gsm.pin 1234</code></td><td>Grava o PIN do chip</td></tr>
+<tr><td><code>nmcli connection up NOME</code></td><td>Conecta pelo modem</td></tr>
+<tr><td><code>nmcli radio wwan on|off</code></td><td>Liga ou desliga o rádio do modem</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Listar os modems</h3>
+<p>Complete para listar os modems que o ModemManager encontrou:</p>
+<div class="ex-code">mmcli <input data-answer="-L|--list-modems" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Criar a conexão do modem</h3>
+<p>Complete com o tipo de conexão de modem de celular:</p>
+<div class="ex-code">nmcli connection add type <input data-answer="gsm" aria-label="tipo"> ifname '*' con-name Chip4G apn SEU_APN</div>
+</div>
+
+<div class="exercise">
+<h3>3. Plano de dados</h3>
+<p>Complete para marcar a conexão do celular como limitada:</p>
+<div class="ex-code">nmcli connection modify "Conexão cabeada 1" connection.metered <input data-answer="yes|sim|true" aria-label="valor"></div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. O celular está ligado por USB com a ancoragem ativa. Como ele aparece no Ubuntu?</p>
+<label><input type="radio" name="c4"> Como uma rede Wi-Fi nova na lista.</label>
+<label><input type="radio" name="c4"> Como um modem no <code>mmcli -L</code>.</label>
+<label><input type="radio" name="c4"> Como uma placa de rede com cabo (<code>enx…</code>), em "Conexão cabeada 1".</label>
+<label><input type="radio" name="c4"> Como um pendrive.</label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. O modem conecta, mas nenhum site abre. Qual é a causa mais provável?</p>
+<label><input type="radio" name="c5"> Falta o driver <code>usb_modeswitch</code>.</label>
+<label><input type="radio" name="c5"> O APN está errado.</label>
+<label><input type="radio" name="c5"> O Wi-Fi está bloqueado pelo rfkill.</label>
+<label><input type="radio" name="c5"> O <code>ifname</code> está entre aspas.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">6. Cabo (métrica 100) e celular por USB (métrica 101) estão conectados. Por onde sai a internet?</p>
+<label><input type="radio" name="c6"> Pelo cabo, que tem a menor métrica.</label>
+<label><input type="radio" name="c6"> Pelo celular, que foi conectado por último.</label>
+<label><input type="radio" name="c6"> Metade por cada um.</label>
+<label><input type="radio" name="c6"> Por nenhum: duas rotas <code>default</code> dão erro.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Ancoragem USB: ligue no celular; o Ubuntu cria a "Conexão cabeada 1" na placa <code>enx…</code> sozinho, sem driver.</li>
+  <li>Marque dados móveis como limitados: <code>connection.metered yes</code>.</li>
+  <li>Modems: o ModemManager já vem ligado; <code>mmcli -L</code> lista, <code>mmcli -m 0</code> mostra o estado.</li>
+  <li><code>nmcli connection add type gsm ifname '*' con-name Chip4G apn SEU_APN</code>, com o APN tirado do celular ou da operadora.</li>
+  <li>Conecta mas não navega: confira o APN.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

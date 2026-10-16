@@ -96,9 +96,9 @@ wlp2s0           UP             192.168.0.15/24 fe80::5a1c:3b2d:8e4f:9a10/64</pr
     inet6 ::1/128 scope host noprefixroute
        valid_lft forever preferred_lft forever
 2: enp3s0: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc fq_codel state DOWN group default qlen 1000   « NO-CARRIER: sem cabo
-    link/ether 3c:a9:f4:12:ab:cd brd ff:ff:ff:ff:ff:ff                                     « endereço físico (MAC)
+    link/ether 02:ab:cd:15:00:01 brd ff:ff:ff:ff:ff:ff                                     « endereço físico (MAC)
 3: wlp2s0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default qlen 1000   « Wi-Fi ligado
-    link/ether 7c:b2:7d:44:19:e5 brd ff:ff:ff:ff:ff:ff
+    link/ether 02:ab:cd:15:00:02 brd ff:ff:ff:ff:ff:ff
     inet 192.168.0.15/24 brd 192.168.0.255 scope global dynamic noprefixroute wlp2s0       « o seu IPv4
        valid_lft 3178sec preferred_lft 3178sec                                             « o empréstimo do IP vence em ~53 min
     inet6 fe80::5a1c:3b2d:8e4f:9a10/64 scope link noprefixroute                            « IPv6 local
@@ -111,7 +111,7 @@ wlp2s0           UP             192.168.0.15/24 fe80::5a1c:3b2d:8e4f:9a10/64</pr
 <tr><td><code>&lt;…UP,LOWER_UP&gt;</code></td><td>Sinais de estado. <code>UP</code>: a placa foi ligada pelo sistema. <code>LOWER_UP</code>: há conexão física (cabo ou Wi-Fi associado). <code>NO-CARRIER</code>: ligada, mas sem cabo ou sinal.</td></tr>
 <tr><td><code>mtu 1500</code></td><td>Tamanho máximo de cada pacote, em bytes. 1500 é o padrão.</td></tr>
 <tr><td><code>state UP</code></td><td>Estado geral: <code>UP</code> funcionando, <code>DOWN</code> parada.</td></tr>
-<tr><td><code>link/ether 7c:b2:…</code></td><td>Endereço <strong>MAC</strong>: a "placa do carro" da interface, gravada pelo fabricante.</td></tr>
+<tr><td><code>link/ether 02:ab:…</code></td><td>Endereço <strong>MAC</strong>: a "placa do carro" da interface, gravada pelo fabricante.</td></tr>
 <tr><td><code>inet 192.168.0.15/24</code></td><td>O endereço IPv4 e a máscara.</td></tr>
 <tr><td><code>brd 192.168.0.255</code></td><td>Endereço de <em>broadcast</em>: mensagem para todos do bairro.</td></tr>
 <tr><td><code>dynamic</code></td><td>O IP veio do DHCP, entregue pelo roteador. Um IP fixo não tem essa palavra.</td></tr>
@@ -166,13 +166,13 @@ default via 192.168.0.1 dev wlp2s0 proto dhcp src 192.168.0.15 metric 600      �
 <p><code>ip -br link</code> mostra as placas com o endereço físico (MAC), sem os IPs:</p>
 <pre class="term">$ ip -br link
 lo               UNKNOWN        00:00:00:00:00:00 &lt;LOOPBACK,UP,LOWER_UP&gt;
-enp3s0           DOWN           3c:a9:f4:12:ab:cd &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt;
-wlp2s0           UP             7c:b2:7d:44:19:e5 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt;</pre>
+enp3s0           DOWN           02:ab:cd:15:00:01 &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt;
+wlp2s0           UP             02:ab:cd:15:00:02 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt;</pre>
 
 <p><code>ip neigh</code> mostra os aparelhos da rede local com os quais o computador já conversou, com o MAC de cada um:</p>
 <pre class="term">$ ip neigh
-192.168.0.1 dev wlp2s0 lladdr a4:91:b1:0c:22:7e REACHABLE       « o roteador, respondendo agora
-192.168.0.31 dev wlp2s0 lladdr d8:3a:dd:51:90:04 STALE          « um aparelho visto há algum tempo</pre>
+192.168.0.1 dev wlp2s0 lladdr 02:ab:cd:00:00:10 REACHABLE       « o roteador, respondendo agora
+192.168.0.31 dev wlp2s0 lladdr 02:ab:cd:00:00:31 STALE          « um aparelho visto há algum tempo</pre>
 
 <h3>Ligar e desligar uma placa</h3>
 <p>Dá para desligar e ligar uma placa com <code>ip link set</code>. Isso exige <code>sudo</code>:</p>
@@ -329,7 +329,7 @@ lo               UNKNOWN        127.0.0.1/8 ::1/128
 enp3s0           DOWN
 wlp2s0           DOWN</pre>
 <p><strong>O que aconteceu:</strong> o Wi-Fi está desligado ou não conectou a nenhuma rede. Se a placa de cabo aparece como <code>NO-CARRIER</code> no <code>ip a</code>, o cabo está solto ou com defeito.</p>
-<p><strong>Como resolver:</strong> ligue o Wi-Fi e escolha a rede pelo menu do canto superior direito, ou com <code>nmcli device wifi connect</code> (veja <a href="configurar-rede.html">Configurar a Rede</a>).</p>
+<p><strong>Como resolver:</strong> ligue o Wi-Fi e escolha a rede pelo menu do canto superior direito, ou com <code>nmcli device wifi connect</code> (veja <a href="wifi.html">Wi-Fi</a>). Se o Wi-Fi não liga ou nem aparece, veja <a href="wifi-problemas.html">Wi-Fi que Não Funciona</a>.</p>
 </div>
 
 <div class="cenario">

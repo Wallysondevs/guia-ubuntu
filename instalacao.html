@@ -27,6 +27,7 @@
   <li>Qual forma de instalação escolher, de acordo com o seu objetivo.</li>
   <li>Criar e controlar máquinas virtuais com o Multipass, comando por comando.</li>
   <li>Conferir se a ISO baixada não veio corrompida.</li>
+  <li>Conectar à internet (Wi-Fi ou celular) durante a instalação, e o que muda instalando sem internet.</li>
   <li>Fazer a primeira atualização depois de instalar.</li>
 </ul>
 </div>
@@ -300,6 +301,111 @@ sdb      14,6G usb    SanDisk Ultra         « o pendrive de 16 GB</pre>
 
 <hr>
 
+<h2 id="internet">Internet durante a instalação</h2>
+<p>Logo no começo, o instalador do Ubuntu Desktop pergunta como o computador vai se conectar à internet. Nem todo mundo tem cabo de rede: a maioria usa Wi-Fi, e às vezes o jeito é a internet do celular. Esta seção mostra as telas reais do instalador do Ubuntu 26.04 e o que muda se você instalar <strong>sem</strong> internet.</p>
+
+<div class="tip">
+<strong>Telas reais, rede de laboratório</strong>
+<p>As capturas são do instalador de verdade, rodando numa máquina virtual com placas Wi-Fi virtuais (veja <a href="wifi.html#laboratorio">como o laboratório foi feito</a>). As redes <code>CasaDaAna</code> e <code>Vizinho_2G</code> são do laboratório. A instalação não foi concluída: as telas vão só até a escolha de software.</p>
+</div>
+
+<h3>A tela "Conecte-se a uma rede"</h3>
+<p>Depois do idioma, da acessibilidade e do teclado, vem esta tela:</p>
+<figure>
+<img src="img/instalador-rede.png" alt="Instalador do Ubuntu, tela Conecte-se a uma rede: Conecte-se a internet. Opções: Nenhuma conexão a cabo detectada (desativada), Conectar-se a uma rede Wi-Fi, Conectar-se a uma rede Wi-Fi oculta, Não quero conectar à internet neste momento (marcada). Botões Voltar e Próximo" width="962" height="682" loading="lazy">
+<figcaption>Captura real, num computador sem cabo de rede. "Uma conexão com a internet irá melhorar sua instalação com a checagem de compatibilidade e pacotes extras de software."</figcaption>
+</figure>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Opção</th><th>Quando usar</th></tr>
+<tr><td><strong>Conexão cabeada</strong> (primeira linha)</td><td>Fica disponível quando há cabo de rede ligado (ou um celular com ancoragem USB, que conta como cabo). Sem cabo, a linha fica cinza, com o texto "Nenhuma conexão a cabo detectada", como na captura.</td></tr>
+<tr><td><strong>Conectar-se a uma rede Wi-Fi</strong></td><td>O caso mais comum: mostra as redes ao alcance.</td></tr>
+<tr><td><strong>Conectar-se a uma rede Wi-Fi oculta</strong></td><td>Para redes que não anunciam o nome (você digita o nome e a senha).</td></tr>
+<tr><td><strong>Não quero conectar à internet neste momento</strong></td><td>Instala só com o que está no pendrive. Funciona; veja abaixo o que fica para depois.</td></tr>
+</table>
+</div>
+
+<h3>Conectando ao Wi-Fi</h3>
+<ol class="passo">
+<li>
+<p>Marque <strong>Conectar-se a uma rede Wi-Fi</strong>. A lista de redes aparece; clique na sua. O botão do canto passa a se chamar <strong>Conectar</strong>.</p>
+<figure>
+<img src="img/instalador-wifi-lista.png" alt="Instalador do Ubuntu com Conectar-se a uma rede Wi-Fi marcado e a lista de redes CasaDaAna e Vizinho_2G, cada uma com ícone de sinal e cadeado" width="962" height="682" loading="lazy">
+<figcaption>Captura real: a lista de redes no instalador.</figcaption>
+</figure>
+</li>
+<li>
+<p>Clique em <strong>Conectar</strong>. A senha é pedida na mesma janela que o Ubuntu usa depois de instalado:</p>
+<figure>
+<img src="img/instalador-wifi-senha.png" alt="Janela Autenticação necessária sobre o instalador: Senhas ou chaves criptografadas são necessárias para acessar a rede sem fio CasaDaAna, campo Senha, botões Cancelar e Conectar" width="962" height="682" loading="lazy">
+<figcaption>Captura real. Se a senha estiver errada, esta janela simplesmente aparece de novo.</figcaption>
+</figure>
+</li>
+<li>
+<p>Com a senha certa, a rede ganha um ✓ e o botão volta a ser <strong>Próximo</strong>.</p>
+<figure>
+<img src="img/instalador-wifi-conectado.png" alt="Instalador com CasaDaAna marcada com um sinal de visto na lista de redes Wi-Fi e o botão Próximo" width="962" height="682" loading="lazy">
+<figcaption>Captura real: conectado.</figcaption>
+</figure>
+</li>
+</ol>
+
+<p>Com internet, o instalador pode oferecer uma versão mais nova dele mesmo. <strong>Atualizar agora</strong> baixa e reabre o instalador; <strong>Pular</strong> segue com a versão do pendrive. As duas funcionam.</p>
+<figure>
+<img src="img/instalador-atualizacao.png" alt="Instalador, tela Atualização disponível: Uma atualização está disponível para o instalador. Atualize para a versão mais recente para maior confiabilidade e mais recursos. Botões Atualizar agora e Pular" width="962" height="682" loading="lazy">
+<figcaption>Captura real: só aparece quando há internet.</figcaption>
+</figure>
+
+<h3>Software proprietário: drivers de Wi-Fi e formatos de mídia</h3>
+<p>Algumas telas depois, o instalador pergunta se deve instalar software proprietário (de código fechado). Compare a tela com e sem internet:</p>
+<figure>
+<img src="img/instalador-proprietario-online.png" alt="Instalador, tela Otimize seu computador: Instalar software proprietário recomendado? Caixas Instalar drivers de terceiros para Wi-Fi e placas gráficas, e Baixar e instalar suporte para formatos de mídia adicionais, as duas disponíveis" width="962" height="682" loading="lazy">
+<figcaption>Captura real, com internet: as duas caixas estão disponíveis.</figcaption>
+</figure>
+<figure>
+<img src="img/instalador-proprietario-offline.png" alt="A mesma tela sem internet: a caixa Instalar drivers de terceiros para Wi-Fi e placas gráficas continua disponível, e a caixa Baixar e instalar suporte para formatos de mídia adicionais fica cinza" width="962" height="682" loading="lazy">
+<figcaption>Captura real, sem internet: os formatos de mídia ficam cinza; os drivers, não.</figcaption>
+</figure>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Caixa</th><th>O que instala</th><th>Sem internet</th></tr>
+<tr><td><strong>Instalar drivers de terceiros para Wi-Fi e placas gráficas</strong></td><td>Drivers proprietários para o seu hardware, como os de placas de vídeo NVIDIA e o de Wi-Fi Broadcom (<code>broadcom-sta-dkms</code>).</td><td>Funciona com o que está no pendrive: o driver Broadcom vem dentro da ISO.</td></tr>
+<tr><td><strong>Baixar e instalar suporte para formatos de mídia adicionais</strong></td><td>Codecs para tocar MP3, MP4, MOV e outros formatos.</td><td>Fica cinza: precisa baixar.</td></tr>
+</table>
+</div>
+
+<div class="note">
+<strong>Notebook com Wi-Fi que não funciona no modo de teste?</strong>
+<p>Marque <strong>Instalar drivers de terceiros</strong>. Placas Broadcom, as mais comuns nesse caso, só funcionam com esse driver, e ele é instalado mesmo sem internet. Se o Wi-Fi nem aparece na tela "Conecte-se a uma rede", use o plano B abaixo.</p>
+</div>
+
+<h3>O que fica para depois quando você instala sem internet</h3>
+<p>Instalar sem internet dá certo: o pendrive tem tudo para um sistema funcional. Só três coisas ficam para quando você tiver conexão:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>O que ficou faltando</th><th>Como resolver depois</th></tr>
+<tr><td>Atualizações publicadas depois da ISO</td><td><code>sudo apt update</code> e <code>sudo apt upgrade</code> (veja <a href="#atualizar">A primeira atualização</a>).</td></tr>
+<tr><td>Drivers que não estavam no pendrive</td><td>Drivers Adicionais ou <code>sudo ubuntu-drivers install</code> (veja <a href="wifi-problemas.html#drivers">Wi-Fi que Não Funciona</a>).</td></tr>
+<tr><td>Codecs de mídia</td><td><code>sudo apt install ubuntu-restricted-extras</code>. Durante a instalação, ele mostra a licença das fontes da Microsoft: use <kbd>Tab</kbd> para chegar ao &lt;Ok&gt;, <kbd>Enter</kbd>, e depois escolha &lt;Sim&gt;.</td></tr>
+</table>
+</div>
+
+<h3 id="celular">Plano B: a internet do celular pelo cabo USB</h3>
+<p>Se o Wi-Fi do computador não é reconhecido pelo pendrive, ligue o celular com um cabo USB e ative a <strong>ancoragem USB</strong> (Android) ou o <strong>Acesso Pessoal</strong> (iPhone). O instalador enxerga o celular como uma conexão <strong>com cabo</strong>: a primeira linha da tela, a da conexão cabeada, deixa de ficar cinza. O passo a passo no celular está em <a href="celular-modem.html">Celular e Modem 4G</a>. É assim que você consegue instalar o driver que falta já durante a instalação.</p>
+
+<h3>No Ubuntu Server</h3>
+<p>O instalador do Ubuntu Server (o <em>subiquity</em>) é uma tela de texto, em inglês, e tem a sua própria etapa de rede, a <strong>Network configuration</strong> ("configuração de rede"). Esta parte <strong>não foi capturada</strong> no laboratório: é descrita a partir da documentação oficial do instalador.</p>
+<ul>
+  <li>A tela lista as placas de rede (coluna <code>NAME</code>) com o tipo e o estado. Placas com cabo recebem IP por DHCP sozinhas.</li>
+  <li>Para usar Wi-Fi, selecione a placa sem fio (<code>wlp…</code>) e escolha <strong>Edit Wi-Fi</strong> ("editar Wi-Fi"): o instalador pede o nome da rede (SSID) e a senha.</li>
+  <li>Sem rede nenhuma, o botão <strong>Continue without network</strong> ("continuar sem rede") instala só com o que está no pendrive. Depois, configure a rede pelo Netplan (veja <a href="wifi.html#servidor">Wi-Fi no Ubuntu Server</a>).</li>
+  <li>O celular por USB também funciona aqui: ele aparece na lista como uma placa com cabo (<code>enx…</code>).</li>
+</ul>
+
+<hr>
+
 <h2>Dual boot com o Windows</h2>
 <p><strong>Dual boot</strong> é ter dois sistemas no mesmo computador e escolher qual usar ao ligar. O instalador do Ubuntu detecta o Windows e oferece instalar ao lado dele.</p>
 
@@ -320,7 +426,7 @@ sdb      14,6G usb    SanDisk Ultra         « o pendrive de 16 GB</pre>
 
 <hr>
 
-<h2>A primeira atualização</h2>
+<h2 id="atualizar">A primeira atualização</h2>
 <p>A ISO foi gerada num certo dia. Depois de instalar, baixe as atualizações publicadas desde então. São dois passos, e cada um tem uma função:</p>
 
 <dl class="anatomy">
@@ -454,6 +560,14 @@ sudo apt <input data-answer="upgrade" aria-label="segundo passo"> -y</div>
 <label><input type="radio" name="q5"> <code>status=progress</code></label>
 </div>
 
+<div class="mc" data-answer="2">
+<p class="mc-q">6. Você vai instalar sem internet. Qual opção da tela "Otimize seu computador" continua disponível?</p>
+<label><input type="radio" name="q6"> Baixar e instalar suporte para formatos de mídia adicionais.</label>
+<label><input type="radio" name="q6"> Instalar drivers de terceiros para Wi-Fi e placas gráficas.</label>
+<label><input type="radio" name="q6"> Nenhuma das duas.</label>
+<label><input type="radio" name="q6"> As duas.</label>
+</div>
+
 <hr>
 
 <h2>Resumo</h2>
@@ -462,6 +576,7 @@ sudo apt <input data-answer="upgrade" aria-label="segundo passo"> -y</div>
   <li>Confira a ISO com <code>sha256sum -c SHA256SUMS --ignore-missing</code>.</li>
   <li><code>multipass launch</code>, <code>list</code>, <code>shell</code>, <code>stop</code>, <code>delete</code> e <code>purge</code> controlam as máquinas.</li>
   <li>No <code>dd</code>, confira o <code>of=</code> três vezes. Na dúvida, use o balenaEtcher.</li>
+  <li>No instalador, conecte ao Wi-Fi na tela "Conecte-se a uma rede" e marque "drivers de terceiros" se o Wi-Fi for Broadcom. Sem internet, a instalação funciona; atualizações, drivers extras e codecs ficam para depois.</li>
   <li>Depois de instalar: <code>sudo apt update</code> e <code>sudo apt upgrade</code>.</li>
 </ul>
 

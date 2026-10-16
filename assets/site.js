@@ -81,6 +81,9 @@ var NIVEIS = [
       ["ip.html", "ip, ping, ss"],
       ["curl-wget.html", "curl, wget, dig"],
       ["configurar-rede.html", "Configurar a Rede"],
+      ["wifi.html", "Wi-Fi"],
+      ["wifi-problemas.html", "Wi-Fi que Não Funciona"],
+      ["celular-modem.html", "Celular e Modem 4G"],
       ["ssh.html", "SSH"],
       ["scp-rsync.html", "scp e rsync"]
     ]},

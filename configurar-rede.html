@@ -18,13 +18,13 @@
 
 <h1>Ubuntu <span class="hl">Configurar a Rede</span></h1>
 
-<p class="intro">Ver a rede você já sabe (<a href="ip.html">ip, ping, ss</a>). Agora é hora de <strong>mudar</strong>: conectar a um Wi-Fi pelo terminal, colocar um IP fixo, trocar o DNS e dar nome à máquina. O Ubuntu Desktop usa o <strong>NetworkManager</strong> (comando <code>nmcli</code>); o Ubuntu Server usa o <strong>Netplan</strong> (arquivos YAML).</p>
+<p class="intro">Ver a rede você já sabe (<a href="ip.html">ip, ping, ss</a>). Agora é hora de <strong>mudar</strong>: colocar um IP fixo, trocar o DNS e dar nome à máquina. (Conectar ao Wi-Fi tem aula própria: <a href="wifi.html">Wi-Fi</a>.) O Ubuntu Desktop usa o <strong>NetworkManager</strong> (comando <code>nmcli</code>); o Ubuntu Server usa o <strong>Netplan</strong> (arquivos YAML).</p>
 
 <div class="note">
 <strong>Você vai aprender</strong>
 <ul>
   <li>Quem manda na rede no desktop e no servidor, e por que isso importa.</li>
-  <li>Listar redes Wi-Fi e conectar com <code>nmcli</code>.</li>
+  <li>Ver o estado da rede e as conexões salvas com <code>nmcli</code>.</li>
   <li>Colocar IP fixo e DNS próprio, pelo <code>nmcli</code> e pelo Netplan.</li>
   <li>Mudar o nome da máquina e criar apelidos de nomes no <code>/etc/hosts</code>.</li>
 </ul>
@@ -85,29 +85,8 @@ enp3s0   ethernet  não disponível            --            « sem cabo</pre>
 </table>
 </div>
 
-<h3>Listar redes Wi-Fi</h3>
-<pre class="term">$ nmcli device wifi list
-IN-USE  BSSID              SSID          MODE   CHAN  RATE         SIGNAL  BARS  SECURITY
-        02:AB:CD:00:00:01  Casa-2.4GHz   Infra  3     130 Mbit/s   57      ▂▄▆_  WPA2
-*       02:AB:CD:00:00:02  Casa-5GHz     Infra  36    1170 Mbit/s  39      ▂▄__  WPA2     « * = conectado agora
-        02:AB:CD:00:01:01  Vizinho       Infra  8     270 Mbit/s   34      ▂▄__  WPA1 WPA2</pre>
-
-<p><code>SSID</code> é o nome da rede; <code>SIGNAL</code> vai de 0 a 100; <code>CHAN</code> é o canal (1 a 13 é 2,4 GHz, 36 em diante é 5 GHz).</p>
-
-<h3>Conectar a um Wi-Fi</h3>
-<dl class="anatomy">
-  <dt>nmcli device wifi connect</dt><dd>"Conecte a placa Wi-Fi a uma rede".</dd>
-  <dt>"Casa-5GHz"</dt><dd>O nome (SSID). Use aspas se tiver espaço.</dd>
-  <dt>--ask</dt><dd>Pergunta a senha na hora, sem deixá-la gravada no histórico do terminal.</dd>
-</dl>
-
-<pre class="term">$ nmcli device wifi connect "Casa-5GHz" --ask
-Senha: ••••••••
-Dispositivo “wlp2s0” ativado com sucesso com “1d9e3c4a-…”.</pre>
-
-<p>A forma curta, com a senha escrita no comando (<code>password "minhasenha"</code> no lugar de <code>--ask</code>), funciona, mas a senha fica no histórico. A mensagem de sucesso é ilustrativa.</p>
-
-<h3>Conexões salvas</h3>
+<h3>Wi-Fi e conexões salvas</h3>
+<p>Listar redes Wi-Fi, conectar, senha errada, rede oculta, esquecer uma rede e o <code>nmtui</code> estão na aula <a href="wifi.html">Wi-Fi</a>, com telas e saídas reais. Para esta aula, basta saber que cada rede em que você conecta vira uma <strong>conexão salva</strong>, com um nome, e que é nela que você muda IP e DNS:</p>
 <pre class="term">$ nmcli connection show
 NAME               UUID                                  TYPE      DEVICE
 Casa-5GHz          e9603303-9d5f-42c1-a5ed-31bf9965a33c  wifi      wlp2s0     « ativa
@@ -119,7 +98,7 @@ Escritório         470f1065-25c9-4860-8031-e54cfde5739e  wifi      --</pre>
 <pre class="term">$ nmcli connection down "Casa-5GHz"
 $ nmcli connection up "Casa-5GHz"</pre>
 
-<p>Para desligar o Wi-Fi inteiro (o mesmo que o botão do menu): <code>nmcli radio wifi off</code>, e <code>on</code> para religar.</p>
+<p>Se o Wi-Fi nem aparece, veja <a href="wifi-problemas.html">Wi-Fi que Não Funciona</a>; para usar a internet do celular, <a href="celular-modem.html">Celular e Modem 4G</a>.</p>
 
 <hr>
 
@@ -294,8 +273,8 @@ Erro: conexão desconhecida “casa-5ghz”.</pre>
 
 <div class="cenario">
 <strong>O Wi-Fi não conecta com a senha</strong>
-<p><strong>O que aconteceu:</strong> o <code>nmcli</code> informa que a ativação falhou porque a senha (os "segredos" da conexão) não foi aceita. Normalmente é senha errada, ou uma conexão salva antiga com a senha anterior.</p>
-<p><strong>Como resolver:</strong> apague a conexão salva com <code>nmcli connection delete "Casa-5GHz"</code> e conecte de novo com <code>--ask</code>.</p>
+<p><strong>O que aconteceu:</strong> senha errada, ou uma conexão salva antiga com a senha anterior.</p>
+<p><strong>Como resolver:</strong> veja <a href="wifi.html#senha-errada">Senha errada</a> e <a href="wifi.html#esquecer">Esquecer uma rede</a> na aula Wi-Fi.</p>
 </div>
 
 <div class="cenario">
@@ -321,8 +300,7 @@ Erro: conexão desconhecida “casa-5ghz”.</pre>
 <tr><td><code>nmcli general status</code></td><td>Estado geral e conectividade</td></tr>
 <tr><td><code>nmcli device status</code></td><td>Placas e conexão ativa em cada uma</td></tr>
 <tr><td><code>nmcli device show PLACA</code></td><td>IP, gateway e DNS de uma placa</td></tr>
-<tr><td><code>nmcli device wifi list</code></td><td>Redes Wi-Fi disponíveis</td></tr>
-<tr><td><code>nmcli device wifi connect SSID --ask</code></td><td>Conecta a um Wi-Fi</td></tr>
+<tr><td><code>nmcli device wifi …</code></td><td>Wi-Fi: veja a aula <a href="wifi.html">Wi-Fi</a></td></tr>
 <tr><td><code>nmcli connection show</code></td><td>Conexões salvas</td></tr>
 <tr><td><code>nmcli connection up|down NOME</code></td><td>Ativa ou desativa</td></tr>
 <tr><td><code>nmcli connection modify NOME chave valor</code></td><td>Altera (IP, DNS, gateway…)</td></tr>
@@ -348,9 +326,9 @@ Erro: conexão desconhecida “casa-5ghz”.</pre>
 <h2>Exercícios</h2>
 
 <div class="exercise">
-<h3>1. Listar Wi-Fi</h3>
-<p>Complete para listar as redes Wi-Fi disponíveis:</p>
-<div class="ex-code">nmcli device wifi <input data-answer="list|ls" aria-label="ação"></div>
+<h3>1. Conexões salvas</h3>
+<p>Complete para listar as conexões salvas:</p>
+<div class="ex-code">nmcli connection <input data-answer="show|s" aria-label="ação"></div>
 </div>
 
 <div class="exercise">
@@ -386,7 +364,7 @@ Erro: conexão desconhecida “casa-5ghz”.</pre>
 <h2>Resumo</h2>
 <ul>
   <li>Desktop: NetworkManager (<code>nmcli</code>, <code>nmtui</code>, Configurações). Servidor: Netplan (YAML em <code>/etc/netplan/</code>).</li>
-  <li><code>nmcli device wifi connect "SSID" --ask</code> conecta ao Wi-Fi; <code>connection modify</code> + <code>connection up</code> muda IP e DNS.</li>
+  <li><code>connection modify</code> + <code>connection up</code> muda IP e DNS. O Wi-Fi tem aula própria: <a href="wifi.html">Wi-Fi</a>.</li>
   <li>No Netplan: 2 espaços de indentação, nunca Tab; gateway no bloco <code>routes</code>; aplique com <code>sudo netplan try</code>.</li>
   <li><code>hostnamectl set-hostname</code> muda o nome; <code>/etc/hosts</code> cria apelidos que valem antes do DNS.</li>
 </ul>

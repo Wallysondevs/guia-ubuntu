@@ -48,6 +48,7 @@
 <tr><td><a href="#p-esqueci-senha">Esqueci a minha senha</a></td><td>1</td></tr>
 <tr><td><a href="#p-script">./script.sh: Permissão negada</a></td><td>2</td></tr>
 <tr><td><a href="#p-sem-internet">Sem internet / "Falha temporária na resolução de nome"</a></td><td>2</td></tr>
+<tr><td><a href="#p-wifi">O Wi-Fi não aparece, não liga ou não conecta</a></td><td>2</td></tr>
 <tr><td><a href="#p-ssh-refused">SSH: "Connection refused"</a></td><td>2</td></tr>
 <tr><td><a href="#p-ssh-timeout">SSH: "Connection timed out"</a></td><td>2</td></tr>
 <tr><td><a href="#p-ssh-publickey">SSH: "Permission denied (publickey)"</a></td><td>2</td></tr>
@@ -280,6 +281,20 @@ $ ip r                      # tenho gateway (linha "default")?
 $ ping -c 2 192.168.0.1     # o roteador responde?
 $ resolvectl status         # qual DNS estou usando?</pre>
 <p><strong>Solução:</strong> reconecte o Wi-Fi ou o cabo; reinicie o roteador; se for só o DNS, configure outro servidor (ex.: 1.1.1.1) em Configurações ou com <code>nmcli</code>. Aulas: <a href="redes.html">Conceitos de Rede</a>, <a href="configurar-rede.html">Configurar a Rede</a>.</p>
+</div>
+
+<div class="cenario" id="p-wifi">
+<strong>O Wi-Fi não aparece, não liga ou não conecta</strong>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli radio
+WIFI-HW     WIFI          WWAN-HW  WWAN
+habilitado  desabilitado  missing  habilitado     « Wi-Fi desligado</pre>
+<p><strong>Causa:</strong> são três problemas diferentes. <em>Não liga</em>: o rádio está bloqueado (por software, ou por uma chave/tecla). <em>Não aparece</em>: falta driver ou firmware para a placa. <em>Não conecta</em>: senha errada ou conexão salva com a senha antiga.</p>
+<p><strong>Como confirmar, em ordem:</strong></p>
+<pre class="term">$ rfkill                    # Wi-Fi bloqueado? (soft ou hard)
+$ ip -br link               # existe uma placa wl…?
+$ lspci -k                  # a placa interna tem "Kernel driver in use"?
+$ nmcli device wifi list    # a rede aparece?</pre>
+<p><strong>Solução:</strong> bloqueio soft: <code>rfkill unblock wifi</code>; hard: chave, tecla <kbd>Fn</kbd> ou BIOS. Sem driver: Drivers Adicionais ou <code>sudo ubuntu-drivers install</code>. Senha: esqueça a rede e conecte de novo. Enquanto isso, use a internet do celular pelo cabo USB. Aulas: <a href="wifi.html">Wi-Fi</a>, <a href="wifi-problemas.html">Wi-Fi que Não Funciona</a>, <a href="celular-modem.html">Celular e Modem 4G</a>.</p>
 </div>
 
 <div class="cenario" id="p-ssh-refused">

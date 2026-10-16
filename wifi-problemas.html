@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Wi-Fi que Não Funciona — rfkill, drivers e firmware | Guia Ubuntu</title>
+<meta name="description" content="Wi-Fi que não liga ou não aparece no Ubuntu: rfkill (bloqueio soft e hard), descobrir a placa com ip link, lsusb, lspci -k e dmesg, firmware (linux-firmware), Drivers Adicionais, ubuntu-drivers e adaptadores USB Realtek.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Wi-Fi que Não Funciona</span></h1>
+
+<p class="intro">Às vezes o problema não é a senha: o Wi-Fi nem aparece no menu, ou aparece desligado e não liga. Nesta aula você investiga o porquê, em ordem: o rádio está <strong>bloqueado</strong>? A placa foi <strong>reconhecida</strong>? Falta <strong>driver</strong> ou <strong>firmware</strong>? E o que fazer enquanto isso.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>As três peças que fazem o Wi-Fi funcionar: rádio, driver e firmware.</li>
+  <li>Ver e destravar bloqueios com <code>rfkill</code> (soft e hard).</li>
+  <li>Descobrir a placa com <code>ip link</code>, <code>lsusb</code>, <code>lspci -k</code> e <code>dmesg</code>.</li>
+  <li>Instalar drivers com <strong>Drivers Adicionais</strong> e <code>ubuntu-drivers</code>, e firmware com <code>linux-firmware</code>.</li>
+  <li>Lidar com adaptadores USB e ter um plano B para ficar online.</li>
+</ul>
+</div>
+
+<p>Esta aula continua a <a href="wifi.html">Wi-Fi</a>. As saídas reais vêm do mesmo laboratório (Ubuntu 26.04 no modo de teste, numa máquina virtual com placas Wi-Fi virtuais; veja <a href="wifi.html#laboratorio">como foi feito</a>). O que depende de hardware de verdade, como um adaptador USB ou um firmware faltando, não dá para reproduzir numa máquina virtual: essas saídas estão marcadas como <strong>ilustrativas</strong>.</p>
+
+<hr>
+
+<h2 id="conceito">Por que o Wi-Fi não funciona: três peças</h2>
+<p>Para o Wi-Fi aparecer no menu, três coisas precisam dar certo, nesta ordem:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Peça</th><th>O que é</th><th>Quando falha, você vê…</th><th>Ferramenta</th></tr>
+<tr><td><strong>1. Rádio</strong></td><td>O transmissor da placa. Pode ser desligado por software ou por uma chave/tecla.</td><td>Wi-Fi desligado que não liga; <code>não disponível</code> no <code>nmcli</code>.</td><td><code>rfkill</code></td></tr>
+<tr><td><strong>2. Driver</strong></td><td>O programa do kernel que sabe conversar com aquele modelo de placa (um <strong>módulo</strong> do kernel).</td><td>Nenhuma placa <code>wl…</code> no <code>ip link</code>; nada de Wi-Fi no menu.</td><td><code>lspci -k</code>, <code>lsusb</code>, <code>ubuntu-drivers</code></td></tr>
+<tr><td><strong>3. Firmware</strong></td><td>Um programinha que roda <strong>dentro</strong> da placa. O driver o envia para a placa quando ela liga; ele fica em arquivos em <code>/usr/lib/firmware/</code>.</td><td>Placa reconhecida, mas não liga; mensagem "firmware … failed" no <code>dmesg</code>.</td><td><code>dmesg</code>, <code>linux-firmware</code></td></tr>
+</table>
+</div>
+
+<p>Por cima das três está o NetworkManager, que só enxerga a placa quando o kernel já a reconheceu. Por isso, investigue de baixo para cima, como no roteiro abaixo.</p>
+
+<h3>Roteiro rápido</h3>
+<ol class="passo">
+  <li><code>nmcli radio</code> e <code>rfkill</code>: o rádio está bloqueado? → <a href="#rfkill">rfkill</a></li>
+  <li><code>ip link</code>: existe uma placa <code>wl…</code>? Se existe, o problema é de conexão (senha, rede): volte para <a href="wifi.html">Wi-Fi</a>.</li>
+  <li>Se não existe: <code>lspci -k</code> (placa interna) ou <code>lsusb</code> (adaptador USB) mostram o aparelho? → <a href="#naoaparece">A placa não aparece</a></li>
+  <li><code>sudo dmesg</code>: o kernel reclamou de firmware? → <a href="#firmware">Firmware</a></li>
+  <li>Placa sem driver: <strong>Drivers Adicionais</strong> ou <code>ubuntu-drivers</code>. → <a href="#drivers">Drivers</a></li>
+</ol>
+
+<hr>
+
+<h2 id="rfkill">Wi-Fi bloqueado: rfkill</h2>
+<p><code>rfkill</code> vem de <em>radio frequency kill</em>, "desligar a radiofrequência". É o interruptor geral dos rádios do computador: Wi-Fi, Bluetooth e modem.</p>
+
+<h3>Bloqueio soft × hard</h3>
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>Soft (por software)</th><th>Hard (por hardware)</th></tr>
+<tr><td>Quem bloqueou</td><td>O sistema: menu, Configurações, <code>nmcli radio wifi off</code>, <code>rfkill block</code>.</td><td>Uma chave física na lateral do notebook, uma tecla de <kbd>Fn</kbd> tratada pelo próprio hardware, ou uma opção da BIOS/UEFI.</td></tr>
+<tr><td>Quem destrava</td><td>O sistema: <code>rfkill unblock wifi</code> ou ligar o Wi-Fi no menu.</td><td>Só quem bloqueou: a chave, a tecla ou a BIOS. Nenhum comando resolve.</td></tr>
+</table>
+</div>
+
+<h3>Ver o estado: rfkill list e rfkill</h3>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ rfkill list
+0: phy0: Wireless LAN          « a placa Wi-Fi número 0
+	Soft blocked: no
+	Hard blocked: no
+1: phy1: Wireless LAN          « a segunda placa virtual (o "roteador" do laboratório)
+	Soft blocked: no
+	Hard blocked: no</pre>
+
+<p>Cada rádio tem um número (<code>0</code>, <code>1</code>…), um nome (<code>phy0</code> = <em>physical device</em> 0) e um tipo (<code>Wireless LAN</code> = Wi-Fi; num notebook costuma aparecer também <code>Bluetooth</code>). <code>no</code> nas duas linhas = nada bloqueado. Sem argumentos, o <code>rfkill</code> mostra o mesmo numa tabela, em português:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ rfkill
+ID TYPE DEVICE         SOFT         HARD
+ 0 wlan phy0   desbloqueado desbloqueado
+ 1 wlan phy1   desbloqueado desbloqueado</pre>
+
+<h3>Como fica um rádio bloqueado</h3>
+<p>Para ver o efeito, o laboratório bloqueou o Wi-Fi de propósito com <code>rfkill block wifi</code> (o mesmo que desligar o Wi-Fi no menu). Saídas reais, alguns segundos depois:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ rfkill block wifi
+$ rfkill list
+0: phy0: Wireless LAN
+	Soft blocked: yes              « bloqueado por software
+	Hard blocked: no
+1: phy1: Wireless LAN
+	Soft blocked: yes
+	Hard blocked: no
+$ nmcli radio
+WIFI-HW     WIFI          WWAN-HW  WWAN
+habilitado  desabilitado  missing  habilitado     « WIFI desabilitado
+$ nmcli device status
+DEVICE         TYPE      STATE                   CONNECTION
+enp0s3         ethernet  conectado               netplan-enp0s3
+lo             loopback  connected (externally)  lo
+wlan0          wifi      não disponível          --     « a placa existe, mas o rádio está bloqueado
+p2p-dev-wlan0  wifi-p2p  não disponível          --
+p2p-dev-wlan1  wifi-p2p  não disponível          --
+veth-lab       ethernet  não gerenciável         --
+hwsim0         unknown   não gerenciável         --
+wlan1          wifi      não gerenciável         --     « o "roteador" do laboratório
+$ nmcli device wifi list
+IN-USE  BSSID  SSID  MODE  CHAN  RATE  SIGNAL  BARS  SECURITY     « nenhuma rede
+
+IN-USE  BSSID  SSID  MODE  CHAN  RATE  SIGNAL  BARS  SECURITY     « uma tabela por placa (o laboratório tinha duas)</pre>
+
+<p>Repare na cadeia: o <code>rfkill</code> diz <code>Soft blocked: yes</code>, o <code>nmcli radio</code> diz <code>WIFI desabilitado</code>, a placa fica <code>não disponível</code> e a lista de redes vem vazia. No menu do GNOME, o bloco Wi-Fi aparece desligado.</p>
+
+<h3>Destravar: rfkill unblock</h3>
+<dl class="anatomy">
+  <dt>rfkill</dt><dd>O programa.</dd>
+  <dt>unblock</dt><dd>Destravar (o contrário é <code>block</code>).</dd>
+  <dt>wifi</dt><dd>Quais rádios: <code>wifi</code> (ou <code>wlan</code>), <code>bluetooth</code>, <code>wwan</code> (modem), <code>all</code> (todos) ou o número do <code>ID</code>.</dd>
+</dl>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ rfkill unblock wifi
+$ nmcli radio
+WIFI-HW     WIFI        WWAN-HW  WWAN
+habilitado  habilitado  missing  habilitado
+$ nmcli device status | grep wlan0
+wlan0          wifi      desconectado            --     « de volta: pronta para conectar
+p2p-dev-wlan0  wifi-p2p  desconectado            --</pre>
+
+<p>O <code>rfkill</code> não imprime nada quando dá certo. Sem <code>sudo</code> ele funcionou porque, no Ubuntu Desktop, quem está sentado na frente do computador pode ligar e desligar os rádios. Para mexer em um rádio só, use o número da coluna <code>ID</code>:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ rfkill block 0
+$ rfkill
+ID TYPE DEVICE         SOFT         HARD
+ 0 wlan phy0      bloqueado desbloqueado     « só o 0 foi bloqueado
+ 1 wlan phy1   desbloqueado desbloqueado
+$ rfkill unblock all</pre>
+
+<h3>Bloqueio hard: a chave ou a tecla</h3>
+<p>Uma placa virtual não tem chave física, então esta saída é <strong>ilustrativa</strong>:</p>
+<pre class="term">$ rfkill list
+0: phy0: Wireless LAN
+	Soft blocked: no
+	Hard blocked: yes              « travado pelo hardware
+1: hci0: Bluetooth
+	Soft blocked: no
+	Hard blocked: no
+$ rfkill unblock wifi
+$ rfkill list 0
+0: phy0: Wireless LAN
+	Soft blocked: no
+	Hard blocked: yes              « continua: nenhum comando destrava o hard</pre>
+
+<p>Com <code>Hard blocked: yes</code>, o comando roda sem erro e nada muda. Procure, nesta ordem:</p>
+<ol>
+  <li>Uma <strong>chave</strong> na lateral ou na frente do notebook, com o desenho de uma antena.</li>
+  <li>A <strong>tecla de avião ou de antena</strong>, geralmente junto com <kbd>Fn</kbd> (<kbd>Fn</kbd>+<kbd>F2</kbd>, <kbd>Fn</kbd>+<kbd>F12</kbd>… muda de marca para marca).</li>
+  <li>A <strong>BIOS/UEFI</strong>: algumas têm uma opção para desligar o Wi-Fi ("Wireless", "WLAN").</li>
+</ol>
+
+<hr>
+
+<h2 id="naoaparece">A placa não aparece</h2>
+<p>Se o Wi-Fi nem aparece no menu, comece perguntando ao kernel quais placas de rede ele conhece. Placas Wi-Fi têm nomes que começam com <code>wl</code> (de <em>wireless</em>): <code>wlp2s0</code> para placas internas, <code>wlx</code> seguido do endereço físico para adaptadores USB. No laboratório, <code>wlan0</code>.</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ ip -br link
+lo               UNKNOWN        00:00:00:00:00:00 &lt;LOOPBACK,UP,LOWER_UP&gt;
+enp0s3           UP             08:00:27:3b:f9:54 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt;
+wlan0            DOWN           02:00:00:00:00:00 &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt;   « existe uma placa Wi-Fi
+wlan1            DOWN           02:00:00:00:01:00 &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt;   « a placa-roteador do laboratório
+hwsim0           DOWN           12:00:00:00:00:00 &lt;BROADCAST,MULTICAST&gt;</pre>
+
+<p>Existe uma linha <code>wl…</code>? Então o driver está carregado, e o problema é bloqueio (<a href="#rfkill">rfkill</a>) ou conexão (<a href="wifi.html">Wi-Fi</a>). Não existe? O kernel não sabe que a placa está lá, ou não tem driver para ela. Siga em frente.</p>
+
+<h3>Adaptador USB: lsusb</h3>
+<p><code>lsusb</code> lista tudo o que está ligado nas portas USB, tenha driver ou não. Na máquina virtual do laboratório, a saída real só mostra o "mouse" do VirtualBox:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ lsusb
+Bus 001 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+Bus 001 Device 002: ID 80ee:0021 VirtualBox USB Tablet</pre>
+
+<p>Com um adaptador Wi-Fi USB espetado, aparece uma linha a mais (<strong>ilustrativo</strong>):</p>
+<pre class="term">$ lsusb
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 004: ID 0bda:c811 Realtek Semiconductor Corp. 802.11ac NIC   « o adaptador
+Bus 001 Device 003: ID 046d:c52b Logitech, Inc. Unifying Receiver</pre>
+
+<p>O número <code>0bda:c811</code> é a <strong>identidade</strong> do aparelho: <code>0bda</code> é o fabricante (Realtek) e <code>c811</code> é o modelo. A marca impressa na caixa do adaptador importa pouco; o que decide o driver é o <strong>chip</strong> de dentro, e este número o identifica. Se o adaptador nem aparece no <code>lsusb</code>, troque de porta USB ou de cabo extensor; se continuar sumido, o problema é físico.</p>
+
+<h3>Placa interna: lspci -k</h3>
+<p><code>lspci</code> lista o que está ligado ao barramento PCI (veja <a href="info-sistema.html">Informações do Sistema</a>), e <code>-k</code> mostra o driver de cada aparelho. A máquina virtual só tem a placa de cabo (saída real, filtrada):</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ lspci -k | grep -A3 -i -E "network|ethernet"
+00:03.0 Ethernet controller: Intel Corporation 82540EM Gigabit Ethernet Controller (rev 02)
+	Subsystem: Intel Corporation PRO/1000 MT Desktop Adapter
+	Kernel driver in use: e1000          « o driver em uso
+	Kernel modules: e1000</pre>
+
+<p>As placas Wi-Fi do laboratório são virtuais (do módulo <code>mac80211_hwsim</code>) e não estão em nenhum barramento; por isso não aparecem aqui. Num notebook com Wi-Fi interno, a placa aparece como <code>Network controller</code> (<strong>ilustrativo</strong>):</p>
+<pre class="term">$ lspci -k | grep -A3 -i network
+02:00.0 Network controller: Intel Corporation Wi-Fi 6 AX201 (rev 20)
+	Subsystem: Intel Corporation Wi-Fi 6 AX201
+	Kernel driver in use: iwlwifi        « tem driver: tudo certo
+	Kernel modules: iwlwifi</pre>
+
+<p>E assim fica uma placa <strong>sem driver</strong> (<strong>ilustrativo</strong>): falta a linha <code>Kernel driver in use</code>.</p>
+<pre class="term">$ lspci -k | grep -A3 -i network
+03:00.0 Network controller: Broadcom Inc. and subsidiaries BCM4360 802.11ac Wireless Network Adapter (rev 03)
+	Subsystem: Apple Inc. BCM4360 802.11ac Wireless Network Adapter
+	Kernel modules: bcma                 « sem "Kernel driver in use": ninguém está cuidando da placa</pre>
+
+<h3>Qual driver a placa usa</h3>
+<p>Quando a placa aparece no <code>ip link</code>, o NetworkManager diz o driver dela (saída real; no laboratório, o driver das placas virtuais):</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli -f GENERAL.DEVICE,GENERAL.TYPE,GENERAL.DRIVER device show wlan0
+GENERAL.DEVICE:                         wlan0
+GENERAL.TYPE:                           wifi
+GENERAL.DRIVER:                         mac80211_hwsim     « num notebook: iwlwifi, rtw88_8821cu, mt7921e…
+$ lsmod | grep 80211
+mac80211_hwsim        139264  0
+mac80211             1933312  1 mac80211_hwsim
+cfg80211             1536000  2 mac80211_hwsim,mac80211</pre>
+
+<p><code>lsmod</code> lista os módulos carregados. <code>cfg80211</code> e <code>mac80211</code> são a base do Wi-Fi no Linux; o driver da placa (aqui <code>mac80211_hwsim</code>) se apoia neles. O nome do driver é o que você procura na internet junto com a mensagem de erro.</p>
+
+<h3 id="dmesg">O kernel reclamou de algo? dmesg</h3>
+<p><code>dmesg</code> mostra as mensagens do kernel desde que o computador ligou. Para ver só erros e avisos:</p>
+<pre class="term">$ sudo dmesg --level=err,warn</pre>
+<p>Na máquina virtual não houve nenhuma mensagem sobre Wi-Fi. Num computador com o problema, o sinal típico de firmware faltando é este (<strong>ilustrativo</strong>):</p>
+<pre class="term">$ sudo dmesg | grep -i firmware
+[    6.412233] iwlwifi 0000:02:00.0: Direct firmware load for iwlwifi-so-a0-gf-a0-89.ucode failed with error -2
+[    6.412290] iwlwifi 0000:02:00.0: no suitable firmware found!</pre>
+<p><code>Direct firmware load for … failed with error -2</code> = "a carga do firmware … falhou, erro −2", isto é, <strong>arquivo não encontrado</strong>. O nome do arquivo que faltou vem logo depois de <code>for</code>.</p>
+
+<hr>
+
+<h2 id="firmware">Firmware: linux-firmware</h2>
+<p>Os arquivos de firmware vêm no pacote <code>linux-firmware</code>, instalado por padrão no Ubuntu. No 26.04 ele é um "pacote de pacotes": puxa um pacote por fabricante. Saídas reais:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ apt-cache policy linux-firmware
+linux-firmware:
+  Instalado: 20260319.git217ca6e4.1ubuntu
+  Candidato: 20260319.git217ca6e4.1ubuntu
+  Tabela de versão:
+ *** 20260319.git217ca6e4.1ubuntu 500
+        500 http://archive.ubuntu.com/ubuntu resolute/main amd64 Packages
+        500 http://archive.ubuntu.com/ubuntu resolute/main i386 Packages
+        100 /var/lib/dpkg/status
+$ apt-cache depends linux-firmware
+linux-firmware
+  Depende: linux-firmware-amd-graphics
+  Depende: linux-firmware-amd-misc
+  Depende: linux-firmware-broadcom-wireless      « Wi-Fi Broadcom
+  Depende: linux-firmware-intel-graphics
+  Depende: linux-firmware-intel-misc
+  Depende: linux-firmware-intel-wireless         « Wi-Fi Intel
+  Depende: linux-firmware-marvell-prestera
+  Depende: linux-firmware-marvell-wireless
+  Depende: linux-firmware-mediatek               « Wi-Fi MediaTek
+  Depende: linux-firmware-mellanox-spectrum
+  Depende: linux-firmware-misc
+  Depende: linux-firmware-netronome
+  Depende: linux-firmware-nvidia-graphics
+  Depende: linux-firmware-qlogic
+  Depende: linux-firmware-qualcomm-graphics
+  Depende: linux-firmware-qualcomm-misc
+  Depende: linux-firmware-qualcomm-wireless      « Wi-Fi Qualcomm/Atheros
+  Depende: linux-firmware-realtek                « Wi-Fi Realtek
+  Recomenda: firmware-sof-signed</pre>
+
+<p>Na maioria dos casos o firmware já está lá. Quando o <code>dmesg</code> reclama, as causas comuns são:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Causa</th><th>O que fazer</th></tr>
+<tr><td>Placa mais nova que o sistema</td><td>Atualize: <code>sudo apt update &amp;&amp; sudo apt upgrade</code> traz kernel e firmware novos (veja <a href="atualizacoes.html">Atualizações</a>). Sem internet no Wi-Fi, use o <a href="#planob">plano B</a>.</td></tr>
+<tr><td>Algum pacote de firmware foi removido</td><td>Reinstale o do fabricante, por exemplo <code>sudo apt install --reinstall linux-firmware-intel-wireless</code>.</td></tr>
+<tr><td>O firmware não existe em nenhum pacote</td><td>Raro: o fabricante não liberou o arquivo. Procure o nome do arquivo que faltou junto com o modelo da placa.</td></tr>
+</table>
+</div>
+
+<p>Depois de instalar firmware, <strong>reinicie</strong> o computador: o driver só pede o arquivo quando a placa liga.</p>
+
+<hr>
+
+<h2 id="drivers">Drivers: Drivers Adicionais e ubuntu-drivers</h2>
+<p>Quase todas as placas Wi-Fi funcionam com drivers que já vêm no kernel do Ubuntu. Algumas, principalmente modelos <strong>Broadcom</strong> mais antigos, precisam de um driver <strong>proprietário</strong> (de código fechado), que o Ubuntu não instala sozinho. Para elas existem duas ferramentas, que fazem a mesma coisa.</p>
+
+<h3>Pela interface: Drivers Adicionais</h3>
+<p>Fica em <strong>Programas e atualizações → Drivers Adicionais</strong>. No Ubuntu 26.04 do laboratório, essa janela não vem instalada (nem no modo de teste, nem na lista de pacotes que o instalador copia para o disco). Instale-a com <code>sudo apt install software-properties-gtk</code>. Captura real (na máquina virtual, o único aparelho listado é a placa de vídeo virtual):</p>
+<figure>
+<img src="img/drivers-adicionais.png" alt="Janela Programas e atualizações na aba Drivers Adicionais, listando VMware SVGA II Adapter com as opções de driver open-vm-tools-desktop, Continuar usando um driver instalado manualmente e Não usar este dispositivo" width="950" height="592" loading="lazy">
+<figcaption>Captura real. Num notebook com Wi-Fi Broadcom, aparece a placa Wi-Fi com a opção do driver <code>broadcom-sta-dkms</code>; escolha-a e clique em <strong>Aplicar alterações</strong>.</figcaption>
+</figure>
+
+<h3>Pelo terminal: ubuntu-drivers</h3>
+<p><code>ubuntu-drivers list</code> mostra os pacotes de driver que servem para este computador (saída real):</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ ubuntu-drivers list
+Warning: Your running kernel (7.0.0-14-generic) is outdated. A newer kernel (7.0.0-38-generic) is available in the Ubuntu archives. Please run 'sudo apt update && sudo apt upgrade' to update your system.
+open-vm-tools-desktop</pre>
+
+<p>A primeira linha é um aviso: "o kernel em uso está desatualizado; rode <code>sudo apt update &amp;&amp; sudo apt upgrade</code>". Ela aparece porque o modo de teste do pendrive usa o kernel da ISO. A segunda é a resposta: na máquina virtual, o único driver recomendado é o <code>open-vm-tools-desktop</code>. Num notebook com Wi-Fi Broadcom, apareceria <code>broadcom-sta-dkms</code>. Para ver qual aparelho pede cada driver:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ ubuntu-drivers devices
+== /sys/devices/pci0000:00/0000:00:02.0 ==
+modalias : pci:v000015ADd00000405sv000015ADsd00000405bc03sc00i00
+vendor   : VMware
+model    : SVGA II Adapter
+manual_install: True
+driver   : open-vm-tools-desktop - distro free</pre>
+
+<p>Para instalar os drivers recomendados, use <code>install</code>:</p>
+<dl class="anatomy">
+  <dt>sudo</dt><dd>Instalar pacotes exige administrador.</dd>
+  <dt>ubuntu-drivers</dt><dd>A ferramenta de drivers do Ubuntu.</dd>
+  <dt>install</dt><dd>Instala os drivers que o <code>list</code> mostrou. Você também pode dar o nome de um: <code>sudo ubuntu-drivers install broadcom-sta-dkms</code>.</dd>
+</dl>
+<pre class="term">$ sudo ubuntu-drivers install</pre>
+<p>Ele chama o <code>apt</code> e mostra a instalação dos pacotes. No laboratório, instalou o <code>open-vm-tools-desktop</code>. Depois, <strong>reinicie</strong>.</p>
+
+<div class="warning">
+<strong>Tutoriais antigos: "autoinstall" e "bcmwl-kernel-source"</strong>
+<p>Muitos tutoriais mandam usar <code>sudo ubuntu-drivers autoinstall</code> e instalar o pacote <code>bcmwl-kernel-source</code>. No Ubuntu 26.04, nenhum dos dois existe mais (saídas reais):</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ ubuntu-drivers autoinstall
+Usage: ubuntu-drivers [OPTIONS] COMMAND [ARGS]...
+Try 'ubuntu-drivers -h' for help.
+
+Error: No such command 'autoinstall'.
+$ apt-cache policy bcmwl-kernel-source
+$ sudo apt-get install bcmwl-kernel-source
+Lendo listas de pacotes...
+Construindo árvore de dependências...
+Lendo informação de estado...
+E: Não é possível encontrar o pacote bcmwl-kernel-source</pre>
+<p>"Não existe o comando autoinstall": use <code>install</code>. O <code>apt-cache policy</code> sem nenhuma resposta e o "não é possível encontrar o pacote" dizem que o pacote não existe: o driver Broadcom agora se chama <code>broadcom-sta-dkms</code>.</p>
+</div>
+
+<h3>O driver Broadcom: broadcom-sta-dkms</h3>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ apt show broadcom-sta-dkms 2&gt;/dev/null | grep -E "^(Package|Version|Section|Depends|Download-Size|APT-Sources|Description)"
+Package: broadcom-sta-dkms
+Version: 6.30.223.271-29ubuntu1
+Section: non-free/kernel                                   « não livre: código fechado
+Depends: dkms (&gt;= 2.1.0.0)                                 « precisa do DKMS (explicado abaixo)
+Download-Size: 1.734 kB
+APT-Sources: file:/cdrom resolute/restricted amd64 Packages  « está dentro do pendrive de instalação!
+Description: dkms source for the Broadcom STA Wireless driver</pre>
+
+<p>A linha <code>APT-Sources: file:/cdrom</code> é a mais importante: o driver Broadcom vem <strong>dentro da ISO</strong>. Por isso o instalador consegue instalá-lo mesmo sem internet, se você marcar "Instalar drivers de terceiros para Wi-Fi e placas gráficas" (veja <a href="instalacao.html#internet">Instalação</a>). É o jeito mais fácil de resolver um notebook Broadcom: marcar essa caixa durante a instalação.</p>
+
+<h3>O que é DKMS</h3>
+<p>Um driver que <strong>não</strong> vem no kernel precisa ser compilado para cada versão do kernel. O <strong>DKMS</strong> (<em>Dynamic Kernel Module Support</em>) faz isso sozinho: toda vez que uma atualização instala um kernel novo, ele recompila o driver. Pacotes terminados em <code>-dkms</code> trazem o código-fonte e usam o DKMS. Duas consequências práticas:</p>
+<ul>
+  <li>A instalação demora um pouco mais (o driver é compilado na hora) e precisa dos <em>headers</em> do kernel, que o <code>apt</code> instala junto.</li>
+  <li>Com o <strong>Secure Boot</strong> ligado, o Ubuntu pede para você criar uma senha durante a instalação do driver e, no próximo boot, mostra uma tela azul (<strong>MOK management</strong>) para você confirmar a chave com essa senha (<em>Enroll MOK</em>). Sem essa confirmação, o kernel recusa o driver. (Descrição <strong>ilustrativa</strong>: a máquina virtual não tinha Secure Boot.)</li>
+</ul>
+
+<hr>
+
+<h2 id="usb">Adaptadores Wi-Fi USB (Realtek, MediaTek…)</h2>
+<p>Adaptadores USB são a solução barata para um computador sem Wi-Fi, ou com uma placa sem driver. Antes de comprar, saiba que existem dois tipos:</p>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th></th><th>Driver no kernel</th><th>Driver de fora (DKMS)</th></tr>
+<tr><td>Instalação</td><td>Nenhuma: espetou, funcionou.</td><td>Baixar o código de um projeto, compilar com DKMS, assinar para o Secure Boot.</td></tr>
+<tr><td>Atualizações do Ubuntu</td><td>Continua funcionando.</td><td>Pode quebrar quando chega um kernel novo.</td></tr>
+<tr><td>Exemplos de drivers</td><td><code>rtw88</code>, <code>rtw89</code>, <code>rtl8xxxu</code> (Realtek); <code>mt76</code> (MediaTek)</td><td>Projetos no GitHub para chips sem suporte no kernel</td></tr>
+</table>
+</div>
+
+<p>O kernel do Ubuntu 26.04 já traz vários drivers de adaptadores USB. O <code>modinfo -n</code> mostra o arquivo de um módulo, se ele existir (saídas reais):</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ modinfo -n rtw88_8821cu
+/lib/modules/7.0.0-14-generic/kernel/drivers/net/wireless/realtek/rtw88/rtw88_8821cu.ko.zst
+$ modinfo -n rtw89_8852bu
+/lib/modules/7.0.0-14-generic/kernel/drivers/net/wireless/realtek/rtw89/rtw89_8852bu.ko.zst
+$ modinfo -n mt7921u
+/lib/modules/7.0.0-14-generic/kernel/drivers/net/wireless/mediatek/mt76/mt7921/mt7921u.ko.zst
+$ modinfo -n r8188eu
+modinfo: ERROR: Module r8188eu not found.        « este driver antigo não existe mais no kernel</pre>
+
+<p>Já os drivers "de fora" não estão nos repositórios do Ubuntu: a busca real por pacotes <code>rtl88…</code> não encontra nada.</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ apt-cache search --names-only rtl88          « não imprime nada: nenhum pacote</pre>
+
+<h3>Como escolher e diagnosticar</h3>
+<ol class="passo">
+  <li>Espete o adaptador e rode <code>lsusb</code>. Anote o ID (por exemplo <code>0bda:c811</code>).</li>
+  <li>Rode <code>ip -br link</code>. Apareceu uma placa <code>wlx…</code>? Então o kernel tem driver: conecte normalmente (<a href="wifi.html">Wi-Fi</a>).</li>
+  <li>Não apareceu? Rode <code>sudo dmesg | tail -20</code> logo depois de espetar: o kernel mostra o que reconheceu e se faltou firmware.</li>
+  <li>Pesquise o ID junto com a palavra "linux" para descobrir o chip e o driver. Se o driver estiver no kernel, atualizar o Ubuntu costuma resolver.</li>
+  <li>Para comprar: procure um adaptador cujo chip tenha driver no kernel. Na dúvida, prefira o que tem driver no kernel ao mais rápido.</li>
+</ol>
+
+<div class="warning">
+<strong>Cuidado com drivers baixados da internet</strong>
+<p>Um driver de fora roda dentro do kernel, com poder total sobre o computador. Use só projetos conhecidos, leia o README e prefira os que usam DKMS (que recompila sozinho a cada kernel). Precisa de <code>dkms</code>, <code>build-essential</code> e dos headers do kernel. Se o Wi-Fi sumir depois de uma atualização, inicie o kernel anterior pelo GRUB (veja <a href="boot-grub.html">Boot e GRUB</a>) e reinstale o driver.</p>
+</div>
+
+<hr>
+
+<h2 id="planob">Plano B: ficar online sem o Wi-Fi</h2>
+<p>Para instalar driver ou firmware você precisa de internet, e o Wi-Fi é justamente o que não funciona. Saídas, da mais fácil para a mais difícil:</p>
+<ol>
+  <li><strong>Celular pelo cabo USB</strong> (ancoragem USB): o Ubuntu reconhece como rede cabeada, sem instalar nada. Passo a passo em <a href="celular-modem.html">Celular e Modem 4G</a>.</li>
+  <li><strong>Cabo de rede</strong> direto no roteador, se o computador tiver a porta.</li>
+  <li><strong>Um adaptador USB</strong> com driver no kernel, mesmo emprestado, só para instalar o driver da placa interna.</li>
+  <li><strong>O próprio pendrive de instalação</strong>: como visto acima, o <code>broadcom-sta-dkms</code> está na ISO. Reinstalar marcando "drivers de terceiros" resolve o caso Broadcom sem internet.</li>
+</ol>
+
+<hr>
+
+<h2>Formas diferentes de investigar</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Pergunta</th><th>Comando</th><th>Resposta boa</th></tr>
+<tr><td>O rádio está ligado?</td><td><code>rfkill</code> ou <code>nmcli radio</code></td><td><code>desbloqueado</code> / <code>habilitado</code></td></tr>
+<tr><td>O kernel criou a placa?</td><td><code>ip -br link</code></td><td>Uma linha <code>wl…</code></td></tr>
+<tr><td>O aparelho está ligado ao computador?</td><td><code>lsusb</code> (USB) ou <code>lspci</code> (interna)</td><td>O aparelho aparece</td></tr>
+<tr><td>Tem driver?</td><td><code>lspci -k</code>, <code>nmcli -f GENERAL.DRIVER device show</code></td><td><code>Kernel driver in use</code> preenchido</td></tr>
+<tr><td>Faltou firmware?</td><td><code>sudo dmesg | grep -i firmware</code></td><td>Nenhuma linha "failed"</td></tr>
+<tr><td>Existe driver extra?</td><td><code>ubuntu-drivers list</code> ou Drivers Adicionais</td><td>A lista mostra o pacote</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2 id="problemas">Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Hard blocked: yes" e o unblock não resolve</strong>
+<p><strong>O que aconteceu:</strong> o bloqueio é do hardware (chave, tecla ou BIOS). O <code>rfkill unblock</code> roda sem erro, mas não muda nada.</p>
+<p><strong>Como resolver:</strong> procure a chave física ou a tecla de antena/avião com <kbd>Fn</kbd>, e confira a BIOS/UEFI. Depois, rode <code>rfkill list</code> de novo.</p>
+</div>
+
+<div class="cenario">
+<strong>O Wi-Fi sumiu depois de uma atualização</strong>
+<p><strong>O que aconteceu:</strong> geralmente um driver de fora (DKMS) que não compilou para o kernel novo, ou uma mudança no kernel.</p>
+<p><strong>Como confirmar:</strong> no menu do GRUB, escolha o kernel anterior (<a href="boot-grub.html">Boot e GRUB</a>). Se o Wi-Fi volta, o problema é o driver com o kernel novo.</p>
+<p><strong>Como resolver:</strong> com o kernel anterior, rode <code>sudo apt update &amp;&amp; sudo apt upgrade</code> e reinstale o driver (<code>sudo ubuntu-drivers install</code> ou o pacote <code>-dkms</code>). Reinicie no kernel novo.</p>
+</div>
+
+<div class="cenario">
+<strong>"Direct firmware load … failed with error -2"</strong>
+<p><strong>O que aconteceu:</strong> o driver existe, mas o arquivo de firmware da placa não está em <code>/usr/lib/firmware/</code>.</p>
+<p><strong>Como resolver:</strong> atualize o sistema (por cabo ou celular) para receber o <code>linux-firmware</code> mais novo, ou reinstale o pacote de firmware do fabricante. Reinicie.</p>
+</div>
+
+<div class="cenario">
+<strong>Instalei o driver Broadcom e nada mudou</strong>
+<p><strong>O que aconteceu:</strong> com o Secure Boot ligado, a chave do driver não foi confirmada na tela azul do MOK no boot seguinte, então o kernel recusou o módulo. Ou o computador ainda não foi reiniciado.</p>
+<p><strong>Como resolver:</strong> reinicie e, na tela azul, escolha <strong>Enroll MOK</strong> e digite a senha criada na instalação. Se a tela passou sem você ver, reinstale o pacote (<code>sudo apt install --reinstall broadcom-sta-dkms</code>) para o Ubuntu pedir de novo.</p>
+</div>
+
+<div class="cenario">
+<strong>Não aparece nada no lsusb nem no lspci</strong>
+<p><strong>O que aconteceu:</strong> o computador não está vendo o aparelho: porta USB com defeito, adaptador queimado, ou a placa interna desligada na BIOS.</p>
+<p><strong>Como resolver:</strong> teste outra porta e outro computador; confira a BIOS/UEFI. Não é algo que um driver resolva.</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Faz</th></tr>
+<tr><td><code>rfkill</code> / <code>rfkill list</code></td><td>Mostra os bloqueios dos rádios</td></tr>
+<tr><td><code>rfkill unblock wifi|all|ID</code></td><td>Destrava o bloqueio soft</td></tr>
+<tr><td><code>rfkill block wifi|ID</code></td><td>Bloqueia (desliga) o rádio</td></tr>
+<tr><td><code>ip -br link</code></td><td>Placas que o kernel criou</td></tr>
+<tr><td><code>lsusb</code></td><td>Aparelhos USB e seus IDs</td></tr>
+<tr><td><code>lspci -k</code></td><td>Aparelhos PCI e o driver de cada um</td></tr>
+<tr><td><code>lsmod</code> / <code>modinfo -n MÓDULO</code></td><td>Módulos carregados / onde fica um módulo</td></tr>
+<tr><td><code>sudo dmesg --level=err,warn</code></td><td>Erros e avisos do kernel</td></tr>
+<tr><td><code>ubuntu-drivers list</code> / <code>devices</code></td><td>Drivers que servem para este computador</td></tr>
+<tr><td><code>sudo ubuntu-drivers install</code></td><td>Instala os drivers recomendados</td></tr>
+<tr><td><code>sudo apt install --reinstall linux-firmware-FABRICANTE</code></td><td>Reinstala o firmware de um fabricante</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Destravar o Wi-Fi</h3>
+<p>O <code>rfkill list</code> mostra <code>Soft blocked: yes</code> no Wi-Fi. Complete:</p>
+<div class="ex-code">rfkill <input data-answer="unblock" aria-label="ação"> wifi</div>
+</div>
+
+<div class="exercise">
+<h3>2. Ver o driver</h3>
+<p>Complete para listar os aparelhos PCI com o driver de cada um:</p>
+<div class="ex-code">lspci <input data-answer="-k|-nnk|-kn" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Instalar os drivers recomendados</h3>
+<p>Complete o comando que substitui o antigo <code>autoinstall</code>:</p>
+<div class="ex-code">sudo ubuntu-drivers <input data-answer="install" aria-label="subcomando"></div>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">4. <code>rfkill list</code> mostra <code>Hard blocked: yes</code>. O que resolve?</p>
+<label><input type="radio" name="p4"> <code>sudo rfkill unblock all</code></label>
+<label><input type="radio" name="p4"> A chave física, a tecla com <kbd>Fn</kbd> ou a BIOS.</label>
+<label><input type="radio" name="p4"> Reinstalar o <code>linux-firmware</code>.</label>
+<label><input type="radio" name="p4"> <code>nmcli radio wifi on</code></label>
+</div>
+
+<div class="mc" data-answer="4">
+<p class="mc-q">5. Num notebook com Wi-Fi Broadcom, sem internet, qual é o jeito mais simples de conseguir o driver?</p>
+<label><input type="radio" name="p5"> Instalar <code>bcmwl-kernel-source</code>.</label>
+<label><input type="radio" name="p5"> Rodar <code>ubuntu-drivers autoinstall</code>.</label>
+<label><input type="radio" name="p5"> Baixar um driver do GitHub.</label>
+<label><input type="radio" name="p5"> Marcar "drivers de terceiros" no instalador: o <code>broadcom-sta-dkms</code> está na ISO.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">6. Em <code>lspci -k</code>, a placa Wi-Fi não tem a linha <code>Kernel driver in use</code>. O que isso indica?</p>
+<label><input type="radio" name="p6"> Nenhum driver está cuidando da placa.</label>
+<label><input type="radio" name="p6"> O Wi-Fi está bloqueado pelo rfkill.</label>
+<label><input type="radio" name="p6"> A senha do Wi-Fi está errada.</label>
+<label><input type="radio" name="p6"> A placa é USB.</label>
+</div>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>Wi-Fi depende de rádio (rfkill), driver (módulo do kernel) e firmware (arquivo em <code>/usr/lib/firmware/</code>). Investigue nessa ordem.</li>
+  <li>Bloqueio soft: <code>rfkill unblock wifi</code>. Bloqueio hard: chave, tecla <kbd>Fn</kbd> ou BIOS.</li>
+  <li>Sem placa <code>wl…</code> no <code>ip -br link</code>: <code>lsusb</code>/<code>lspci -k</code> para achar o chip, <code>sudo dmesg</code> para ver o firmware.</li>
+  <li>Drivers extras: Drivers Adicionais ou <code>sudo ubuntu-drivers install</code>. No 26.04 não há <code>autoinstall</code> nem <code>bcmwl-kernel-source</code>: o Broadcom é <code>broadcom-sta-dkms</code>, e está na ISO.</li>
+  <li>Plano B: internet do celular pelo cabo USB.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

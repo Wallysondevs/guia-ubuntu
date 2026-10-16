@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ubuntu Wi-Fi — nmcli, nmtui, menu do GNOME e Netplan | Guia Ubuntu</title>
+<meta name="description" content="Conecte o Ubuntu ao Wi-Fi pelo menu do GNOME, pelo nmcli e pelo nmtui: listar redes, senha errada, rede oculta, conexões salvas, esquecer rede e Wi-Fi no Ubuntu Server com Netplan, com saídas reais.">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Tópicos"></nav>
+<main class="main">
+<div class="content">
+
+<div class="pager"></div>
+
+<h1>Ubuntu <span class="hl">Wi-Fi</span></h1>
+
+<p class="intro">Nem todo computador fica perto do roteador com um cabo. Nesta aula você conecta o Ubuntu a uma rede Wi-Fi de três jeitos: pelo <strong>menu do GNOME</strong> (com o mouse), pelo <strong><code>nmcli</code></strong> (comandos) e pelo <strong><code>nmtui</code></strong> (menus dentro do terminal). No fim, vê como o <strong>Ubuntu Server</strong> se conecta ao Wi-Fi com o Netplan.</p>
+
+<div class="note">
+<strong>Você vai aprender</strong>
+<ul>
+  <li>O que são SSID, senha da rede e "conexão salva".</li>
+  <li>Conectar pelo menu do GNOME e pelas Configurações.</li>
+  <li>Listar redes e conectar com <code>nmcli</code>, inclusive em rede oculta.</li>
+  <li>O que acontece com a senha errada, e como esquecer uma rede.</li>
+  <li>Usar o <code>nmtui</code> e configurar Wi-Fi no servidor com Netplan.</li>
+</ul>
+</div>
+
+<div class="tip">
+<strong>As telas e saídas desta aula são reais</strong>
+<p>Tudo foi feito num Ubuntu 26.04 de verdade (o "modo de teste" do pendrive, numa máquina virtual), com placas Wi-Fi virtuais que se comportam como as de um notebook. Por isso, o prompt das sessões é <code>ubuntu@ubuntu</code> (o usuário do modo de teste) e a placa se chama <code>wlan0</code>. No seu notebook, ela costuma se chamar <code>wlp2s0</code> ou parecido. Os detalhes estão em <a href="#laboratorio">Como o laboratório foi feito</a>.</p>
+</div>
+
+<p>Se ainda não leu <a href="configurar-rede.html">Configurar a Rede</a>, vale começar por lá: ela explica quem gerencia a rede no desktop (o NetworkManager) e no servidor (o Netplan). Se o Wi-Fi nem aparece no seu computador, a aula certa é <a href="wifi-problemas.html">Wi-Fi que Não Funciona</a>.</p>
+
+<hr>
+
+<h2 id="conceitos">Antes de conectar: quatro ideias</h2>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Termo</th><th>O que é</th><th>No exemplo</th></tr>
+<tr><td><strong>SSID</strong></td><td>O nome da rede, o que aparece na lista. Vem de <em>Service Set Identifier</em>.</td><td><code>CasaDaAna</code></td></tr>
+<tr><td><strong>BSSID</strong></td><td>O endereço físico (MAC) do roteador que transmite a rede. Uma casa com dois roteadores tem um SSID e dois BSSIDs.</td><td><code>02:00:00:00:01:00</code></td></tr>
+<tr><td><strong>Senha (chave)</strong></td><td>A senha do Wi-Fi. Redes WPA2 e WPA3 usam uma senha de 8 a 63 caracteres, também chamada de <em>PSK</em> (<em>pre-shared key</em>, "chave combinada antes").</td><td><code>senhadaana123</code></td></tr>
+<tr><td><strong>Conexão salva (perfil)</strong></td><td>O que o NetworkManager guarda depois que você conecta: nome, senha e configurações. É por causa dela que o notebook reconecta sozinho quando você volta para casa.</td><td>Conexão <code>CasaDaAna</code></td></tr>
+</table>
+</div>
+
+<p>Quem faz tudo isso no Ubuntu Desktop é o <strong>NetworkManager</strong>. O menu do GNOME, as Configurações, o <code>nmcli</code> e o <code>nmtui</code> são só jeitos diferentes de dar ordens a ele. Por isso, uma rede conectada pelo menu aparece no <code>nmcli</code>, e vice-versa.</p>
+
+<hr>
+
+<h2 id="gnome">Pelo menu do GNOME</h2>
+<p>É o jeito do dia a dia. O <strong>menu do sistema</strong> fica no canto superior direito da tela (os ícones de rede, som e energia). Também abre com <kbd>Super</kbd>+<kbd>S</kbd>.</p>
+
+<ol class="passo">
+<li>
+<p>Abra o menu do sistema e clique na <strong>seta</strong> ao lado de <strong>Sem fio (Wi-Fi)</strong>. A lista de redes próximas aparece:</p>
+<figure>
+<img src="img/gnome-menu-wifi.png" alt="Menu do sistema do GNOME com a seção Wi-Fi aberta, listando as redes CasaDaAna e Vizinho_2G, com cadeado, e a opção Todas as redes" width="420" height="470" loading="lazy">
+<figcaption>Captura real. O cadeado indica rede com senha. "Todas as redes" abre as Configurações.</figcaption>
+</figure>
+</li>
+<li>
+<p>Clique no nome da rede. Se ela tem senha, o GNOME pergunta:</p>
+<figure>
+<img src="img/gnome-senha-wifi.png" alt="Janela Autenticação necessária: Senhas ou chaves criptografadas são necessárias para acessar a rede sem fio CasaDaAna, com o campo Senha e os botões Cancelar e Conectar" width="480" height="304" loading="lazy">
+<figcaption>Captura real. O ícone de olho no campo mostra a senha enquanto você digita.</figcaption>
+</figure>
+</li>
+<li>
+<p>Digite a senha e clique em <strong>Conectar</strong>. Em alguns segundos, o bloco passa a mostrar o nome da rede, e o ícone de Wi-Fi aparece na barra superior:</p>
+<figure>
+<img src="img/gnome-wifi-conectado.png" alt="Menu do sistema com o bloco Sem fio (Wi-Fi) mostrando CasaDaAna embaixo, e o ícone de Wi-Fi na barra superior" width="420" height="280" loading="lazy">
+<figcaption>Captura real: conectado à CasaDaAna.</figcaption>
+</figure>
+</li>
+</ol>
+
+<h3>E se a senha estiver errada?</h3>
+<p>O GNOME não mostra uma mensagem de erro: ele simplesmente <strong>abre a mesma janela de novo</strong>, já com a senha que você digitou. Se a janela "Autenticação necessária" volta logo depois de você clicar em Conectar, a senha está errada. Apague o campo, digite com calma (atenção às maiúsculas) e tente outra vez.</p>
+<p>O motivo fica registrado no log do NetworkManager (veja <a href="journalctl.html">journalctl</a>). Saída real, filtrada com <code>grep</code>:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ journalctl -u NetworkManager -b | grep "psk mismatch" | head -1
+out 16 19:51:35 ubuntu NetworkManager[2048]: &lt;info&gt;  [1792180295.8517] device (wlan0): Activation: (wifi) psk mismatch reported by supplicant, asking for new key</pre>
+<p><code>psk mismatch … asking for new key</code> = "a senha não confere… pedindo uma nova chave".</p>
+
+<hr>
+
+<h2 id="configuracoes">Pelas Configurações: redes salvas e rede oculta</h2>
+<p>Em <strong>Configurações → Wi-Fi</strong> (ou "Todas as redes", no menu) você tem mais opções:</p>
+<figure>
+<img src="img/configuracoes-wifi.png" alt="Configurações, painel Wi-Fi: chave Wi-Fi ligada, Redes salvas, Conectar a uma rede oculta, Ligar ponto de acesso Wi-Fi, e a lista Redes visíveis com CasaDaAna conectado e Vizinho_2G" width="986" height="648" loading="lazy">
+<figcaption>Captura real do painel Wi-Fi das Configurações.</figcaption>
+</figure>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Item</th><th>Para que serve</th></tr>
+<tr><td>Chave <strong>Wi-Fi</strong></td><td>Liga e desliga o rádio Wi-Fi.</td></tr>
+<tr><td><strong>Redes salvas</strong></td><td>Lista as redes que o computador lembra. É ali que você <strong>esquece</strong> uma rede.</td></tr>
+<tr><td><strong>Conectar a uma rede oculta…</strong></td><td>Para redes que não aparecem na lista (você digita o nome e a senha).</td></tr>
+<tr><td><strong>Ligar ponto de acesso Wi-Fi…</strong></td><td>Transforma o computador num roteador para outros aparelhos.</td></tr>
+<tr><td>Ícone de <strong>código QR</strong></td><td>Mostra a senha da rede atual num QR code, para o celular ler.</td></tr>
+<tr><td><strong>Engrenagem</strong></td><td>Detalhes da conexão: IP, DNS, "conectar automaticamente", IP fixo (veja <a href="configurar-rede.html">Configurar a Rede</a>).</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2 id="nmcli">Pelo terminal: nmcli</h2>
+<p><code>nmcli</code> é o <em>NetworkManager command line interface</em>. Ele é útil quando você está num terminal, por SSH, ou quer repetir a mesma configuração em várias máquinas.</p>
+
+<h3>1. O Wi-Fi está ligado?</h3>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli radio
+WIFI-HW     WIFI        WWAN-HW  WWAN
+habilitado  habilitado  missing  habilitado</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Significado</th></tr>
+<tr><td><code>WIFI-HW</code></td><td>O rádio Wi-Fi existe e não está travado por hardware (chave física, tecla <kbd>Fn</kbd>).</td></tr>
+<tr><td><code>WIFI</code></td><td>O Wi-Fi está ligado no sistema. <code>desabilitado</code> = desligado pelo menu ou pelo <code>nmcli radio wifi off</code>.</td></tr>
+<tr><td><code>WWAN-HW</code>, <code>WWAN</code></td><td>Modem de celular (4G). <code>missing</code> = não há modem (veja <a href="celular-modem.html">Celular e Modem 4G</a>).</td></tr>
+</table>
+</div>
+
+<h3>2. Qual é a placa Wi-Fi?</h3>
+<p>O <code>nmcli device status</code> lista as placas (a tabela completa está no passo 5). Para achar só a do Wi-Fi, filtre com <code>grep</code> (saída real, antes de conectar):</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli device status | grep wlan0
+wlan0          wifi      desconectado            --     « a placa Wi-Fi, ainda sem rede
+p2p-dev-wlan0  wifi-p2p  desconectado            --     « Wi-Fi Direct da mesma placa: ignore</pre>
+
+<p>No seu computador, troque <code>wlan0</code> por <code>wifi</code> no <code>grep</code>, porque o nome da placa muda de máquina para máquina. O nome que aparece na primeira coluna é o que você usa nos comandos. Se não aparecer nenhuma linha, vá para <a href="wifi-problemas.html">Wi-Fi que Não Funciona</a>.</p>
+
+<h3>3. Listar as redes</h3>
+<dl class="anatomy">
+  <dt>nmcli</dt><dd>O programa.</dd>
+  <dt>device</dt><dd>Vamos falar das placas.</dd>
+  <dt>wifi</dt><dd>…da parte Wi-Fi delas.</dd>
+  <dt>list</dt><dd>Liste as redes que a placa enxerga.</dd>
+</dl>
+
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli device wifi list
+IN-USE  BSSID              SSID        MODE   CHAN  RATE       SIGNAL  BARS  SECURITY
+        02:00:00:00:01:01  Vizinho_2G  Infra  6     54 Mbit/s  100     ▂▄▆█  WPA2
+        02:00:00:00:01:02  --          Infra  6     0 Mbit/s   100     ▂▄▆█  WPA2   « rede oculta: sem nome
+        02:00:00:00:01:00  CasaDaAna   Infra  6     0 Mbit/s   100     ▂▄▆█  WPA2</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Coluna</th><th>Significado</th></tr>
+<tr><td><code>IN-USE</code></td><td>Um <code>*</code> marca a rede em que você está conectado agora.</td></tr>
+<tr><td><code>BSSID</code></td><td>O endereço do roteador. Os <code>02:00:00:…</code> do laboratório são de placas virtuais.</td></tr>
+<tr><td><code>SSID</code></td><td>O nome da rede. <code>--</code> significa <strong>rede oculta</strong>: o roteador transmite, mas não diz o nome.</td></tr>
+<tr><td><code>CHAN</code></td><td>Canal. De 1 a 13 é a faixa de 2,4 GHz; de 36 em diante, 5 GHz.</td></tr>
+<tr><td><code>RATE</code></td><td>Velocidade máxima anunciada. (O <code>0 Mbit/s</code> é coisa das placas virtuais.)</td></tr>
+<tr><td><code>SIGNAL</code> e <code>BARS</code></td><td>Força do sinal, de 0 a 100, e em barrinhas. No laboratório tudo fica perto de 100, porque o "ar" é simulado.</td></tr>
+<tr><td><code>SECURITY</code></td><td>Tipo de proteção. Vazio = rede aberta, sem senha.</td></tr>
+</table>
+</div>
+
+<p>A lista vem da última procura que a placa fez. Se você acabou de ligar o roteador e a rede não aparece, peça uma procura nova com <code>nmcli device wifi rescan</code> (não imprime nada) e liste de novo, ou use <code>nmcli device wifi list --rescan yes</code>.</p>
+
+<h3>4. Conectar</h3>
+<dl class="anatomy">
+  <dt>nmcli device wifi connect</dt><dd>"Conecte a placa Wi-Fi a uma rede".</dd>
+  <dt>CasaDaAna</dt><dd>O SSID, igualzinho à lista (maiúsculas contam). Se tiver espaço, use aspas: <code>"Casa da Ana"</code>.</dd>
+  <dt>--ask</dt><dd>Pergunte a senha na hora. Assim ela não fica gravada no histórico do terminal.</dd>
+</dl>
+
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli device wifi connect CasaDaAna --ask
+Senhas ou chaves de criptografia são necessárias para acessar a rede sem fio “CasaDaAna”.
+Senha (802-11-wireless-security.psk): •••••••••••••          « você digita; aparecem bolinhas
+Dispositivo “wlan0” ativado com sucesso com “a7bcb616-f360-4700-b591-3fca36dc8142”.
+$ echo $?
+0</pre>
+
+<p>A última linha diz que a placa <code>wlan0</code> foi ativada com uma conexão nova, identificada por um código (o <strong>UUID</strong>). A partir daqui a rede fica <strong>salva</strong>: das próximas vezes o Ubuntu conecta sozinho, sem perguntar a senha.</p>
+
+<p>Existe a forma curta, com a senha no próprio comando:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli device wifi connect CasaDaAna password senhadaana123</pre>
+<p>Ela funciona e é útil em scripts, mas a senha fica no histórico (<code>history</code>) e aparece para quem estiver olhando a tela. No dia a dia, prefira <code>--ask</code>.</p>
+
+<h3>5. Conferir</h3>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli device status
+DEVICE         TYPE      STATE                   CONNECTION
+enp0s3         ethernet  conectado               netplan-enp0s3   « a placa de cabo da máquina virtual
+wlan0          wifi      conectado               CasaDaAna        « conectado, usando a conexão CasaDaAna
+lo             loopback  connected (externally)  lo
+p2p-dev-wlan0  wifi-p2p  desconectado            --
+veth-lab       ethernet  não gerenciável         --               « peça do laboratório
+hwsim0         unknown   não gerenciável         --               « peça do laboratório
+$ ip -br a show wlan0
+wlan0            UP             192.168.50.144/24 fe80::2ec1:de1a:39ef:5afd/64   « o roteador entregou um IP</pre>
+
+<p>Procure a linha com <code>TYPE</code> igual a <code>wifi</code>: <code>conectado</code> e o nome da rede em <code>CONNECTION</code>. No seu computador aparecem só as suas placas: <code>veth-lab</code> e <code>hwsim0</code> existem apenas no laboratório. Com IP na placa, teste a internet com <code>ping -c 3 ubuntu.com</code> (veja <a href="ip.html">ip, ping, ss</a>).</p>
+
+<h3>O que o nmcli devolve</h3>
+<p>Em scripts, o código de saída (<code>echo $?</code>) diz o que houve. Estes foram os códigos reais do laboratório:</p>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Código</th><th>Quando aparece</th></tr>
+<tr><td><code>0</code></td><td>Deu certo.</td></tr>
+<tr><td><code>3</code></td><td>Tempo esgotado: por exemplo, a senha estava errada e ninguém digitou outra.</td></tr>
+<tr><td><code>4</code></td><td>A ativação falhou (rede fora de alcance, por exemplo).</td></tr>
+<tr><td><code>7</code></td><td>Sem permissão (o caso do SSH, mais abaixo).</td></tr>
+<tr><td><code>10</code></td><td>Não encontrou o que você pediu: rede, conexão ou placa com esse nome.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2 id="senha-errada">Senha errada no nmcli</h2>
+<p>Com <code>--ask</code>, o <code>nmcli</code> faz como o GNOME: <strong>pergunta de novo</strong>. Saída real, com uma senha errada:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli device wifi connect CasaDaAna --ask
+Senhas ou chaves de criptografia são necessárias para acessar a rede sem fio “CasaDaAna”.
+Senha (802-11-wireless-security.psk): ••••••••••••
+Senhas ou chaves de criptografia são necessárias para acessar a rede sem fio “CasaDaAna”.
+Senha (802-11-wireless-security.psk):            « pediu de novo: a primeira estava errada</pre>
+<p>Digite a senha certa, ou aperte <kbd>Ctrl</kbd>+<kbd>C</kbd> para desistir. Se ninguém responder, depois de 90 segundos aparece <code>Erro: Tempo limite de 90 seg expirou.</code> e o código <code>3</code>.</p>
+
+<p>Com a senha escrita no comando (<code>password</code>), não há como perguntar de novo. Saída real:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli device wifi connect CasaDaAna password senhaerrada1
+Senhas ou chaves de criptografia são necessárias para acessar a rede sem fio “CasaDaAna”.
+Aviso: senha para “802-11-wireless-security.psk” não fornecida em “passwd-file” e nmcli não pode solicitar sem a opção “--ask”.
+Erro: Tempo limite de 90 seg expirou.
+$ echo $?
+3</pre>
+
+<p>Traduzindo: "a senha não serviu, e sem <code>--ask</code> eu não posso pedir outra". No desktop, enquanto o <code>nmcli</code> espera, a janela "Autenticação necessária" do GNOME também aparece na tela, porque o NetworkManager pede a senha a todos os programas que sabem perguntá-la.</p>
+
+<div class="warning">
+<strong>A tentativa errada fica salva</strong>
+<p>Mesmo quando a senha está errada, o NetworkManager cria a conexão salva. Depois, ao tentar de novo, ele usa a senha errada guardada. Se isso acontecer, <a href="#esquecer">esqueça a rede</a> e conecte outra vez.</p>
+</div>
+
+<hr>
+
+<h2 id="oculta">Rede oculta</h2>
+<p>Uma <strong>rede oculta</strong> não anuncia o nome. Ela aparece como <code>--</code> no <code>nmcli</code> e nem aparece no menu do GNOME. Para entrar, você precisa saber o nome exato. Sem avisar que ela é oculta, o <code>nmcli</code> procura o nome na lista e não acha (saída real):</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli device wifi connect Escritorio password senhadoescritorio
+Erro: nenhuma rede com SSID “Escritorio” foi encontrada.
+$ echo $?
+10</pre>
+
+<dl class="anatomy">
+  <dt>nmcli device wifi connect</dt><dd>Conectar.</dd>
+  <dt>Escritorio</dt><dd>O nome exato da rede oculta.</dd>
+  <dt>password senhadoescritorio</dt><dd>A senha (ou troque por <code>--ask</code>).</dd>
+  <dt>hidden yes</dt><dd>"Esta rede é oculta": procure-a chamando pelo nome.</dd>
+</dl>
+
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli device wifi connect Escritorio password senhadoescritorio hidden yes
+Dispositivo “wlan0” ativado com sucesso com “e4676b9e-576f-4719-8a50-5dc79415c068”.
+$ nmcli -f 802-11-wireless.ssid,802-11-wireless.hidden connection show Escritorio
+802-11-wireless.ssid:                   Escritorio
+802-11-wireless.hidden:                 sim            « a conexão salva lembra que a rede é oculta</pre>
+
+<p>Pelo mouse, o caminho é <strong>Configurações → Wi-Fi → Conectar a uma rede oculta…</strong>.</p>
+
+<div class="note">
+<strong>Ocultar a rede não a protege</strong>
+<p>Quem usa programas de análise de Wi-Fi descobre o nome de uma rede oculta em minutos. O que protege a rede é uma senha forte com WPA2 ou WPA3.</p>
+</div>
+
+<hr>
+
+<h2 id="salvas">Conexões salvas</h2>
+<p>Toda rede em que você entra vira uma <strong>conexão salva</strong>. Para listar:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli connection show
+NAME            UUID                                  TYPE      DEVICE
+netplan-enp0s3  1eef7e45-3b9d-3043-bee3-fc5925c90273  ethernet  enp0s3
+Escritorio      e4676b9e-576f-4719-8a50-5dc79415c068  wifi      wlan0    « em uso agora
+lo              d984114d-7891-4bae-8c47-bc84a8ca51a1  loopback  lo
+CasaDaAna       a7bcb616-f360-4700-b591-3fca36dc8142  wifi      --       « salva, mas não está em uso</pre>
+
+<p><code>DEVICE</code> com <code>--</code> quer dizer "salva, mas não está ativa agora". Para ver só as ativas: <code>nmcli connection show --active</code>.</p>
+
+<h3>Trocar de rede: down e up</h3>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli connection down Escritorio
+Conexão “Escritorio” desativada com sucesso (caminho D-Bus ativo: /org/freedesktop/NetworkManager/ActiveConnection/16)
+$ nmcli connection up CasaDaAna
+Conexão ativada com sucesso (caminho D-Bus ativo: /org/freedesktop/NetworkManager/ActiveConnection/17)</pre>
+<p>O "caminho D-Bus" é um endereço interno do NetworkManager; pode ignorar. O que importa é o "com sucesso".</p>
+
+<h3>Quando foi usada e se conecta sozinha</h3>
+<p>Com <code>-f</code> (<em>fields</em>, "campos") você escolhe as colunas:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli -f NAME,AUTOCONNECT,AUTOCONNECT-PRIORITY,TIMESTAMP-REAL connection show
+NAME            AUTOCONNECT  AUTOCONNECT-PRIORITY  TIMESTAMP-REAL
+netplan-enp0s3  sim          0                     sex 16 out 2026 19:53:49
+CasaDaAna       sim          0                     sex 16 out 2026 19:58:51
+lo              sim          0                     sex 16 out 2026 19:36:03</pre>
+
+<p><code>AUTOCONNECT sim</code>: conecta sozinha quando a rede estiver ao alcance. Se duas redes salvas estão ao alcance, ganha a de maior <code>AUTOCONNECT-PRIORITY</code>. Para preferir a de casa:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli connection modify CasaDaAna connection.autoconnect-priority 10</pre>
+<p>O <code>modify</code> não imprime nada quando dá certo. Para uma rede salva nunca conectar sozinha, use <code>connection.autoconnect no</code> no lugar da prioridade.</p>
+
+<h3 id="esquecer">Esquecer uma rede</h3>
+<p>"Esquecer" é apagar a conexão salva, com senha e tudo:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli connection delete Escritorio
+A conexão “Escritorio” (e4676b9e-576f-4719-8a50-5dc79415c068) foi excluída com sucesso.</pre>
+<p>Pelo mouse: <strong>Configurações → Wi-Fi → Redes salvas</strong>, e o botão de remover ao lado da rede. Esquecer é o remédio para "a senha do roteador mudou e o notebook não conecta mais".</p>
+
+<h3>Ver a senha de uma rede salva</h3>
+<p>Esqueceu a senha do Wi-Fi de casa? O computador lembra. A opção <code>-s</code> (<em>show secrets</em>) mostra os segredos, e <code>-g</code> (<em>get</em>) imprime só o valor pedido:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli -s -g 802-11-wireless-security.psk connection show CasaDaAna
+senhadaana123</pre>
+<p>Também dá para usar o ícone de QR code nas Configurações, ou <code>nmcli device wifi show-password</code>, que mostra a senha da rede atual e um QR code no terminal.</p>
+
+<h3>Onde a conexão fica guardada</h3>
+<p>No Ubuntu, o NetworkManager guarda as conexões em arquivos do Netplan, em <code>/etc/netplan/</code>, com nomes que começam com <code>90-NM-</code> seguido do UUID. Só o root pode ler, porque a senha está ali, em texto. Conteúdo real:</p>
+<pre class="file" data-file="/etc/netplan/90-NM-17ac2344-989c-4f2f-8e10-2994578e5cb5.yaml">network:
+  version: 2
+  wifis:
+    NM-17ac2344-989c-4f2f-8e10-2994578e5cb5:
+      renderer: NetworkManager
+      match:
+        name: "wlan0"
+      dhcp4: true
+      dhcp6: true
+      access-points:
+        "CasaDaAna":
+          auth:
+            key-management: "psk"
+            password: "senhadaana123"
+          networkmanager:
+            uuid: "17ac2344-989c-4f2f-8e10-2994578e5cb5"
+            name: "CasaDaAna"
+            passthrough:
+              wifi-security.auth-alg: "open"
+              ipv6.addr-gen-mode: "default"
+              ipv6.ip6-privacy: "-1"
+              proxy._: ""
+      networkmanager:
+        uuid: "17ac2344-989c-4f2f-8e10-2994578e5cb5"
+        name: "CasaDaAna"</pre>
+<p>Não edite esses arquivos à mão: use o <code>nmcli</code> ou as Configurações. Mas repare na estrutura <code>wifis:</code> → <code>access-points:</code> → nome da rede → senha. É a mesma que você vai escrever no <a href="#servidor">Ubuntu Server</a>.</p>
+
+<h3>Desligar e ligar o Wi-Fi</h3>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli radio wifi off
+$ nmcli device status
+DEVICE         TYPE      STATE                   CONNECTION
+enp0s3         ethernet  conectado               netplan-enp0s3
+lo             loopback  connected (externally)  lo
+wlan0          wifi      não disponível          --        « rádio desligado
+p2p-dev-wlan0  wifi-p2p  não disponível          --
+veth-lab       ethernet  não gerenciável         --
+hwsim0         unknown   não gerenciável         --
+$ nmcli radio wifi on</pre>
+<p>É o mesmo que a chave Wi-Fi das Configurações. Repare no estado <code>não disponível</code>: a placa existe, mas o rádio está desligado.</p>
+
+<hr>
+
+<h2 id="nmtui">nmtui: menus no terminal</h2>
+<p><code>nmtui</code> (<em>NetworkManager text user interface</em>) mostra menus dentro do terminal. É ótimo quando você não lembra os comandos, e funciona até sem interface gráfica (num TTY, aberto com <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F3</kbd>). Basta digitar:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmtui</pre>
+
+<figure>
+<img src="img/nmtui-menu.png" alt="Terminal com o nmtui aberto: NetworkManager TUI, Por favor selecione uma opção: Editar uma conexão, Ativar uma conexão, Definir nome de máquina do sistema, Radio, Cancelar, OK" width="654" height="492" loading="lazy">
+<figcaption>Captura real do menu principal do <code>nmtui</code>.</figcaption>
+</figure>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Tecla</th><th>Faz</th></tr>
+<tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Sobe e desce na lista.</td></tr>
+<tr><td><kbd>Tab</kbd></td><td>Pula para o próximo campo ou botão.</td></tr>
+<tr><td><kbd>Enter</kbd></td><td>Escolhe o item ou aperta o botão.</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>Volta (ou sai).</td></tr>
+</table>
+</div>
+
+<p>Em <strong>Ativar uma conexão</strong> aparecem as redes. O <code>*</code> marca as que estão em uso, e as barrinhas mostram o sinal:</p>
+<figure>
+<img src="img/nmtui-ativar.png" alt="nmtui na tela Ativar uma conexão: Cabeada com netplan-enp0s3 ativa; Sem fio (Wi-Fi) com CasaDaAna ativa e Vizinho_2G; Loopback lo; botões Desativar e Voltar" width="654" height="492" loading="lazy">
+<figcaption>Captura real. Com uma rede ativa selecionada, o botão vira &lt;Desativar&gt;; numa inativa, &lt;Ativar&gt;.</figcaption>
+</figure>
+
+<p>Escolha uma rede com senha e aperte <kbd>Enter</kbd>: o <code>nmtui</code> pergunta a senha numa janelinha.</p>
+<figure>
+<img src="img/nmtui-senha.png" alt="nmtui com a janela Autenticação requerida pela rede sem fio: Senhas ou chaves de criptografia são necessárias para acessar a rede sem fio Vizinho_2G, campo Senha e botões Cancelar e OK" width="654" height="492" loading="lazy">
+<figcaption>Captura real da senha no <code>nmtui</code>.</figcaption>
+</figure>
+
+<p>Detalhe real do laboratório: mesmo quando você aperta <strong>&lt;Cancelar&gt;</strong> nessa janela, a conexão <code>Vizinho_2G</code> fica salva (sem senha). Se isso incomodar, apague-a com <code>nmcli connection delete Vizinho_2G</code>. Em <strong>Editar uma conexão</strong> você muda IP, DNS e "conectar automaticamente" com os mesmos menus.</p>
+
+<hr>
+
+<h2 id="servidor">Wi-Fi no Ubuntu Server: Netplan</h2>
+<p>O Ubuntu Server não tem o NetworkManager. A rede é descrita em arquivos YAML em <code>/etc/netplan/</code> (veja <a href="configurar-rede.html">Configurar a Rede</a>), e quem conversa com o Wi-Fi é o <code>wpa_supplicant</code>, chamado pelo Netplan. Servidor com Wi-Fi é comum em casa: um computador antigo ou um Raspberry Pi longe do roteador.</p>
+
+<h3>O arquivo</h3>
+<p>Crie um arquivo novo, por exemplo <code>/etc/netplan/60-wifi.yaml</code>:</p>
+<pre class="file" data-file="/etc/netplan/60-wifi.yaml">network:
+  version: 2
+  wifis:
+    wlan0:
+      renderer: networkd
+      dhcp4: true
+      access-points:
+        "CasaDaAna":
+          password: "senhadaana123"</pre>
+
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Chave</th><th>Significado</th></tr>
+<tr><td><code>wifis:</code></td><td>Placas Wi-Fi (para cabo, a chave é <code>ethernets:</code>).</td></tr>
+<tr><td><code>wlan0:</code></td><td>O nome da placa, como aparece em <code>ip -br link</code>. No seu servidor pode ser <code>wlp2s0</code>.</td></tr>
+<tr><td><code>renderer: networkd</code></td><td>Quem aplica a configuração. No Ubuntu Server o <code>networkd</code> já é o padrão e esta linha é dispensável. No laboratório, que era um desktop, ela foi necessária para imitar o servidor.</td></tr>
+<tr><td><code>dhcp4: true</code></td><td>Pegue o IP do roteador automaticamente.</td></tr>
+<tr><td><code>access-points:</code></td><td>As redes que a placa pode usar ("pontos de acesso").</td></tr>
+<tr><td><code>"CasaDaAna":</code></td><td>O SSID, entre aspas.</td></tr>
+<tr><td><code>password:</code></td><td>A senha. Para uma rede oculta, acrescente <code>hidden: true</code> no mesmo nível da senha.</td></tr>
+</table>
+</div>
+
+<h3>Permissões: só o root lê</h3>
+<p>O arquivo tem a senha do Wi-Fi. Se outros usuários puderem lê-lo, o Netplan reclama (saída real, em inglês):</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ sudo netplan generate
+
+** (configure:17884): WARNING **: 20:06:24.102: Permissions for /etc/netplan/60-wifi.yaml are too open. Netplan configuration should NOT be accessible by others.
+$ sudo chmod 600 /etc/netplan/60-wifi.yaml
+$ sudo netplan generate          « agora não reclama de nada</pre>
+<p>"As permissões estão abertas demais. A configuração do Netplan NÃO deve ser acessível por outros." O <code>chmod 600</code> deixa só o dono (root) ler e escrever (veja <a href="chmod.html">chmod</a>).</p>
+
+<h3>Aplicar e conferir</h3>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ sudo netplan apply
+$ networkctl
+IDX LINK     TYPE               OPERATIONAL SETUP
+  1 lo       loopback           carrier     unmanaged
+  2 enp0s3   ether              routable    unmanaged
+  3 wlan0    wlan               routable    configured      « routable: tem IP e rota; configured: o networkd cuida dela
+  5 hwsim0   ieee80211_radiotap off         unmanaged
+  7 veth-lab ether              routable    unmanaged
+
+5 links listed.
+$ ip -br a show wlan0
+wlan0            UP             192.168.50.145/24 metric 600 fe80::ff:fe00:0/64</pre>
+
+<p>Num servidor remoto, prefira <code>sudo netplan try</code> (volta sozinho se você perder o acesso), como em <a href="configurar-rede.html">Configurar a Rede</a>. O <code>netplan status</code> resume tudo de uma placa (saída real):</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ netplan status wlan0
+     Online state: online
+    DNS Addresses: 127.0.0.53 (stub)
+       DNS Search: lan
+
+●  3: wlan0 wifi/"(null)" UP (networkd: wlan0)
+      MAC Address: 02:00:00:00:00:00
+        Addresses: 192.168.50.145/24 (dynamic, dhcp)
+                   fe80::ff:fe00:0/64 (link)
+    DNS Addresses: 192.168.50.1
+           Routes: default via 192.168.50.1 from 192.168.50.145 metric 600
+(dhcp)
+                   192.168.50.0/24 from 192.168.50.145 metric 600 (link)
+                   192.168.50.1 from 192.168.50.145 metric 600 (dhcp, link)
+                   fe80::/64 metric 256
+
+4 inactive interfaces hidden. Use "--all" to show all.</pre>
+
+<p>Por trás, o Netplan criou um serviço só para o Wi-Fi dessa placa, o <code>netplan-wpa-wlan0</code>. É no log dele que aparecem os problemas de senha:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ systemctl status netplan-wpa-wlan0.service --no-pager
+● netplan-wpa-wlan0.service - WPA supplicant for netplan wlan0
+     Loaded: loaded (/run/systemd/generator.late/netplan-wpa-wlan0.service; generated)
+     Active: active (running) since Fri 2026-10-16 20:06:26 UTC; 10s ago
+ Invocation: a9e481f7050947d09a7732a916926029
+   Main PID: 18304 (wpa_supplicant)
+      Tasks: 1 (limit: 3350)
+     Memory: 2.2M (peak: 2.5M)
+        CPU: 83ms
+     CGroup: /system.slice/netplan-wpa-wlan0.service
+             └─18304 /sbin/wpa_supplicant -c /run/netplan/wpa-wlan0.conf -iwlan0 -Dnl80211,wext
+
+out 16 20:06:26 ubuntu systemd[1]: Started netplan-wpa-wlan0.service - WPA supplicant for netplan wlan0.
+out 16 20:06:26 ubuntu wpa_supplicant[18304]: Successfully initialized wpa_supplicant
+out 16 20:06:30 ubuntu wpa_supplicant[18304]: wlan0: SME: Trying to authenticate with 02:00:00:00:01:00 (SSID='CasaDaAna' freq=2437 MHz)
+out 16 20:06:30 ubuntu wpa_supplicant[18304]: wlan0: Trying to associate with 02:00:00:00:01:00 (SSID='CasaDaAna' freq=2437 MHz)
+out 16 20:06:30 ubuntu wpa_supplicant[18304]: wlan0: Associated with 02:00:00:00:01:00
+out 16 20:06:30 ubuntu wpa_supplicant[18304]: wlan0: CTRL-EVENT-SUBNET-STATUS-UPDATE status=0
+out 16 20:06:30 ubuntu wpa_supplicant[18304]: wlan0: WPA: Key negotiation completed with 02:00:00:00:01:00 [PTK=CCMP GTK=CCMP]
+out 16 20:06:30 ubuntu wpa_supplicant[18304]: wlan0: CTRL-EVENT-CONNECTED - Connection to 02:00:00:00:01:00 completed [id=0 id_str=]   « conectou</pre>
+
+<p>Lendo de cima para baixo: tentou autenticar, associou ao roteador, negociou as chaves (<code>Key negotiation completed</code>) e conectou (<code>CTRL-EVENT-CONNECTED</code>). O servidor precisa do pacote <code>wpasupplicant</code>; se o serviço reclamar que o programa não existe, instale-o (por cabo ou pelo celular, veja <a href="celular-modem.html">Celular e Modem 4G</a>).</p>
+
+<h3>Senha errada no servidor</h3>
+<p>Não há janela perguntando nada: a placa fica sem IP. Saída real, com a senha trocada no arquivo:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ networkctl
+IDX LINK     TYPE               OPERATIONAL SETUP
+  1 lo       loopback           carrier     unmanaged
+  2 enp0s3   ether              routable    unmanaged
+  3 wlan0    wlan               no-carrier  configuring     « sem conexão, tentando
+  5 hwsim0   ieee80211_radiotap off         unmanaged
+  7 veth-lab ether              routable    unmanaged
+
+5 links listed.
+$ journalctl -u netplan-wpa-wlan0 -n 8
+out 16 20:07:03 ubuntu wpa_supplicant[19335]: wlan0: SME: Trying to authenticate with 02:00:00:00:01:00 (SSID='CasaDaAna' freq=2437 MHz)
+out 16 20:07:03 ubuntu wpa_supplicant[19335]: wlan0: Trying to associate with 02:00:00:00:01:00 (SSID='CasaDaAna' freq=2437 MHz)
+out 16 20:07:03 ubuntu wpa_supplicant[19335]: wlan0: Associated with 02:00:00:00:01:00
+out 16 20:07:03 ubuntu wpa_supplicant[19335]: wlan0: CTRL-EVENT-SUBNET-STATUS-UPDATE status=0
+out 16 20:07:07 ubuntu wpa_supplicant[19335]: wlan0: CTRL-EVENT-DISCONNECTED bssid=02:00:00:00:01:00 reason=15
+out 16 20:07:07 ubuntu wpa_supplicant[19335]: wlan0: WPA: 4-Way Handshake failed - pre-shared key may be incorrect   « a senha
+out 16 20:07:07 ubuntu wpa_supplicant[19335]: wlan0: CTRL-EVENT-SSID-TEMP-DISABLED id=0 ssid="CasaDaAna" auth_failures=1 duration=10 reason=WRONG_KEY
+out 16 20:07:07 ubuntu wpa_supplicant[19335]: wlan0: Added BSSID 02:00:00:00:01:00 into ignore list, ignoring for 10 seconds</pre>
+<p>A linha-chave é <code>4-Way Handshake failed - pre-shared key may be incorrect</code>: "a troca de chaves falhou, a senha pode estar errada". Logo depois, <code>reason=WRONG_KEY</code> ("chave errada"). Corrija a senha no YAML e rode <code>sudo netplan apply</code> de novo.</p>
+
+<h3>Erros de indentação</h3>
+<p>Em YAML, os espaços do começo da linha dizem o que está dentro do quê. O <code>netplan generate</code> confere o arquivo sem aplicar nada e aponta <code>arquivo:linha:coluna</code>. Duas saídas reais:</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ sudo netplan generate
+/etc/netplan/60-wifi.yaml:7:6: Invalid YAML: inconsistent indentation:
+     access-points:
+     ^
+$ echo $?
+1</pre>
+<p>"Indentação inconsistente" na linha 7: o <code>access-points:</code> estava com 5 espaços, e não 6 como o <code>dhcp4:</code> acima dele.</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ sudo netplan generate
+/etc/netplan/60-wifi.yaml:8:21: Error in network definition: expected mapping (check indentation)
+        "CasaDaAna":
+                    ^</pre>
+<p>Aqui a linha <code>password:</code> estava no mesmo nível de <code>"CasaDaAna":</code>, e não dentro dele. O Netplan esperava uma lista de opções embaixo do nome da rede ("expected mapping") e sugere: "confira a indentação".</p>
+
+<hr>
+
+<h2>Formas diferentes de conectar ao Wi-Fi</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Forma</th><th>Onde</th><th>Qual usar?</th></tr>
+<tr><td>Menu do GNOME</td><td>Canto superior direito</td><td>O dia a dia no desktop.</td></tr>
+<tr><td>Configurações → Wi-Fi</td><td>Janela de Configurações</td><td>Rede oculta, redes salvas, QR code, IP fixo.</td></tr>
+<tr><td><code>nmcli</code></td><td>Terminal (também por SSH)</td><td>Scripts, acesso remoto, repetir a mesma configuração.</td></tr>
+<tr><td><code>nmtui</code></td><td>Terminal ou TTY</td><td>Sem interface gráfica e sem decorar comandos.</td></tr>
+<tr><td>Netplan (<code>wifis:</code>)</td><td><code>/etc/netplan/*.yaml</code></td><td>Ubuntu Server.</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2 id="problemas">Quando não funciona</h2>
+
+<div class="cenario">
+<strong>"Insufficient privileges" e "not authorized" por SSH</strong>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli connection delete CasaDaAna
+Erro: Exclusão da conexão falhou: Insufficient privileges
+Erro: nem todas as conexões ativas foram excluídas.
+$ nmcli device wifi rescan
+Erro: org.freedesktop.NetworkManager.wifi.scan request failed: not authorized.</pre>
+<p><strong>O que aconteceu:</strong> estas saídas reais vieram de um acesso por <a href="ssh.html">SSH</a> ao desktop. Quem está sentado na frente do computador pode mexer no Wi-Fi sem senha; quem entra pela rede, não. Quem decide isso é o <strong>polkit</strong>, o "porteiro" das permissões do sistema. "Insufficient privileges" = "permissões insuficientes"; "not authorized" = "não autorizado". O código de saída é <code>7</code>.</p>
+<p><strong>Como resolver:</strong> pelo SSH, use <code>sudo</code>: <code>sudo nmcli connection delete CasaDaAna</code>. No terminal da própria máquina, o comando funciona sem <code>sudo</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>A janela de senha volta toda hora</strong>
+<p><strong>O que aconteceu:</strong> a senha está errada, ou a conexão salva tem uma senha antiga (o roteador mudou de senha).</p>
+<p><strong>Como confirmar:</strong> no log do kernel aparece a desconexão "por tempo esgotado na troca de chaves" (saída real, filtrada):</p>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ sudo dmesg | grep wlan0 | head -7
+[  979.141506] wlan0: authenticate with 02:00:00:00:01:00 (local address=02:00:00:00:00:00)
+[  979.141521] wlan0: send auth to 02:00:00:00:01:00 (try 1/3)
+[  979.142659] wlan0: authenticated
+[  979.147198] wlan0: associate with 02:00:00:00:01:00 (try 1/3)
+[  979.147850] wlan0: RX AssocResp from 02:00:00:00:01:00 (capab=0x411 status=0 aid=1)
+[  979.147933] wlan0: associated
+[  983.158661] wlan0: deauthenticated from 02:00:00:00:01:00 (Reason: 15=4WAY_HANDSHAKE_TIMEOUT)   « senha recusada</pre>
+<p><strong>Como resolver:</strong> esqueça a rede (<code>nmcli connection delete NOME</code>) e conecte de novo com <code>--ask</code>, digitando com calma.</p>
+</div>
+
+<div class="cenario">
+<strong>"nenhuma rede com SSID … foi encontrada"</strong>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli device wifi connect CasaDaana password senhadaana123
+Erro: nenhuma rede com SSID “CasaDaana” foi encontrada.</pre>
+<p><strong>O que aconteceu:</strong> o nome não bate com nenhuma rede da lista. Aqui, <code>CasaDaana</code> com "a" minúsculo; a rede é <code>CasaDaAna</code>. Também acontece com rede oculta sem <code>hidden yes</code>, ou com a rede fora de alcance.</p>
+<p><strong>Como resolver:</strong> copie o nome de <code>nmcli device wifi list</code>, use aspas se tiver espaço e, se a rede for oculta, acrescente <code>hidden yes</code>. Se ela não está na lista, chegue mais perto do roteador e rode <code>nmcli device wifi list --rescan yes</code>.</p>
+</div>
+
+<div class="cenario">
+<strong>"Não foi possível encontrar a rede Wi-Fi"</strong>
+<pre class="term" data-user="ubuntu" data-host="ubuntu">$ nmcli connection up Escritorio
+Erro: Ativação da conexão falhou: Não foi possível encontrar a rede Wi-Fi
+Dica: use “journalctl -xe NM_CONNECTION=83d64d38-0fcb-4add-9e19-497e22310a7e + NM_DEVICE=wlan0” para obter mais detalhes.</pre>
+<p><strong>O que aconteceu:</strong> a conexão salva existe, mas a rede não respondeu a tempo: roteador desligado, longe demais ou reiniciando. No laboratório, isso aconteceu enquanto o "roteador" estava desligado.</p>
+<p><strong>Como resolver:</strong> confira se outros aparelhos enxergam a rede, espere o roteador terminar de ligar e rode o <code>nmcli connection up</code> de novo. O comando da dica mostra o log só dessa conexão.</p>
+</div>
+
+<div class="cenario">
+<strong>Nenhuma rede aparece, ou não existe linha <code>wifi</code></strong>
+<p><strong>O que aconteceu:</strong> o Wi-Fi está desligado (por software ou por uma tecla/chave), ou a placa não foi reconhecida (falta driver ou firmware).</p>
+<p><strong>Como resolver:</strong> rode <code>nmcli radio</code>. Se <code>WIFI</code> estiver <code>desabilitado</code>, ligue com <code>nmcli radio wifi on</code>. Se a placa não aparece em <code>nmcli device status</code>, siga a aula <a href="wifi-problemas.html">Wi-Fi que Não Funciona</a>. Enquanto isso, use a internet do celular pelo cabo USB (<a href="celular-modem.html">Celular e Modem 4G</a>).</p>
+</div>
+
+<hr>
+
+<h2>Referência</h2>
+<div class="table-wrap">
+<table class="ref">
+<tr><th>Comando</th><th>Faz</th></tr>
+<tr><td><code>nmcli radio</code></td><td>Mostra se o Wi-Fi está ligado</td></tr>
+<tr><td><code>nmcli radio wifi on|off</code></td><td>Liga ou desliga o Wi-Fi</td></tr>
+<tr><td><code>nmcli device status</code></td><td>Placas e conexão ativa em cada uma</td></tr>
+<tr><td><code>nmcli device wifi list</code></td><td>Redes ao alcance (<code>--rescan yes</code> procura de novo)</td></tr>
+<tr><td><code>nmcli device wifi rescan</code></td><td>Pede uma procura nova</td></tr>
+<tr><td><code>nmcli device wifi connect SSID --ask</code></td><td>Conecta perguntando a senha</td></tr>
+<tr><td><code>nmcli device wifi connect SSID password SENHA hidden yes</code></td><td>Conecta a uma rede oculta</td></tr>
+<tr><td><code>nmcli device wifi show-password</code></td><td>Mostra a senha e o QR code da rede atual</td></tr>
+<tr><td><code>nmcli connection show</code></td><td>Conexões salvas (<code>--active</code>: só as ativas)</td></tr>
+<tr><td><code>nmcli connection up|down NOME</code></td><td>Ativa ou desativa uma conexão salva</td></tr>
+<tr><td><code>nmcli connection modify NOME connection.autoconnect-priority 10</code></td><td>Dá preferência a uma rede</td></tr>
+<tr><td><code>nmcli connection delete NOME</code></td><td>Esquece a rede</td></tr>
+<tr><td><code>nmcli -s -g 802-11-wireless-security.psk connection show NOME</code></td><td>Mostra a senha salva</td></tr>
+<tr><td><code>nmtui</code></td><td>Menus no terminal</td></tr>
+<tr><td><code>sudo netplan generate</code> / <code>try</code> / <code>apply</code></td><td>Valida, testa e aplica o YAML do servidor</td></tr>
+<tr><td><code>networkctl</code></td><td>Estado das placas no servidor (networkd)</td></tr>
+<tr><td><code>journalctl -u netplan-wpa-PLACA</code></td><td>Log do Wi-Fi no servidor</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>Exercícios</h2>
+
+<div class="exercise">
+<h3>1. Sem senha no histórico</h3>
+<p>Complete para conectar à rede e digitar a senha só quando o <code>nmcli</code> perguntar:</p>
+<div class="ex-code">nmcli device wifi connect CasaDaAna <input data-answer="--ask" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>2. Rede oculta</h3>
+<p>Complete para conectar à rede oculta "Escritorio":</p>
+<div class="ex-code">nmcli device wifi connect Escritorio password segredo123 <input data-answer="hidden yes|hidden on|hidden true" aria-label="opção"></div>
+</div>
+
+<div class="exercise">
+<h3>3. Esquecer a rede</h3>
+<p>A senha do roteador mudou. Complete para apagar a conexão salva "CasaDaAna":</p>
+<div class="ex-code">nmcli connection <input data-answer="delete|del" aria-label="ação"> CasaDaAna</div>
+</div>
+
+<div class="mc" data-answer="3">
+<p class="mc-q">4. Na saída de <code>nmcli device wifi list</code>, uma linha tem <code>--</code> na coluna SSID. O que é?</p>
+<label><input type="radio" name="w4"> Uma rede sem senha.</label>
+<label><input type="radio" name="w4"> Uma rede fora de alcance.</label>
+<label><input type="radio" name="w4"> Uma rede oculta, que não anuncia o nome.</label>
+<label><input type="radio" name="w4"> A rede em que você está conectado.</label>
+</div>
+
+<div class="mc" data-answer="2">
+<p class="mc-q">5. Conectado por SSH ao desktop, <code>nmcli connection delete CasaDaAna</code> respondeu "Insufficient privileges". O que fazer?</p>
+<label><input type="radio" name="w5"> Reiniciar o NetworkManager.</label>
+<label><input type="radio" name="w5"> Rodar o mesmo comando com <code>sudo</code>.</label>
+<label><input type="radio" name="w5"> Desligar o Wi-Fi com <code>nmcli radio wifi off</code>.</label>
+<label><input type="radio" name="w5"> Editar o arquivo <code>90-NM-…yaml</code> à mão.</label>
+</div>
+
+<div class="mc" data-answer="1">
+<p class="mc-q">6. No Netplan do servidor, dentro de qual chave ficam o nome da rede e a senha?</p>
+<label><input type="radio" name="w6"> <code>access-points:</code>, dentro de <code>wifis:</code></label>
+<label><input type="radio" name="w6"> <code>ethernets:</code></label>
+<label><input type="radio" name="w6"> <code>nameservers:</code></label>
+<label><input type="radio" name="w6"> <code>routes:</code></label>
+</div>
+
+<hr>
+
+<h2 id="laboratorio">Como o laboratório foi feito</h2>
+<p>Transparência: a máquina virtual do guia não tem uma placa Wi-Fi de verdade. Para mostrar telas e mensagens reais (e não inventadas), o laboratório foi montado assim:</p>
+<ul>
+  <li>O Ubuntu 26.04 Desktop rodou no modo de teste do pendrive ("Experimentar Ubuntu"), dentro do VirtualBox, com o idioma trocado para português do Brasil.</li>
+  <li>O módulo de testes do kernel <code>mac80211_hwsim</code> criou duas <strong>placas Wi-Fi virtuais</strong> que conversam por um "ar" simulado: <code>wlan0</code>, a placa "do notebook", e <code>wlan1</code>, o "roteador". O <code>hwsim0</code> que aparece nas listas é o monitor desse ar simulado.</li>
+  <li>O "roteador" ficou num espaço de rede separado (um <em>network namespace</em>), para o NetworkManager não enxergá-lo. Ele anunciava três redes: <code>CasaDaAna</code>, <code>Vizinho_2G</code> e a oculta <code>Escritorio</code>, e emprestava endereços <code>192.168.50.x</code>. A ligação dele com a internet é a placa <code>veth-lab</code>, que também aparece nas listas.</li>
+  <li>Tudo nesta aula foi feito na <code>wlan0</code>, com os programas do próprio Ubuntu, sem modificação. A internet chegava de verdade pelo Wi-Fi simulado.</li>
+  <li>Os comandos foram digitados por SSH. Para o SSH ter as mesmas permissões de quem está sentado na frente do computador, o laboratório ganhou uma regra do polkit; antes dela, apareceram as mensagens reais de "Insufficient privileges" mostradas acima.</li>
+</ul>
+<p>Por isso, três coisas do laboratório são diferentes do seu computador: as placas se chamam <code>wlan0</code> (e não <code>wlp2s0</code>), o sinal fica sempre perto de 100, e existem as linhas extras <code>veth-lab</code> e <code>hwsim0</code>.</p>
+
+<hr>
+
+<h2>Resumo</h2>
+<ul>
+  <li>O NetworkManager cuida do Wi-Fi no desktop; menu do GNOME, Configurações, <code>nmcli</code> e <code>nmtui</code> mexem nas mesmas conexões salvas.</li>
+  <li><code>nmcli device wifi list</code> lista; <code>nmcli device wifi connect SSID --ask</code> conecta; <code>hidden yes</code> para rede oculta.</li>
+  <li>Senha errada: a janela (ou a pergunta do <code>--ask</code>) volta. Senha antiga salva: <code>nmcli connection delete</code> e conecte de novo.</li>
+  <li>Por SSH, mudanças no Wi-Fi do desktop precisam de <code>sudo</code>.</li>
+  <li>No servidor: <code>wifis:</code> → placa → <code>access-points:</code> → <code>"SSID":</code> → <code>password:</code>, arquivo com <code>chmod 600</code>, e <code>netplan generate</code>/<code>try</code>/<code>apply</code>.</li>
+</ul>
+
+<div class="pager"></div>
+
+</div>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>
