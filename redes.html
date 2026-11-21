@@ -60,7 +60,7 @@
 </dl>
 
 <pre class="term">$ hostname -I
-192.168.0.15 2804:14c:5b80:8a1f::1a2b       « o primeiro é o IPv4; o segundo, IPv6</pre>
+192.168.0.15 2001:db8:5b80:8a1f::1a2b       « o primeiro é o IPv4; o segundo, IPv6</pre>
 
 <h3>IP privado e IP público</h3>
 <p>O <code>192.168.0.15</code> é um <strong>IP privado</strong>: só vale dentro da sua casa, como "apartamento 15" só faz sentido dentro do prédio. Para a internet, toda a sua casa aparece com um único <strong>IP público</strong>, o do roteador. Para descobrir o IP público, é preciso perguntar a um site de fora:</p>
@@ -185,7 +185,7 @@ default via 192.168.0.1 dev wlp2s0 proto dhcp src 192.168.0.15 metric 600     «
 <hr>
 
 <h2>IPv4 e IPv6</h2>
-<p>Os endereços IPv4 (4 números) estão acabando: são só cerca de 4 bilhões. O <strong>IPv6</strong> resolve isso com endereços enormes, escritos em hexadecimal e separados por dois-pontos, como <code>2804:14c:5b80:8a1f::1a2b</code>. Os dois convivem: o seu Ubuntu provavelmente já tem os dois tipos.</p>
+<p>Os endereços IPv4 (4 números) estão acabando: são só cerca de 4 bilhões. O <strong>IPv6</strong> resolve isso com endereços enormes, escritos em hexadecimal e separados por dois-pontos, como <code>2001:db8:5b80:8a1f::1a2b</code>. Os dois convivem: o seu Ubuntu provavelmente já tem os dois tipos.</p>
 <ul>
   <li><code>::</code> é uma abreviação para "um monte de zeros".</li>
   <li>Endereços que começam com <code>fe80:</code> são locais e só valem dentro da rede.</li>

@@ -273,7 +273,7 @@ network:
   ethernets:
     default:
       match:
-        macaddress: "52:54:00:3a:9c:1f"
+        macaddress: "02:00:00:00:00:15"
       dhcp4: true                                 « pega IP automático (DHCP)
 $ sudo cp /etc/netplan/50-cloud-init.yaml /root/netplan.bak
 $ sudo sed -i 's/dhcp4: true/dhcp44: true/' /etc/netplan/50-cloud-init.yaml</pre>
@@ -313,7 +313,7 @@ Changes will revert in 120 seconds                « o terminal congela: a VM pe
 $ sudo netplan apply
 $ ip -br addr show
 lo               UNKNOWN        127.0.0.1/8 ::1/128
-ens3             UP             10.85.140.27/24 metric 100 fe80::5054:ff:fe3a:9c1f/64</pre>
+ens3             UP             10.85.140.27/24 metric 100 fe80::ff:fe00:15/64</pre>
 <p>Os nomes das interfaces e os endereços variam. O importante é a sua interface aparecer <code>UP</code> com o IP de antes.</p>
 </li>
 
