@@ -1,3 +1,5 @@
+<p align="center"><img src="capa.png" alt="Capa do guia-ubuntu" width="100%"></p>
+
 # Guia Ubuntu para Iniciantes
 
 Curso de Ubuntu em português, do zero ao avançado, organizado em **3 níveis + projetos**. Cada aula explica o comando parte por parte (anatomia), mostra a sessão de terminal com a resposta real do Ubuntu 26.04, apresenta formas diferentes de fazer, cenários de erro e exercícios. Um **terminal simulado** (máquina fictícia "notebook") roda no navegador para praticar sem risco.
