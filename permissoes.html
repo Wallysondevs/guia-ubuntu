@@ -99,7 +99,7 @@ $ echo $?
 <p>São a mesma coisa. No Ubuntu 26.04, alguns comandos (como <code>cat</code>) respondem em inglês e outros (como <code>ls</code> e o próprio bash) em português.</p>
 </div>
 
-<div class="try" data-goal="ran:ls -l.*(shadow|/etc)">
+<div class="try" data-goal="ran:ls -l.*(shadow|/etc)" data-solucao="ls -l /etc/shadow;;cat /etc/shadow;;sudo cat /etc/shadow">
 <p class="try-task"><strong>Missão:</strong> descubra o dono, o grupo e as permissões de <code>/etc/shadow</code> com <code>ls -l</code>. Tente lê-lo com <code>cat</code> e veja o erro. Depois tente com <code>sudo cat /etc/shadow</code>.</p>
 </div>
 
@@ -213,7 +213,7 @@ uid=1000(ana) gid=1000(ana) groups=1000(ana),4(adm),24(cdrom),27(sudo),30(dip),4
 
 <p>A ana está no grupo <code>adm</code>. Por isso ela consegue ler alguns logs do sistema que pertencem a esse grupo, mesmo sem sudo. E está no grupo <code>sudo</code>, que permite virar administradora.</p>
 
-<div class="try" data-setup="mkdir -p ~/estudos/scripts;;cd ~/estudos" data-goal="ran:^id,ran:ls -ld">
+<div class="try" data-setup="mkdir -p ~/estudos/scripts;;cd ~/estudos" data-goal="ran:^id,ran:ls -ld" data-solucao="id;;ls -ld /root;;ls /root">
 <p class="try-task"><strong>Missão:</strong> siga o roteiro de diagnóstico na máquina fictícia: veja seus grupos com <code>id</code>, confira as permissões de <code>/root</code> com <code>ls -ld /root</code> e descubra por que <code>ls /root</code> falha.</p>
 </div>
 

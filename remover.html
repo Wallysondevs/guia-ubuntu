@@ -146,7 +146,7 @@ foi removido o diretório: 'velho'</pre>
 </table>
 </div>
 
-<div class="try" data-setup="mkdir lixo;;cd lixo;;touch a.txt b.txt c.log d.log foto.jpg;;mkdir velho vazia;;touch velho/x.txt velho/y.txt" data-goal="absent:~/lixo/velho,absent:~/lixo/vazia,absent:~/lixo/c.log,absent:~/lixo/d.log,file:~/lixo/foto.jpg">
+<div class="try" data-setup="mkdir lixo;;cd lixo;;touch a.txt b.txt c.log d.log foto.jpg;;mkdir velho vazia;;touch velho/x.txt velho/y.txt" data-goal="absent:~/lixo/velho,absent:~/lixo/vazia,absent:~/lixo/c.log,absent:~/lixo/d.log,file:~/lixo/foto.jpg" data-solucao="rmdir vazia;;rm -r velho;;echo *.log;;rm *.log">
 <p class="try-task"><strong>Missão:</strong> na pasta <code>lixo</code>, apague a pasta <code>vazia</code> com <code>rmdir</code>, a pasta <code>velho</code> com todo o conteúdo, e os arquivos <code>.log</code>. Mantenha <code>foto.jpg</code>. Antes de apagar os <code>.log</code>, confira com <code>echo *.log</code>.</p>
 </div>
 

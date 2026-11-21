@@ -174,7 +174,7 @@
 <p>Cada caixa abaixo é uma máquina nova, independente das outras. Quando você cumprir a missão, aparece <strong>✔ Missão cumprida!</strong> embaixo da janela. Se travar, abra a solução.</p>
 
 <h3>Missão 1: andar até Downloads</h3>
-<div class="try" data-goal="cwd:~/Downloads">
+<div class="try" data-goal="cwd:~/Downloads" data-solucao="pwd;;ls;;cd Downloads">
 <p class="try-task"><strong>Missão:</strong> descubra onde você está com <code>pwd</code>, veja o que existe com <code>ls</code> e entre na pasta <code>Downloads</code>.</p>
 </div>
 <details><summary>Ver uma solução</summary>
@@ -184,7 +184,7 @@ $ cd Downloads</pre>
 </details>
 
 <h3>Missão 2: chegar fundo de uma vez</h3>
-<div class="try" data-goal="cwd:~/Documentos/projetos/site">
+<div class="try" data-goal="cwd:~/Documentos/projetos/site" data-solucao="cd Documentos/projetos/site">
 <p class="try-task"><strong>Missão:</strong> com <strong>um único</strong> <code>cd</code>, entre em <code>Documentos/projetos/site</code>. Use <kbd>Tab</kbd> para completar os nomes.</p>
 </div>
 <details><summary>Ver uma solução</summary>
@@ -192,7 +192,7 @@ $ cd Downloads</pre>
 </details>
 
 <h3>Missão 3: montar pastas de viagem</h3>
-<div class="try" data-goal="dir:~/viagem/fotos,dir:~/viagem/roteiro">
+<div class="try" data-goal="dir:~/viagem/fotos,dir:~/viagem/roteiro" data-solucao="mkdir -p viagem/fotos viagem/roteiro">
 <p class="try-task"><strong>Missão:</strong> crie a pasta <code>viagem</code> com duas subpastas: <code>fotos</code> e <code>roteiro</code>.</p>
 </div>
 <details><summary>Ver uma solução</summary>
@@ -201,7 +201,7 @@ $ cd Downloads</pre>
 </details>
 
 <h3>Missão 4: copiar um arquivo</h3>
-<div class="try" data-setup="mkdir -p viagem/roteiro" data-goal="file:~/viagem/roteiro/notas.txt,file:~/Documentos/notas.txt">
+<div class="try" data-setup="mkdir -p viagem/roteiro" data-goal="file:~/viagem/roteiro/notas.txt,file:~/Documentos/notas.txt" data-solucao="cp Documentos/notas.txt viagem/roteiro/">
 <p class="try-task"><strong>Missão:</strong> copie <code>Documentos/notas.txt</code> para dentro de <code>viagem/roteiro</code>. O original tem de continuar onde está.</p>
 </div>
 <details><summary>Ver uma solução</summary>
@@ -209,7 +209,7 @@ $ cd Downloads</pre>
 </details>
 
 <h3>Missão 5: renomear</h3>
-<div class="try" data-goal="file:~/lista-frutas.txt,absent:~/frutas.txt">
+<div class="try" data-goal="file:~/lista-frutas.txt,absent:~/frutas.txt" data-solucao="mv frutas.txt lista-frutas.txt">
 <p class="try-task"><strong>Missão:</strong> renomeie <code>frutas.txt</code> para <code>lista-frutas.txt</code>.</p>
 </div>
 <details><summary>Ver uma solução</summary>
@@ -218,7 +218,7 @@ $ cd Downloads</pre>
 </details>
 
 <h3>Missão 6: limpar pastas vazias</h3>
-<div class="try" data-goal="absent:~/Modelos,absent:~/Público,dir:~/Documentos">
+<div class="try" data-goal="absent:~/Modelos,absent:~/Público,dir:~/Documentos" data-solucao="rmdir Modelos Público">
 <p class="try-task"><strong>Missão:</strong> apague as pastas vazias <code>Modelos</code> e <code>Público</code>, sem apagar mais nada.</p>
 </div>
 <details><summary>Ver uma solução</summary>
@@ -227,7 +227,7 @@ $ cd Downloads</pre>
 </details>
 
 <h3>Missão 7: procurar texto e guardar o resultado</h3>
-<div class="try" data-goal="contains:~/bananas.txt=banana,ran:grep">
+<div class="try" data-goal="contains:~/bananas.txt=banana,ran:grep" data-solucao="grep banana frutas.txt &gt; bananas.txt">
 <p class="try-task"><strong>Missão:</strong> salve no arquivo <code>bananas.txt</code> todas as linhas de <code>frutas.txt</code> que contêm "banana". Use <code>grep</code> e <code>&gt;</code>.</p>
 </div>
 <details><summary>Ver uma solução</summary>
@@ -239,7 +239,7 @@ banana</pre>
 </details>
 
 <h3>Missão 8: contar com pipes</h3>
-<div class="try" data-goal="contains:~/total.txt=4,ran:sort.*\|.*wc">
+<div class="try" data-goal="contains:~/total.txt=4,ran:sort.*\|.*wc" data-solucao="sort -u frutas.txt | wc -l &gt; total.txt">
 <p class="try-task"><strong>Missão:</strong> descubra quantas frutas <strong>diferentes</strong> existem em <code>frutas.txt</code> e salve o número em <code>total.txt</code>. Junte <code>sort -u</code> e <code>wc -l</code> com um <code>|</code>.</p>
 </div>
 <details><summary>Ver uma solução</summary>
@@ -250,7 +250,7 @@ $ cat total.txt
 </details>
 
 <h3>Missão 9: fechar o navegador pelo terminal</h3>
-<div class="try" data-goal="noproc:chrome">
+<div class="try" data-goal="noproc:chrome" data-solucao="pgrep chromium;;pgrep -l chrome;;pkill chrome">
 <p class="try-task"><strong>Missão:</strong> o Chromium está aberto. Ache os processos dele e encerre todos. Dica: <code>pgrep chromium</code> não acha nada; descubra o nome certo.</p>
 </div>
 <details><summary>Ver uma solução</summary>
@@ -268,7 +268,7 @@ $ echo $?
 </details>
 
 <h3>Missão 10: criar uma pasta do sistema</h3>
-<div class="try" data-goal="dir:/opt/estudos">
+<div class="try" data-goal="dir:/opt/estudos" data-solucao="mkdir /opt/estudos;;sudo mkdir /opt/estudos">
 <p class="try-task"><strong>Missão:</strong> crie a pasta <code>/opt/estudos</code>. Primeiro tente sem <code>sudo</code> e leia o erro; depois faça do jeito certo.</p>
 </div>
 <details><summary>Ver uma solução</summary>

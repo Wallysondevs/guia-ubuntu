@@ -35,3 +35,15 @@ Leia **`CONTRIBUINDO.md`** (padrão de aula, componentes e regras de fidelidade)
 ## Componentes
 
 Sessão de terminal (`pre.term`), anatomia do comando (`dl.anatomy`), terminal simulado com missão (`div.try`), cenários de erro (`div.cenario`), passo a passo (`ol.passo`), avisos, tabelas, exercícios e múltipla escolha. Todos estão documentados, com exemplos, em **`CONTRIBUINDO.md`**.
+
+## Testes
+
+Precisa só do Node (18 ou mais novo) e do Bash. Rode na pasta do guia:
+
+```
+node tools/testar-missoes.js
+PROIBIDO=/caminho/fora/do/repositorio/proibido.txt tools/checar-privacidade.sh
+```
+
+- `tools/testar-missoes.js` roda cada missão (`div.try`) no mesmo simulador do site: a meta não pode estar cumprida no começo, nem com Enter vazio; com a `data-solucao` ela tem de ser cumprida. Também confere os exercícios (nenhum aceita o campo vazio) e as múltiplas escolhas. `--detalhes` mostra também o que passou; nomes de páginas filtram (`node tools/testar-missoes.js grep.html`).
+- `tools/checar-privacidade.sh` procura, nas páginas e em todo o histórico do git, as strings da lista apontada por `PROIBIDO` (nomes, pastas e IPs reais, uma por linha; `re:` no começo = expressão regular). A lista fica fora do repositório. `--revisar` lista também MACs, UUIDs e IPs para conferir à mão.

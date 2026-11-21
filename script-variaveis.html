@@ -63,7 +63,7 @@ Comprei 3 bananas</pre>
 <p>Variáveis do sistema são MAIÚSCULAS (<code>HOME</code>, <code>PATH</code>). Nos seus scripts, prefira minúsculas (<code>pasta_destino</code>) para não sobrescrever uma variável do sistema sem querer.</p>
 </div>
 
-<div class="try" data-goal="ran:^\s*cidade=,ran:echo.*\$\{?cidade">
+<div class="try" data-goal="ran:^\s*cidade=,ran:echo.*\$\{?cidade" data-solucao="cidade=Recife;;echo &quot;Eu moro em $cidade&quot;">
 <p class="try-task"><strong>Missão:</strong> crie uma variável <code>cidade</code> com o nome da sua cidade e mostre a frase <code>Eu moro em …</code> usando <code>echo</code> e <code>$cidade</code>. Depois tente <code>cidade = Recife</code>, com espaços, e veja o erro.</p>
 </div>
 
@@ -125,7 +125,7 @@ Há 5 arquivos em Downloads</pre>
 
 <p>Em scripts antigos você vai ver a forma com crases: <code>hoje=`date +%F`</code>. Ela funciona, mas a forma <code>$( )</code> é mais legível e pode ser aninhada.</p>
 
-<div class="try" data-goal="dir:~/2026-10-15">
+<div class="try" data-goal="dir:~/2026-10-15" data-solucao="pasta=$(date +%F);;mkdir &quot;$pasta&quot;;;ls">
 <p class="try-task"><strong>Missão:</strong> guarde a data de hoje numa variável chamada <code>pasta</code>, usando <code>$(date +%F)</code>, e crie uma pasta com esse nome usando <code>mkdir "$pasta"</code>. Confira com <code>ls</code>.</p>
 </div>
 

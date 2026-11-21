@@ -181,7 +181,7 @@ tmpfs           1,6G  132K  1,6G   1% /run/user/1000</pre>
 Sist. Arq.     Tipo Tam. Usado Disp. Uso% Montado em
 /dev/nvme0n1p2 ext4 468G  121G  324G  28% /</pre>
 
-<div class="try" data-goal="ran:^df,ran:^free">
+<div class="try" data-goal="ran:^df,ran:^free" data-solucao="df -h;;free -h">
 <p class="try-task"><strong>Missão:</strong> rode <code>df -h</code> e descubra quanto espaço livre a partição <code>/</code> da máquina fictícia tem. Depois rode <code>free -h</code> e compare: o <code>free</code> fala da memória RAM, não do disco.</p>
 </div>
 

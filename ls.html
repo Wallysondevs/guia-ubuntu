@@ -88,7 +88,7 @@ acesso.log  notas.txt  projetos  relatorio.odt
 Imagens:
 ferias.jpg  perfil.png</pre>
 
-<div class="try" data-goal="ran:^ls .*Imagens">
+<div class="try" data-goal="ran:^ls .*Imagens" data-solucao="ls Imagens Documentos/projetos">
 <p class="try-task"><strong>Missão:</strong> sem sair da pasta pessoal, descubra o que há dentro de <code>Imagens</code> e de <code>Documentos/projetos</code>.</p>
 </div>
 
@@ -180,7 +180,7 @@ $ ls Downloads -lh</pre>
  .bash_history   .profile     Downloads   Modelos   Público   frutas.txt
  .bashrc         Documentos   Imagens     Música    Vídeos   'Área de trabalho'</pre>
 
-<div class="try" data-goal="ran:^ls +-[a-zA-Z]*[aA]">
+<div class="try" data-goal="ran:^ls +-[a-zA-Z]*[aA]" data-solucao="ls -A">
 <p class="try-task"><strong>Missão:</strong> descubra quais arquivos ocultos existem na pasta pessoal da Ana. Quantos são, sem contar <code>.</code> e <code>..</code>?</p>
 </div>
 
@@ -221,7 +221,7 @@ total 6,1G
 -rw-rw-r-- 1 ana ana 2,3M Oct 13 11:02 manual.pdf
 -rw-rw-r-- 1 ana ana  48K Oct 15 08:47 foto.jpg</pre>
 
-<div class="try" data-setup="cd Downloads" data-goal="ran:-[a-zA-Z]*S">
+<div class="try" data-setup="cd Downloads" data-goal="ran:-[a-zA-Z]*S" data-solucao="ls -lhSr">
 <p class="try-task"><strong>Missão:</strong> você está em <code>Downloads</code>. Liste os arquivos do <strong>menor para o maior</strong>, com tamanhos legíveis. Dica: junte <code>-l</code>, <code>-h</code>, <code>-S</code> e <code>-r</code>.</p>
 </div>
 
@@ -332,7 +332,7 @@ Documentos
 </table>
 </div>
 
-<div class="try" data-goal="ran:^tree">
+<div class="try" data-goal="ran:^tree" data-solucao="ls -R Documentos;;tree Documentos;;ll;;type ll">
 <p class="try-task"><strong>Missão:</strong> compare <code>ls -R Documentos</code> com <code>tree Documentos</code>. Depois experimente <code>ll</code> e <code>type ll</code>.</p>
 </div>
 

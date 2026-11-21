@@ -267,7 +267,7 @@ Hoje é quinta-feira
 $ echo 'Hoje é $(date +%A)'
 Hoje é $(date +%A)</pre>
 
-<div class="try" data-goal="contains:~/saudacao.txt=Olá $USER,ran:echo">
+<div class="try" data-goal="contains:~/saudacao.txt=Olá $USER,ran:echo" data-solucao="echo 'Olá $USER' &gt; saudacao.txt;;cat saudacao.txt">
 <p class="try-task"><strong>Missão:</strong> crie o arquivo <code>saudacao.txt</code> contendo exatamente o texto <code>Olá $USER</code>, com o cifrão, e não <code>Olá ana</code>. Use <code>echo</code>, aspas e <code>&gt;</code>. Confira com <code>cat saudacao.txt</code>.</p>
 </div>
 
@@ -313,7 +313,7 @@ isto roda sempre</pre>
 
 <p>Um uso muito comum é o da primeira atualização: <code>sudo apt update &amp;&amp; sudo apt upgrade</code>. Se a lista de pacotes não baixar, não adianta tentar instalar.</p>
 
-<div class="try" data-goal="cwd:~/projeto,ran:&amp;&amp;">
+<div class="try" data-goal="cwd:~/projeto,ran:&amp;&amp;" data-solucao="mkdir projeto &amp;&amp; cd projeto;;pwd">
 <p class="try-task"><strong>Missão:</strong> numa linha só, crie a pasta <code>projeto</code> e, só se der certo, entre nela. Use <code>&amp;&amp;</code>. Depois confira com <code>pwd</code>.</p>
 </div>
 

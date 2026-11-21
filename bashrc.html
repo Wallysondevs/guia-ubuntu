@@ -114,7 +114,7 @@ ls é /bin/ls</pre>
 
 <p>Se o programa não está em nenhuma pasta do PATH, o bash responde "comando não encontrado", mesmo que o arquivo exista em outro lugar.</p>
 
-<div class="try" data-goal="ran:PATH.*tr,ran:echo.*HOME">
+<div class="try" data-goal="ran:PATH.*tr,ran:echo.*HOME" data-solucao="echo $HOME;;echo $USER;;echo $PATH | tr : '\n'">
 <p class="try-task"><strong>Missão:</strong> veja o valor de <code>$HOME</code> e <code>$USER</code> com <code>echo</code>. Depois mostre o PATH com uma pasta por linha.</p>
 </div>
 

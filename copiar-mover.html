@@ -89,7 +89,7 @@ acesso.log  notas-copia.txt  notas.txt  projetos  relatorio.odt</pre>
 'notas.txt' -&gt; '/home/ana/Downloads/notas.txt'
 'relatorio.odt' -&gt; '/home/ana/Downloads/relatorio.odt'</pre>
 
-<div class="try" data-setup="cd Documentos" data-goal="file:~/Downloads/notas.txt,file:~/Documentos/notas.txt,file:~/Documentos/notas-bkp.txt">
+<div class="try" data-setup="cd Documentos" data-goal="file:~/Downloads/notas.txt,file:~/Documentos/notas.txt,file:~/Documentos/notas-bkp.txt" data-solucao="cp notas.txt notas-bkp.txt;;cp notas.txt ~/Downloads/;;ls">
 <p class="try-task"><strong>Missão:</strong> você está em <code>Documentos</code>. Faça uma cópia de <code>notas.txt</code> chamada <code>notas-bkp.txt</code> aqui mesmo, e outra cópia dentro de <code>~/Downloads</code>. Confira com <code>ls</code>.</p>
 </div>
 
@@ -150,7 +150,7 @@ renomeado 'rascunho.txt' -&gt; '/home/ana/Downloads/rascunho.txt'</pre>
 <pre class="term" data-cwd="~/Downloads">$ mv -v manual.pdf ~/Documentos/manual-impressora.pdf
 renomeado 'manual.pdf' -&gt; '/home/ana/Documentos/manual-impressora.pdf'</pre>
 
-<div class="try" data-setup="cd Downloads" data-goal="file:~/Imagens/foto-perfil.jpg,absent:~/Downloads/foto.jpg">
+<div class="try" data-setup="cd Downloads" data-goal="file:~/Imagens/foto-perfil.jpg,absent:~/Downloads/foto.jpg" data-solucao="mv foto.jpg ~/Imagens/foto-perfil.jpg">
 <p class="try-task"><strong>Missão:</strong> você está em <code>Downloads</code>. Mova <code>foto.jpg</code> para a pasta <code>Imagens</code>, já com o nome <code>foto-perfil.jpg</code>, num único comando.</p>
 </div>
 

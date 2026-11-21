@@ -81,7 +81,7 @@ banana</pre>
 $ ls Downloads | wc -l
 5                                    « 5 itens na pasta Downloads</pre>
 
-<div class="try" data-goal="ran:wc">
+<div class="try" data-goal="ran:wc" data-solucao="wc -l Documentos/acesso.log;;ls Downloads | wc -l">
 <p class="try-task"><strong>Missão:</strong> descubra quantas linhas tem o arquivo <code>Documentos/acesso.log</code> e quantos itens há dentro da pasta <code>Downloads</code>.</p>
 </div>
 
@@ -230,7 +230,7 @@ uva</pre>
       2 192.168.0.23
       1 192.168.0.57</pre>
 
-<div class="try" data-goal="contains:~/ranking.txt=3 192.168.0.10">
+<div class="try" data-goal="contains:~/ranking.txt=3 192.168.0.10" data-solucao="cut -d' ' -f1 Documentos/acesso.log | sort | uniq -c | sort -rn &gt; ranking.txt">
 <p class="try-task"><strong>Missão:</strong> monte o ranking de IPs de <code>Documentos/acesso.log</code> e salve o resultado em <code>ranking.txt</code>. Dica: construa aos poucos. Rode só o <code>cut</code>, depois acrescente <code>| sort</code>, depois <code>| uniq -c</code>, e assim por diante, até o <code>&gt; ranking.txt</code>.</p>
 </div>
 
@@ -369,7 +369,7 @@ $ diff -u lista-antiga.txt lista-nova.txt
 </table>
 </div>
 
-<div class="try" data-goal="contains:~/unicas.txt=laranja,contains:~/unicas.txt=uva">
+<div class="try" data-goal="contains:~/unicas.txt=laranja,contains:~/unicas.txt=uva" data-solucao="sort frutas.txt | uniq -u &gt; unicas.txt">
 <p class="try-task"><strong>Missão:</strong> salve em <code>unicas.txt</code> só as frutas que aparecem <strong>uma única vez</strong> em <code>frutas.txt</code>. Dica: <code>sort</code> e depois <code>uniq</code> com a opção certa.</p>
 </div>
 

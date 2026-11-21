@@ -94,7 +94,7 @@ drwxr-xr-x 2 root root 4096 Oct 15 10:31 /opt/meuapp     « dono: root</pre>
 
 <p>Repare: a pasta foi criada pelo root, então pertence ao root. Se depois você quiser trabalhar nela sem sudo, vai precisar mudar o dono (veja <a href="chown.html">chown</a>).</p>
 
-<div class="try" data-goal="dir:/opt/meuapp">
+<div class="try" data-goal="dir:/opt/meuapp" data-solucao="mkdir /opt/meuapp;;sudo mkdir /opt/meuapp;;ls -ld /opt/meuapp">
 <p class="try-task"><strong>Missão:</strong> tente criar a pasta <code>/opt/meuapp</code> sem sudo e veja o erro. Depois crie com <code>sudo</code> e confira o dono com <code>ls -ld /opt/meuapp</code>.</p>
 </div>
 
@@ -158,7 +158,7 @@ User ana may run the following commands on notebook:
 </table>
 </div>
 
-<div class="try" data-goal="ran:^sudo -i,ran:^exit">
+<div class="try" data-goal="ran:^sudo -i,ran:^exit" data-solucao="sudo -i;;whoami;;pwd;;ls /root;;exit">
 <p class="try-task"><strong>Missão:</strong> entre num shell de root com <code>sudo -i</code>, confirme com <code>whoami</code> e <code>pwd</code>, liste <code>/root</code> e saia com <code>exit</code>. Repare como o prompt muda.</p>
 </div>
 

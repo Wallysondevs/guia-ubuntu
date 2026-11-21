@@ -109,7 +109,7 @@ Resumo-final.txt                               « só o que começa com maiúscu
 $ echo *.[tT][xX][tT]
 notas.TXT Resumo-final.txt resumo.txt          « .txt em maiúsculas ou minúsculas</pre>
 
-<div class="try" data-setup="mkdir aulas;;cd aulas;;touch aula1.mp4 aula2.mp4 aula3.mp4 aula10.mp4 aula1.pdf aula2.pdf resumo.txt Resumo-final.txt notas.TXT;;mkdir videos" data-goal="file:~/aulas/videos/aula1.mp4,file:~/aulas/videos/aula10.mp4,file:~/aulas/videos/aula3.mp4,absent:~/aulas/aula2.mp4">
+<div class="try" data-setup="mkdir aulas;;cd aulas;;touch aula1.mp4 aula2.mp4 aula3.mp4 aula10.mp4 aula1.pdf aula2.pdf resumo.txt Resumo-final.txt notas.TXT;;mkdir videos" data-goal="file:~/aulas/videos/aula1.mp4,file:~/aulas/videos/aula10.mp4,file:~/aulas/videos/aula3.mp4,absent:~/aulas/aula2.mp4" data-solucao="echo *.mp4;;mv *.mp4 videos/">
 <p class="try-task"><strong>Missão:</strong> na pasta <code>aulas</code>, mova <strong>todos</strong> os vídeos <code>.mp4</code> para a pasta <code>videos</code> com um único comando. Antes, confira o padrão com <code>echo</code>.</p>
 </div>
 
@@ -192,7 +192,7 @@ a/b/z.css a/y.css x.css                        « agora entra em todas as subpas
 <p><code>rm *.tmp</code> apaga os <code>.tmp</code>. <code>rm * .tmp</code> (com espaço) apaga <strong>todos</strong> os arquivos da pasta e depois tenta apagar um arquivo chamado <code>.tmp</code>. Confira sempre com <code>echo</code>.</p>
 </div>
 
-<div class="try" data-setup="mkdir limpeza;;cd limpeza;;touch rel.txt rel.tmp foto.jpg cache1.tmp cache2.tmp notas.txt" data-goal="absent:~/limpeza/rel.tmp,absent:~/limpeza/cache1.tmp,absent:~/limpeza/cache2.tmp,file:~/limpeza/rel.txt,file:~/limpeza/notas.txt,file:~/limpeza/foto.jpg">
+<div class="try" data-setup="mkdir limpeza;;cd limpeza;;touch rel.txt rel.tmp foto.jpg cache1.tmp cache2.tmp notas.txt" data-goal="absent:~/limpeza/rel.tmp,absent:~/limpeza/cache1.tmp,absent:~/limpeza/cache2.tmp,file:~/limpeza/rel.txt,file:~/limpeza/notas.txt,file:~/limpeza/foto.jpg" data-solucao="echo *.tmp;;rm *.tmp;;ls">
 <p class="try-task"><strong>Missão:</strong> na pasta <code>limpeza</code>, apague todos os arquivos <code>.tmp</code> e mais nada. Siga a regra de ouro: primeiro <code>echo</code>, depois <code>rm</code>.</p>
 </div>
 

@@ -92,7 +92,7 @@ $ pgrep -l chrome
 <p><strong>Solução:</strong> use <code>ps aux</code> (todos os processos) ou <code>pgrep -af parte-do-nome</code>. Lembre também: maiúsculas importam (use <code>-i</code> para ignorar), e o nome curto tem no máximo 15 caracteres (<code>gnome-text-editor</code> vira <code>gnome-text-edit</code>). Aula: <a href="processos.html">ps, pgrep, top</a>.</p>
 </div>
 
-<div class="try" data-goal="ran:pgrep.*-[a-z]*f[a-z]* *chromium|pgrep.*chrome">
+<div class="try" data-goal="ran:pgrep.*-[a-z]*f[a-z]* *chromium|pgrep.*chrome" data-solucao="pgrep chromium;;pgrep -l chrome">
 <p class="try-task"><strong>Missão:</strong> nesta máquina fictícia o Chromium está aberto. Tente <code>pgrep chromium</code> e veja que nada aparece. Depois descubra o PID dele de outro jeito.</p>
 </div>
 

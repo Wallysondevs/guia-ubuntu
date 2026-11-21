@@ -66,7 +66,7 @@
 <p><code>grep GET /admin acesso.log</code> procuraria "GET" nos arquivos <code>/admin</code> e <code>acesso.log</code>. O certo é <code>grep "GET /admin" acesso.log</code>. Na dúvida, coloque o padrão sempre entre aspas.</p>
 </div>
 
-<div class="try" data-goal="ran:grep.*404">
+<div class="try" data-goal="ran:grep.*404" data-solucao="grep 404 Documentos/acesso.log">
 <p class="try-task"><strong>Missão:</strong> descubra qual página deu erro <code>404</code> (página não encontrada) no arquivo <code>Documentos/acesso.log</code>.</p>
 </div>
 
@@ -168,7 +168,7 @@ Documentos/projetos/site/index.html</pre>
 /etc/ssh/ssh_config:25:#   PasswordAuthentication yes</pre>
 <p>Resposta: arquivo <code>/etc/ssh/ssh_config</code>, linha 25. O <code>#</code> no começo indica que a linha está comentada (desativada).</p>
 
-<div class="try" data-goal="contains:~/erros.txt=403,contains:~/erros.txt=404">
+<div class="try" data-goal="contains:~/erros.txt=403,contains:~/erros.txt=404" data-solucao="grep -v '200$' Documentos/acesso.log &gt; erros.txt;;cat erros.txt">
 <p class="try-task"><strong>Missão:</strong> salve num arquivo <code>erros.txt</code> todas as linhas de <code>Documentos/acesso.log</code> que <strong>não</strong> terminaram com 200. Dica: <code>grep -v … &gt; erros.txt</code>. Depois confira com <code>cat erros.txt</code>.</p>
 </div>
 
@@ -226,7 +226,7 @@ $ grep -E "POST|admin" Documentos/acesso.log
 <p>Use <code>-F</code> (de <em>fixed</em>, "fixo"). Assim <code>grep -F "1.1" arquivo</code> procura "1.1" de verdade, e o ponto não vira "qualquer caractere".</p>
 </div>
 
-<div class="try" data-goal="ran:grep.*\^">
+<div class="try" data-goal="ran:grep.*\^" data-solucao="grep '^[lu]' frutas.txt">
 <p class="try-task"><strong>Missão:</strong> usando <code>^</code>, mostre só as frutas de <code>frutas.txt</code> que começam com a letra <strong>l</strong> ou <strong>u</strong>.</p>
 </div>
 

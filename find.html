@@ -84,7 +84,7 @@ find: possível padrão sem aspas após o predicado "-name'?</pre>
 ./Downloads/foto.jpg
 ./Imagens/ferias.jpg</pre>
 
-<div class="try" data-goal="contains:~/lista.txt=frutas.txt,contains:~/lista.txt=notas.txt">
+<div class="try" data-goal="contains:~/lista.txt=frutas.txt,contains:~/lista.txt=notas.txt" data-solucao="find ~ -name &quot;*.txt&quot; &gt; lista.txt;;cat lista.txt">
 <p class="try-task"><strong>Missão:</strong> encontre todos os arquivos <code>.txt</code> da pasta pessoal e salve a lista no arquivo <code>lista.txt</code>. Dica: <code>find … &gt; lista.txt</code>. Confira com <code>cat lista.txt</code>.</p>
 </div>
 
@@ -251,7 +251,7 @@ $ find . -name "*.tmp" -delete    # 2. agora apague
 $ find . -name "*.tmp"            # 3. confira de novo
 $</pre>
 
-<div class="try" data-setup="mkdir -p logs;;touch logs/vazio1.log logs/vazio2.log;;echo erro grave &gt; logs/sistema.log" data-goal="absent:~/logs/vazio1.log,absent:~/logs/vazio2.log,file:~/logs/sistema.log">
+<div class="try" data-setup="mkdir -p logs;;touch logs/vazio1.log logs/vazio2.log;;echo erro grave &gt; logs/sistema.log" data-goal="absent:~/logs/vazio1.log,absent:~/logs/vazio2.log,file:~/logs/sistema.log" data-solucao="find logs -empty;;find logs -empty -delete">
 <p class="try-task"><strong>Missão:</strong> a pasta <code>logs</code> tem arquivos vazios misturados com um que tem conteúdo. Apague só os vazios usando <code>find</code> com <code>-empty</code> e <code>-delete</code>. Antes de apagar, rode a busca sem <code>-delete</code> para conferir.</p>
 </div>
 
@@ -312,7 +312,7 @@ notas.txt</pre>
 </table>
 </div>
 
-<div class="try" data-goal="ran:find.*-size">
+<div class="try" data-goal="ran:find.*-size" data-solucao="find Downloads -size +50M;;find Downloads -size +50M -exec ls -lh {} +">
 <p class="try-task"><strong>Missão:</strong> descubra quais arquivos da pasta <code>Downloads</code> têm mais de 50 MB. Depois, use <code>-exec ls -lh {} +</code> para ver o tamanho de cada um.</p>
 </div>
 

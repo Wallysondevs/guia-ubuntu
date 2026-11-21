@@ -263,7 +263,7 @@ falhou</pre>
 </table>
 </div>
 
-<div class="try" data-goal="dir:~/relatorios,ran:&&,ran:\|\|">
+<div class="try" data-goal="dir:~/relatorios,ran:&&,ran:\|\|" data-solucao="ls relatorios || mkdir relatorios;;mkdir relatorios &amp;&amp; echo ok || echo &quot;já existe&quot;;;echo $?">
 <p class="try-task"><strong>Missão:</strong> este simulador não tem <code>if</code>, mas tem <code>&amp;&amp;</code>, <code>||</code> e <code>$?</code>. Use <code>ls relatorios || mkdir relatorios</code> para criar a pasta só se ela não existir. Depois rode <code>mkdir relatorios &amp;&amp; echo ok || echo "já existe"</code> e veja qual mensagem aparece. Confira o código com <code>echo $?</code>.</p>
 </div>
 
@@ -451,7 +451,7 @@ bash: erro de sintaxe próximo ao token inesperado `fi'</pre>
 <div class="exercise">
 <h3>4. Criar só se faltar</h3>
 <p>Complete para criar a pasta <code>logs</code> apenas se ela <strong>não</strong> existir:</p>
-<div class="ex-code">[ -d logs ] <input data-answer="||" aria-label="operador"> mkdir logs</div>
+<div class="ex-code">[ -d logs ] <input data-answer="||" data-sep=";" aria-label="operador"> mkdir logs</div>
 </div>
 
 <div class="mc" data-answer="3">

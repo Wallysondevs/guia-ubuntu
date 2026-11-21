@@ -78,7 +78,7 @@ uid=1000(ana) gid=1000(ana) groups=1000(ana),4(adm),24(cdrom),27(sudo),30(dip),4
 </table>
 </div>
 
-<div class="try" data-goal="ran:^id,ran:^groups">
+<div class="try" data-goal="ran:^id,ran:^groups" data-solucao="whoami;;id;;groups">
 <p class="try-task"><strong>Missão:</strong> descubra quem você é nesta máquina fictícia com <code>whoami</code>, <code>id</code> e <code>groups</code>. A Ana pode usar sudo? Qual é o UID dela?</p>
 </div>
 
@@ -118,7 +118,7 @@ cat: /etc/shadow: Permission denied</pre>
 <p>Um caractere errado em <code>/etc/passwd</code>, <code>/etc/group</code> ou <code>/etc/shadow</code> pode impedir todo mundo de entrar no sistema. Use os comandos desta página.</p>
 </div>
 
-<div class="try" data-goal="ran:passwd">
+<div class="try" data-goal="ran:passwd" data-solucao="grep ana /etc/passwd;;grep www-data /etc/passwd;;cat /etc/shadow">
 <p class="try-task"><strong>Missão:</strong> use <code>grep</code> para ver a linha da <code>ana</code> e a do <code>www-data</code> em <code>/etc/passwd</code>. Qual shell o <code>www-data</code> usa? Depois tente ler o <code>/etc/shadow</code> e veja o que acontece.</p>
 </div>
 

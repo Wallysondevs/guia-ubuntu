@@ -110,7 +110,7 @@ kiwi                                « a linha nova entrou no fim</pre>
 $ cat diario.txt
 2026-10-15 backup feito</pre>
 
-<div class="try" data-goal="contains:~/downloads.txt=manual.pdf,contains:~/downloads.txt=fim da lista">
+<div class="try" data-goal="contains:~/downloads.txt=manual.pdf,contains:~/downloads.txt=fim da lista" data-solucao="ls Downloads &gt; downloads.txt;;echo fim da lista &gt;&gt; downloads.txt;;cat downloads.txt">
 <p class="try-task"><strong>Missão:</strong> grave a lista de arquivos da pasta <code>Downloads</code> num arquivo chamado <code>downloads.txt</code>. Depois acrescente, no fim dele, a linha <code>fim da lista</code>. Confira com <code>cat downloads.txt</code>.</p>
 </div>
 
@@ -164,7 +164,7 @@ $ find / -name hostname 2&gt;/dev/null
 <p><code>comando &gt; /dev/null</code> descarta a resposta normal e deixa os erros. É útil quando você só quer saber se o comando deu certo, olhando o código <code>$?</code>.</p>
 </div>
 
-<div class="try" data-goal="contains:~/erros.txt=nada">
+<div class="try" data-goal="contains:~/erros.txt=nada" data-solucao="ls Imagens nada 2&gt; erros.txt;;find / -name hosts 2&gt; /dev/null">
 <p class="try-task"><strong>Missão:</strong> rode <code>ls Imagens nada</code> mandando <strong>só os erros</strong> para o arquivo <code>erros.txt</code>. A lista de imagens deve continuar aparecendo na tela. Depois, rode <code>find / -name hosts</code> sem que nenhuma mensagem de erro apareça.</p>
 </div>
 
@@ -331,7 +331,7 @@ ls: não é possível acessar 'nada': Arquivo ou diretório inexistente</pre>
 </table>
 </div>
 
-<div class="try" data-goal="contains:~/ranking.txt=banana,contains:~/log.txt=nada">
+<div class="try" data-goal="contains:~/ranking.txt=banana,contains:~/log.txt=nada" data-solucao="sort frutas.txt | uniq -c &gt; ranking.txt;;ls Documentos nada &gt; log.txt 2&gt;&amp;1;;cat ranking.txt log.txt">
 <p class="try-task"><strong>Missão final:</strong> (1) grave em <code>ranking.txt</code> o resultado de <code>sort frutas.txt | uniq -c</code>. (2) Rode <code>ls Documentos nada</code> gravando saída <strong>e</strong> erro juntos em <code>log.txt</code>. Confira os dois arquivos com <code>cat</code>.</p>
 </div>
 

@@ -200,7 +200,7 @@ Documentos/projetos/site/
 Documentos/projetos/site/index.html
 Documentos/projetos/site/style.css</pre>
 
-<div class="try" data-setup="mkdir backups" data-goal="file:~/backups/2026-10-15/notas.txt">
+<div class="try" data-setup="mkdir backups" data-goal="file:~/backups/2026-10-15/notas.txt" data-solucao="cp -r Documentos backups/$(date +%F);;ls backups/*">
 <p class="try-task"><strong>Missão:</strong> o simulador não tem <code>tar</code>, mas tem <code>cp</code> e <code>$( )</code>. Copie a pasta <code>Documentos</code> para dentro de <code>backups</code>, numa pasta com o nome da data de hoje. Dica: <code>cp -r Documentos backups/$(date +%F)</code>. Depois confira com <code>ls backups/*</code>.</p>
 </div>
 

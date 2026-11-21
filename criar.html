@@ -203,7 +203,7 @@ clientes.txt  mercado  oficina  padaria</pre>
 </table>
 </div>
 
-<div class="try" data-setup="mkdir semestre;;cd semestre" data-goal="dir:~/semestre/jan,dir:~/semestre/fev,dir:~/semestre/mar,dir:~/semestre/abr,dir:~/semestre/mai,dir:~/semestre/jun">
+<div class="try" data-setup="mkdir semestre;;cd semestre" data-goal="dir:~/semestre/jan,dir:~/semestre/fev,dir:~/semestre/mar,dir:~/semestre/abr,dir:~/semestre/mai,dir:~/semestre/jun" data-solucao="mkdir jan fev mar;;mkdir {abr,mai,jun};;ls">
 <p class="try-task"><strong>Missão:</strong> você está na pasta <code>semestre</code>. Crie as pastas <code>jan</code>, <code>fev</code>, <code>mar</code>, <code>abr</code>, <code>mai</code> e <code>jun</code>. Use pelo menos duas formas diferentes e confira com <code>ls</code>.</p>
 </div>
 
@@ -252,7 +252,7 @@ loja
 <p>Em scripts, use sempre <code>mkdir -p</code>. Se a pasta já existir, ele não dá erro, e o script continua.</p>
 </div>
 
-<div class="try" data-goal="dir:~/app/src,dir:~/app/docs,dir:~/app/testes">
+<div class="try" data-goal="dir:~/app/src,dir:~/app/docs,dir:~/app/testes" data-solucao="mkdir -p app/{src,docs,testes};;tree app">
 <p class="try-task"><strong>Missão:</strong> crie, com <strong>um único comando</strong>, a pasta <code>app</code> contendo <code>src</code>, <code>docs</code> e <code>testes</code>. Depois veja o resultado com <code>tree app</code>.</p>
 </div>
 
@@ -326,7 +326,7 @@ leite</pre>
 <p>Um <code>&gt;</code> no lugar de <code>&gt;&gt;</code> apaga tudo o que havia no arquivo, sem perguntar e sem lixeira. Na dúvida, use <code>&gt;&gt;</code>.</p>
 </div>
 
-<div class="try" data-goal="contains:~/compras.txt=pão,contains:~/compras.txt=leite,contains:~/compras.txt=café">
+<div class="try" data-goal="contains:~/compras.txt=pão,contains:~/compras.txt=leite,contains:~/compras.txt=café" data-solucao="echo pão &gt; compras.txt;;echo leite &gt;&gt; compras.txt;;echo café &gt;&gt; compras.txt;;cat compras.txt">
 <p class="try-task"><strong>Missão:</strong> crie o arquivo <code>compras.txt</code> com três linhas: <code>pão</code>, <code>leite</code> e <code>café</code>. Use <code>echo</code> com <code>&gt;</code> e <code>&gt;&gt;</code>, e confira com <code>cat compras.txt</code>.</p>
 </div>
 

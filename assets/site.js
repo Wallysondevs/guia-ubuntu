@@ -424,7 +424,7 @@ var NIVEIS = [
       i.setAttribute("spellcheck", "false");
       i.setAttribute("autocapitalize", "off");
       var maior = 0;
-      i.getAttribute("data-answer").split("|").forEach(function (r) { maior = Math.max(maior, r.length); });
+      i.getAttribute("data-answer").split(i.getAttribute("data-sep") || "|").forEach(function (r) { maior = Math.max(maior, r.length); });
       i.style.width = Math.max(4, maior + 2) + "ch";
     });
     var acoes = el("div", { "class": "ex-actions" },
@@ -437,7 +437,7 @@ var NIVEIS = [
     acoes.querySelector(".ex-check").addEventListener("click", function () {
       var tudo = true;
       inputs.forEach(function (i) {
-        var certas = i.getAttribute("data-answer").split("|").map(norm);
+        var certas = i.getAttribute("data-answer").split(i.getAttribute("data-sep") || "|").map(norm);
         var ok = certas.indexOf(norm(i.value)) !== -1;
         i.classList.toggle("ok", ok);
         i.classList.toggle("bad", !ok);
@@ -448,7 +448,7 @@ var NIVEIS = [
     });
     acoes.querySelector(".ex-show").addEventListener("click", function () {
       inputs.forEach(function (i) {
-        i.value = i.getAttribute("data-answer").split("|")[0];
+        i.value = i.getAttribute("data-answer").split(i.getAttribute("data-sep") || "|")[0];
         i.classList.remove("bad"); i.classList.add("ok");
       });
       res.textContent = "";

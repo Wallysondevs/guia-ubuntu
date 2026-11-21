@@ -88,6 +88,7 @@ $ ls
 - `data-setup`: comandos rodados antes, separados por `;;`.
 - `data-goal` (todas precisam ser verdade): `dir:CAMINHO`, `file:CAMINHO`, `absent:CAMINHO`, `cwd:CAMINHO`, `contains:CAMINHO=texto`, `noproc:nome`, `ran:regex`.
 - Garanta que a missão **não** já esteja cumprida pelo setup.
+- `data-solucao`: uma solução, com os comandos separados por `;;` (não aparece na página). O `tools/testar-missoes.js` digita esses comandos no simulador e confere a meta.
 
 **O que o simulador sabe fazer:** `pwd cd pushd popd ls tree mkdir touch rmdir rm cp mv cat head tail wc grep sort uniq cut tr find echo printf seq xargs chmod date whoami hostname id groups uname uptime lsb_release free df history clear type which alias unalias export env printenv source test [ [[ sudo exit ps pgrep pkill kill killall help` + pipes, `> >> 2> 2>&1 < /dev/null`, `; && ||`, `$VAR`, `${VAR…}` (`${#v}`, `${v%.*}`, `${v:-x}`, `${v/a/b}`), `$(cmd)`, `$((conta))`, `$?`, chaves, curingas, `for …; do …; done`, `if …; then …; else …; fi`, funções de uma linha `f() { …; }`, Tab, histórico, `sudo -i`.
 **Não sabe:** apt, snap, systemctl, redes, editores, chown, tar, sed, awk, ln, du, `while`, `read`… Para esses, use só `pre.term` (nunca finja um `.try`).
@@ -101,7 +102,7 @@ $ ls
 | `div.cenario` | Problema real: `<strong>título</strong>` + sessão + o que aconteceu + como resolver |
 | `ol.passo` | Passo a passo numerado (projetos, procedimentos) |
 | `div.table-wrap > table.ref` | Tabelas |
-| `.exercise > .ex-code > input[data-answer="a\|b"]` | Exercício de completar |
+| `.exercise > .ex-code > input[data-answer="a\|b"]` | Exercício de completar (se a resposta tiver `\|`, como `\|\|`, troque o separador: `data-answer="\|\|" data-sep=";"`) |
 | `.mc[data-answer="2"]` | Múltipla escolha (posição da certa, começando em 1; `name` único) |
 
 ## 4. Fidelidade ao Ubuntu 26.04

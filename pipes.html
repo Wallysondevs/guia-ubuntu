@@ -115,7 +115,7 @@ uva</pre>
 
 <p>Esse mesmo "molde" responde muitas perguntas do dia a dia: quais IPs mais acessaram um site, quais comandos você mais usa, quais extensões de arquivo dominam uma pasta.</p>
 
-<div class="try" data-goal="contains:~/ranking.txt=3 banana">
+<div class="try" data-goal="contains:~/ranking.txt=3 banana" data-solucao="sort frutas.txt | uniq -c | sort -rn &gt; ranking.txt;;cat ranking.txt">
 <p class="try-task"><strong>Missão:</strong> monte o pipe acima <strong>etapa por etapa</strong>, rodando cada versão. No fim, grave o ranking completo (sem o <code>head</code>) no arquivo <code>ranking.txt</code>. Dica: use as setas <kbd>↑</kbd> para trazer o comando anterior e só acrescentar a próxima etapa.</p>
 </div>
 
@@ -132,7 +132,7 @@ $ cut -d " " -f 1 Documentos/acesso.log | sort | uniq -c | sort -nr
 
 <p>O <code>cut -d " " -f 1</code> corta cada linha nos espaços (<code>-d</code>, de <em>delimiter</em>) e fica com o campo 1 (<code>-f</code>, de <em>field</em>). O resto é o mesmo molde. Veja mais sobre <code>cut</code> em <a href="texto.html">sort, uniq, cut, wc, tr</a>.</p>
 
-<div class="try" data-goal="ran:grep.*404">
+<div class="try" data-goal="ran:grep.*404" data-solucao="cut -d' ' -f1 Documentos/acesso.log | sort | uniq -c | sort -rn;;grep 404 Documentos/acesso.log">
 <p class="try-task"><strong>Missão:</strong> (1) descubra qual IP mais acessou, montando o pipe aos poucos. (2) Use <code>grep</code> para mostrar só as linhas do log com o código <code>404</code> (página não encontrada).</p>
 </div>
 
@@ -266,7 +266,7 @@ removido './cache 2.tmp'</pre>
 <p>Antes de qualquer <code>| xargs rm</code>, rode o pipe sem o <code>rm</code> (ou com <code>xargs -t echo rm</code>) e confira a lista. Um padrão errado no <code>find</code> apaga arquivos que você não queria.</p>
 </div>
 
-<div class="try" data-setup="printf &quot;fotos\nvideos\nmusicas\n&quot; &gt; pastas.txt" data-goal="dir:~/fotos,dir:~/videos,dir:~/musicas">
+<div class="try" data-setup="printf &quot;fotos\nvideos\nmusicas\n&quot; &gt; pastas.txt" data-goal="dir:~/fotos,dir:~/videos,dir:~/musicas" data-solucao="cat pastas.txt;;cat pastas.txt | xargs -t mkdir">
 <p class="try-task"><strong>Missão:</strong> o arquivo <code>pastas.txt</code> já tem três nomes. Veja o conteúdo com <code>cat</code> e crie as três pastas usando <code>xargs</code>. Experimente também o <code>-t</code> para ver o comando montado.</p>
 </div>
 
